@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.1svn5547
+Type=Application
+Exec=/usr/share/w3af/w3af_gui
+Icon=w3af
+Terminal=false
+Name=w3af
+Comment=Web Application Attack and Audit Framework
+Categories=Network;Security;
+StartupNotify=true

@@ -1,0 +1,5 @@
+01-debian-as-distribution.patch
+03-webshell.pl-is-not-script.patch
+disable-auto-update.patch
+dep-a-la-deb_01_nltk.patch
+disable-pybloom.patch

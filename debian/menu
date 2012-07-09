@@ -1,0 +1,6 @@
+?package(w3af):\
+        needs="X11" \
+	section="Applications/Network/Web Browsing" \
+	title="w3af" \
+	command="/usr/share/w3af/w3af_gui" \
+	icon="w3af.xpm"

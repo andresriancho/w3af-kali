@@ -1,0 +1,48 @@
+Source: w3af
+Section: net
+Priority: extra
+Maintainer: Luciano Bello <luciano@debian.org>
+Build-Depends: debhelper (>= 9), python-support
+Standards-Version: 3.9.3
+Homepage: http://w3af.sourceforge.net/
+XS-Python-Version: all
+
+Package: w3af
+Architecture: all
+XB-Python-Version: ${python:Versions}
+Depends: ${python:Depends}, ${misc:Depends}, w3af-console (>= ${binary:Version}), python-gtk2 (>= 2.12), graphviz, python-gtksourceview2
+Description: framework to find and exploit web application vulnerabilities
+ w3af is a Web Application Attack and Audit Framework which aims
+ to identify and exploit all web application vulnerabilities. 
+ .
+ This package provides a graphical user interface (GUI) for the framework.  If 
+ you want a command-line application only, install w3af-console.
+ .
+ The framework has been called the "metasploit for the web", but it's actually
+ much more than that, because it also discovers the web application
+ vulnerabilities using black-box scanning techniques!
+ .
+ The w3af core and it's plugins are fully written in Python. The project has
+ more than 130 plugins, which identify and exploit SQL injection, cross site
+ scripting (XSS), remote file inclusion and more.
+
+Package: w3af-console
+Architecture: all
+XB-Python-Version: ${python:Versions}
+Depends: ${python:Depends}, ${misc:Depends}, python-simplejson, python-beautifulsoup, python-soappy, python-pypdf, python-openssl, python-pysqlite2, python-svn, python-chardet
+Conflicts: python-json
+Description: framework to find and exploit web application vulnerabilities (CLI only)
+ w3af is a Web Application Attack and Audit Framework which aims
+ to identify and exploit all web application vulnerabilities.
+ .
+ This package provides a command line interface (CLI) only. The graphical user 
+ interface (GUI) is provided by the package w3af.
+ .
+ The framework has been called the "metasploit for the web", but it's actually
+ much more than that, because it also discovers the web application
+ vulnerabilities using black-box scanning techniques!
+ .
+ The w3af core and it's plugins are fully written in Python. The project has
+ more than 130 plugins, which identify and exploit SQL injection, cross site
+ scripting (XSS), remote file inclusion and more.
+ 

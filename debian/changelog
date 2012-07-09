@@ -1,0 +1,70 @@
+w3af (1.1svn5547-1) unstable; urgency=low
+
+  * The Managua DebConf12 release!
+  * New upstream release (closes: #669939)
+    - Better error handling (closes: #675284)
+  * Many improvements from Jari Aalto <jari.aalto@cante.net> thanks! (closes:
+    #669941):
+    - Remove deprecated dpatch and upgrade to packaging format "3.0 quilt".
+    - Update to Standards-Version to 3.9.3 and debhelper to 9.
+    - Add build-arch and build-indep targets; use dh_prep in rules file.
+    - Fix copyright-refers-to-symlink-license (Lintian).
+    - Fix copyright-with-old-dh-make-debian-copyright (Lintian).
+    - Fix debian-watch-file-is-missing (Lintian).
+  * Removing patches already included by upstream:
+    - 05_raise_exception_no_strings (closes: #585368)
+  * Disabling auto-update: disable-auto-update.patch
+  * Reimplementing pybloomfiltermmap with disk_set.
+
+ -- Luciano Bello <luciano@debian.org>  Mon, 09 Jul 2012 07:35:46 +0200
+
+w3af (1.0.0-1) experimental; urgency=low
+
+  * w3af-1.0 is stable! (closes: #614125)
+  * Rise exceptions, no strings (closes: #585367).
+  * Since nltk is not part of Debian, the wordnet plugin was disable.
+  * netcat was removed too.
+
+ -- Luciano Bello <luciano@debian.org>  Tue, 31 May 2011 20:15:46 -0300
+
+w3af (1.0-rc3svn3489-1) unstable; urgency=low
+
+  [ Luciano Bello ]
+  * New SVN export revision: 3489
+  * removed from the source
+    - nltk (closes: #571004, #555346)
+    - yalm
+  * Licenses added to the copyright file:
+    - dir_bruter/common_dirs_small.db: cc-by-sa 3.0
+    - extlib/ntlmaps: LGPL
+    - extlib/gtkcodebuffer: LGPL
+    - core/data/url/handlers/keepalive.py: LGPL-2.1
+
+  [ Bernd Zeimetz ]
+  * Replace python-json by python-simplejson. (Closes: #571110, #580645)
+  * Build for all Python versions and use the default Python version.
+
+ -- Luciano Bello <luciano@debian.org>  Wed, 12 May 2010 11:20:27 -0300
+
+w3af (1.0~rc2svn3429-1) unstable; urgency=low
+
+  * Now, only for python2.5.
+
+ -- Luciano Bello <luciano@debian.org>  Sat, 20 Mar 2010 13:54:58 -0300
+
+w3af (1.0~rc2svn3180-1) unstable; urgency=low
+
+  * No more dh_desktop.
+  * Added the recommended README file for packages which depend on dpatch.
+  * Ready for Python 2.6. (Closes: #534803)
+  * Removed the empty paragraph at the end of the package description, which
+    can be only spotted by Rhonda (Closes: #531026).
+
+ -- Luciano Bello <luciano@debian.org>  Sat, 14 Nov 2009 20:12:43 -0300
+
+w3af (1.0~rc2svn2845-1) unstable; urgency=low
+
+  * Initial release (Closes: #465120)
+
+ -- Luciano Bello <luciano@debian.org>  Tue, 28 Apr 2009 12:48:43 -0300
+

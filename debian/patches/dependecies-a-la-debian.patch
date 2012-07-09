@@ -1,0 +1,42 @@
+--- a/core/controllers/misc/dependencyCheck.py
++++ b/core/controllers/misc/dependencyCheck.py
+@@ -44,24 +44,13 @@
+     elif major > 2:
+         print 'It seems that you are running python 3k, please let us know if w3af works ok =)'
+         sys.exit( 1 )
+-        
++
+     reasonForExit = False
+     packages = []
+     packages_debian = []
+     packages_mac_ports = []
+     additional_information = []
+-    
+-    if platform.system() != 'Windows':
+-        try:
+-            from pybloomfilter import BloomFilter as mmap_filter
+-        except Exception, e:
+-            msg = '    pybloomfiltermmap is a required dependency in *nix systems, please install from '
+-            msg += 'http://pypi.python.org/pypi/pybloomfiltermmap/0.2.0'
+-            
+-            additional_information.append(msg)
+-            packages_debian.append('python2.6-dev')
+-            reasonForExit = True        
+-    
++
+     # nltk raises a warning... which I want to ignore...
+     # This is the original warning:
+     #
+--- a/core/data/parsers/pdfParser.py
++++ b/core/data/parsers/pdfParser.py
+@@ -25,8 +25,8 @@
+ from core.data.parsers.urlParser import url_object
+ 
+ 
+-import extlib.pyPdf.pyPdf as pyPdf
+-    
++import pyPdf as pyPdf
++
+ import StringIO
+ import re
+ 
