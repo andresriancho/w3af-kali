@@ -1,0 +1,21 @@
+--- w3af-1.1svn5547.orig/core/controllers/dependency_check/dependency_check.py
++++ w3af-1.1svn5547/core/controllers/dependency_check/dependency_check.py
+@@ -53,17 +53,6 @@ def dependency_check():
+     packages_mac_ports = []
+     additional_information = []
+ 
+-    if platform.system() != 'Windows':
+-        try:
+-            from pybloomfilter import BloomFilter as mmap_filter
+-        except Exception, e:
+-            msg = '    pybloomfiltermmap is a required dependency in *nix systems,'
+-            msg += '    in order to install it please run the following commands:'
+-            msg += '    sudo apt-get install python2.6-dev\n'
+-            msg += '    sudo easy_install pybloomfiltermmap'
+-            additional_information.append(msg)
+-            reasonForExit = True
+-    #mem_test('after bloom filter import')
+     try:
+         import esmre
+         import esm
+

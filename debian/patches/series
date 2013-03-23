@@ -3,3 +3,4 @@
 disable-auto-update.patch
 dep-a-la-deb_01_nltk.patch
 disable-pybloom.patch
+remove_pybloomfiltermmap_import.patch
