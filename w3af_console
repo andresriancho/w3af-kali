@@ -1,0 +1,161 @@
+#!/usr/bin/env python
+
+import getopt, sys, os
+import gettext
+ 
+# First of all, we need to change the working directory to the directory of w3af.
+currentDir = os.getcwd()
+scriptDir = os.path.dirname(sys.argv[0]) or '.'
+os.chdir( scriptDir )
+
+def backToCurrentDir():
+    os.chdir( currentDir )
+
+# Translation stuff
+gettext.install('w3af', 'locales/')
+
+# Now we can load all modules and stuff...
+import core.controllers.outputManager as om
+from core.controllers.profiling.cpu_usage import dump_cpu_usage
+from core.controllers.misc.get_w3af_version import get_w3af_version
+from core.controllers.w3afException import w3afException
+
+try:
+    om.out.setOutputPlugins( ['console'] )
+except w3afException, w3:
+    print 'Something went wrong, w3af failed to init the output manager. Exception: ', str(w3)
+    sys.exit(-9)
+
+
+usage_doc = '''
+w3af - Web Application Attack and Audit Framework
+
+Usage:
+
+    ./w3af_console -h
+    ./w3af_console -t
+    ./w3af_console [-s <script_file>]
+
+Options:
+
+    -h or --help
+        Display this help message.
+
+    -t or --test-all
+        Runs all test scripts containing an 'assert' sentence.
+    
+    -s <script_file> or --script=<script_file>
+        Run <script_file> script.
+
+    -n or --no-update
+        No update check will be made when starting. This option takes 
+        precedence over the 'auto-update' setting in 'startup.conf' file.
+     
+    -f or --force-update
+        An update check will be made when starting. This option takes 
+        precedence over the 'auto-update' setting in 'startup.conf' file.
+     
+    -r <rev number> or --revision <rev number>
+    	Force to update to <rev number>.
+    
+    -p <profile> or --profile=<profile>
+        Run with the selected <profile>
+    
+    -P <profile> or --profile-run=<profile>
+        Run with the selected <profile> in batch mode
+
+For more info visit http://w3af.sourceforge.net/
+'''
+
+def usage():
+    om.out.information(usage_doc)
+
+def main():
+    try:
+        long_options = ['script=', 'help', 'version', 'test-all', 'no-update',
+                        'force-update', 'profile=', 'revision=', 'profile-run']
+        opts, args = getopt.getopt(sys.argv[1:], "ehvts:nfpP:r:", long_options)
+    except getopt.GetoptError, e:
+        # print help information and exit:
+        usage()
+        return -3
+    scriptFile = None
+    forceProfile = None
+    profile = None
+    doupdate = None
+    rev = 0 # HEAD revision
+    
+    for o, a in opts:
+        if o == "-e":
+            # easter egg
+            import base64
+            om.out.information( base64.b64decode('R3JhY2lhcyBFdWdlIHBvciBiYW5jYXJtZSB0YW50YXMgaG9yYXMgZGUgZGVzYXJyb2xsbywgdGUgYW1vIGdvcmRhIQ=='))
+        if o in ('-t', '--test-all'):
+            # Test all scripts that have an assert call
+            from core.controllers.misc.w3afTest import w3afTest
+            w3afTest()
+            return 0
+        if o in ('-s', '--script'):
+            scriptFile = a
+        if o in ('-P', '--profile-run'):
+            # selected profile
+            forceProfile = True
+            profile = a
+        if o in ('-p', '--profile'):
+            # selected profile
+            profile = a
+        if o in ('-h', '--help'):
+            usage()
+            return 0
+        if o in ('-v', '--version'):
+            print get_w3af_version()
+            return 0
+        if o in ('-f', '--force-update'):
+            doupdate = True
+        elif o in ('-n', '--no-update'):
+            doupdate = False
+        if o in ('-r', '--revision'):
+        	doupdate = True
+        	a = a.upper()
+        	if a in ('HEAD', 'PREV'):
+        		rev = 0 if (a == 'HEAD') else -1
+        	else:
+	        	try:
+	        		rev = int(a)
+	        	except ValueError:
+	        		om.out.error("Invalid value for revision number. Expected int.")
+	        		return -3
+    
+    # console
+    from core.ui.consoleUi.consoleUi import consoleUi
+    
+    commandsToRun = []
+    if scriptFile is not None:
+        try:
+            fd = open( os.path.join(currentDir, scriptFile)  )
+        except:
+            om.out.error('Failed to open file : ' + scriptFile )
+            sys.exit(2)
+        else:
+            commandsToRun = []
+            for line in fd:   
+                line = line.strip()
+                if line != '' and line[0] != '#': # if not a comment..
+                    commandsToRun.append( line )
+            fd.close() 
+    elif profile is not None:
+        commandsToRun = ["profiles use %s %s" % (profile, currentDir)]
+        if forceProfile is not None:
+            commandsToRun.append("start")
+            commandsToRun.append("exit")
+
+    console = consoleUi(commands=commandsToRun, do_upd=doupdate, rev=rev)
+    console.sh()
+
+
+if __name__ == "__main__":
+    errCode = main()
+    backToCurrentDir()
+    dump_cpu_usage()
+    sys.exit(errCode)
+    
