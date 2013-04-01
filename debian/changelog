@@ -1,3 +1,9 @@
+w3af (1.1svn5547-1kali3) kali; urgency=low
+
+  * Added python-webkit as depends.
+
+ -- Mati Aharoni <muts@kali.org>  Mon, 01 Apr 2013 05:59:18 -0400
+
 w3af (1.1svn5547-1kali2) kali; urgency=low
 
   * Removed w3af-console.manpages for bleeding-edge build.
