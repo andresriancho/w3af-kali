@@ -1,237 +1,249 @@
-[discovery.phpinfo]
+[crawl.phpinfo]
 
 [audit.frontpage]
-stopOnFirst = True
 
 [audit.eval]
-useTimeDelay = True
-useEcho = True
+use_time_delay = True
+use_echo = True
 
 [grep.motw]
-withoutMOTW = False
 
-[grep.creditCards]
+[grep.credit_cards]
 
-[audit.blindSqli]
+[audit.blind_sqli]
 eq_limit = 0.9
 
-[discovery.allowedMethods]
+[infrastructure.allowed_methods]
 reportDavOnly = True
 execOneTime = False
 
 [grep.feeds]
 
-[discovery.halberd]
+[infrastructure.halberd]
 
-[audit.phishingVector]
+[audit.phishing_vector]
 
+[grep.path_disclosure]
 
-[grep.pathDisclosure]
+[audit.csrf]
 
-[audit.xsrf]
+[grep.hash_analysis]
 
-[grep.hashFind]
+[infrastructure.dns_wildcard]
 
-[discovery.dnsWildcard]
+[infrastructure.detect_transparent_proxy]
 
-[discovery.detectTransparentProxy]
-
-[audit.mxInjection]
+[audit.mx_injection]
 
 [audit.preg_replace]
 
-[grep.strangeHeaders]
+[grep.strange_headers]
 
 [misc-settings]
 maxThreads = 15
-fuzzFormComboValues = tmb
-fuzzFCExt = txt
+form_fuzzing_mode = tmb
+fuzzed_files_extension = gif
 autoDependencies = True
 demo = False
-fuzzableHeaders = 
+fuzzable_headers = 
 showProgressBar = True
 fuzzCookie = False
+fuzz_form_files = True
+fuzz_url_filenames = False
+max_discovery_time = 120
+non_targets = 
+fuzz_url_parts = False
+stop_on_first_exception = False
+interface = ppp0
+local_ip_address = 10.5.6.18
+msf_location = /opt/metasploit3/bin/
 
-fuzzFileContent = True
-fuzzFileName = False
-maxDiscoveryTime = 120
+[infrastructure.fingerprint_os]
 
-nonTargets = 
+[audit.lfi]
 
-[discovery.fingerprint_os]
+[infrastructure.afd]
 
-[audit.localFileInclude]
+[audit.ldapi]
 
-[discovery.afd]
+[infrastructure.dot_net_errors]
 
-[audit.LDAPi]
+[audit.un_ssl]
 
-[discovery.dotNetErrors]
+[infrastructure.shared_hosting]
+result_limit = 300
 
-[audit.unSSL]
+[crawl.web_spider]
+follow_regex = .*
+ignore_regex = None
+only_forward = False
 
-[discovery.sharedHosting]
-resultLimit = 300
+[audit.ssl_certificate]
+minExpireDays = 30
+caFileName = plugins/audit/ssl_certificate/ca.pem
 
-[discovery.webSpider]
-followRegex = .*
-ignoreRegex = None
-onlyForward = False
-
-[audit.sslCertificate]
-
-[audit.osCommanding]
+[audit.os_commanding]
 
 [audit.ssi]
 
-[discovery.serverHeader]
-execOneTime = True
+[infrastructure.server_header]
 
 [audit.sqli]
 
-[grep.dotNetEventValidation]
+[grep.dot_net_event_validation]
 
-[audit.buffOverflow]
+[audit.buffer_overflow]
 
-[grep.directoryIndexing]
+[grep.directory_indexing]
 
-[grep.collectCookies]
+[grep.analyze_cookies]
 
-[grep.getMails]
-onlyTargetDomain = True
+[grep.get_emails]
+only_target_domain = True
 
 [grep.oracle]
 
-[grep.metaTags]
-search404 = False
+[grep.meta_tags]
 
-[grep.strangeHTTPCode]
+[grep.strange_http_codes]
 
 [audit.xpath]
 
 [audit.generic]
-diffRatio = 0.35
+diff_ratio = 0.35
 
-[grep.httpInBody]
+[grep.http_in_body]
 
-[discovery.sitemapReader]
+[crawl.sitemap_xml]
 
-[grep.fileUpload]
+[grep.file_upload]
 
 [grep.ajax]
 
-[discovery.fingerprint_WAF]
+[infrastructure.fingerprint_WAF]
 
-[grep.error500]
+[grep.error_500]
 
-[discovery.detectReverseProxy]
+[infrastructure.detect_reverse_proxy]
 
 [grep.lang]
 
-[discovery.serverStatus]
+[infrastructure.server_status]
 
 [grep.objects]
 
-[discovery.hmap]
+[infrastructure.hmap]
 genFpF = False
 
-[discovery.userDir]
-identifyOS = True
-identifyApplications = True
+[crawl.user_dir]
+identify_os = True
+identify_apps = True
 
-[audit.htaccessMethods]
+[audit.htaccess_methods]
 
-[discovery.oracleDiscovery]
+[crawl.oracle_discovery]
 
-[grep.domXss]
+[grep.dom_xss]
 
 [target]
 target = 
 
-[audit.remoteFileInclude]
-usew3afSite = True
-listenAddress = 
-listenPort = 44449
+[audit.rfi]
+use_w3af_site = True
+listen_address = 
+listen_port = 44449
 
-[grep.wsdlGreper]
+[grep.wsdl_greper]
 
-[discovery.findvhost]
+[infrastructure.find_vhosts]
 
-[grep.httpAuthDetect]
+[grep.http_auth_detect]
 
-[audit.responseSplitting]
+[audit.response_splitting]
 
-[grep.svnUsers]
+[grep.svn_users]
 
-[grep.passwordProfiling]
+[grep.password_profiling]
 
-[grep.blankBody]
+[grep.blank_body]
 
-[grep.errorPages]
+[grep.error_pages]
 
 [audit.dav]
 
 [output.console]
 verbose = True
 
-[audit.formatString]
+[audit.format_string]
 
-[discovery.phpEggs]
+[infrastructure.php_eggs]
 
-[grep.strangeParameters]
+[grep.strange_parameters]
 
-[discovery.robotsReader]
+[crawl.robots_txt]
 
-[audit.globalRedirect]
+[audit.global_redirect]
 
 [audit.xst]
 
 [audit.xss]
-checkStored = True
-numberOfChecks = 3
+persistent_xss = True
 
 [profile]
 description = The Open Web Application Security Project (OWASP) is a worldwide free and open community focused on improving the security of application software. OWASP searched for and published the ten most common security flaws. This profile search for this top 10 security flaws. For more information about the security flaws: http://www.owasp.org/index.php/OWASP_Top_Ten_Project .
 name = OWASP_TOP10
 
-[grep.findComments]
-search404 = True
-
-[output.gtkOutput]
+[grep.html_comments]
 
 [grep.ssn]
 
-[grep.codeDisclosure]
+[grep.code_disclosure]
 
-[grep.privateIP]
+[grep.private_ip]
 
-[discovery.phishtank]
-dbFile = plugins/discovery/phishtank/index.xml
-updateDB = False
+[crawl.phishtank]
 
 [http-settings]
-proxyPort = 8080
-urlParameter = 
-never404 = 
-headersFile = 
+proxy_port = 8080
+url_parameter = 
+never_404 = 
+headers_file = 
 maxFileSize = 400000
-proxyAddress = 
-basicAuthDomain = 
-always404 = 
-maxRetrys = 2
-ntlmAuthUser = 
-ntlmAuthPass = 
-ignoreSessCookies = False
+proxy_address = 
+basic_auth_domain = 
+always_404 = 
+max_http_retries = 2
+ntlm_auth_user = 
+ntlm_auth_passwd = 
+ignore_session_cookies = False
 timeout = 10
-userAgent = w3af.sourceforge.net
-basicAuthUser = 
-basicAuthPass = 
-404string = 
-cookieJarFile = 
+user_agent = w3af.org
+basic_auth_user = 
+basic_auth_passwd = 
+string_match_404 = 
+cookie_jar_file = 
+ntlm_auth_domain = 
+ntlm_auth_url = 
 
-[discovery.bing_spider]
-resultLimit = 300
+[crawl.bing_spider]
+result_limit = 300
 
-[audit.fileUpload]
+[audit.file_upload]
 extensions = gif,html
+
+[audit.redos]
+
+[crawl.web_spider]
+
+[grep.symfony]
+
+[grep.form_autocomplete]
+
+[grep.click_jacking]
+
+[grep.strange_reason]
+
+[infrastructure.allowed_methods]
+
+[infrastructure.server_header]
 

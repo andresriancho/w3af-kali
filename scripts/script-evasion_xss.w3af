@@ -1,8 +1,8 @@
 plugins
 
-output console,textFile
-output config textFile
-set fileName output-w3af.txt
+output console,text_file
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console
@@ -10,7 +10,7 @@ set verbose False
 back
 
 audit xss
-evasion selfReference
+evasion self_reference
 back
 
 target
@@ -19,6 +19,6 @@ back
 
 start
 
-assert len( kb.kb.getData('xss','xss') ) == 1
+
 
 exit

@@ -3,7 +3,7 @@ wizard.py
 
 Copyright 2008 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,21 +19,22 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-from core.controllers.w3afException import w3afException
-import core.controllers.outputManager as om
+from core.controllers.exceptions import w3afException
 from core.controllers.misc.factory import factory
 
+
 class wizard:
-    def __init__( self, w3af_core ):
+
+    def __init__(self, w3af_core):
         '''
-        This method should be overwritten by the actual wizards, so they can define what questions they are
-        going to ask.
+        This method should be overwritten by the actual wizards, so they can
+        define what questions they are going to ask.
         '''
         # Save the core
         self.w3af_core = w3af_core
-        
+
         # A list of question objects
-        self._questionList = []
+        self._question_lst = []
 
         # Internal variables to mantain state
         self._currentQuestion = None
@@ -42,43 +43,46 @@ class wizard:
         self._already_asked = []
         self._user_options = None
 
-    def _get_instances( self, question_list ):
+    def _get_instances(self, question_list, w3af_core):
         '''
-        @parameter question_list: A list of question ids
-        @return: A list of question objects
+        :param question_list: A list of question ids
+        :param w3af_core: The w3af core object to pass to the question id
+        :return: A list of question objects
         '''
         res = []
+        mod = 'core.controllers.wizard.questions.question_%s'
         for question_id in question_list:
-            question_instance = factory('core.controllers.wizard.questions.question_' + question_id)
-            question_instance.w3af_core = self.w3af_core
-            res.append( question_instance )
-        return res        
-        
+            klass = mod % question_id
+            question_inst = factory(klass, w3af_core)
+            res.append(question_inst)
+        return res
+
     def next(self):
         '''
         The user interface calls this method until it returns None.
-        
-        @return: The next question that has to be asked to the user.
+
+        :return: The next question that has to be asked to the user.
         '''
         # Special case for first iteration
         if self._firstQuestion == True:
             self._firstQuestion = False
-            self._currentQuestion = self._questionList[0]
-            return self._questionList[0]
+            self._currentQuestion = self._question_lst[0]
+            return self._question_lst[0]
 
-        # Save the user completed values, so we can handle previous button of the wizard
-        self._currentQuestion.setPreviouslyAnsweredValues(self._user_options)
-        self._already_asked.append( self._currentQuestion )
+        # Save the user completed values, so we can handle previous button
+        self._currentQuestion.set_previously_answered_values(self._user_options)
+        self._already_asked.append(self._currentQuestion)
 
         # Special case to end iteration
         if self._nextQuestionId is None:
             return None
 
         # Find the next one
-        possibleQuestions = [q for q in self._questionList if q.getQuestionId() == self._nextQuestionId ]
+        possibleQuestions = [q for q in self._question_lst if q.get_question_id(
+        ) == self._nextQuestionId]
         if len(possibleQuestions) != 1:
             raise w3afException('We have more than one next question. Please verify your wizard definition.\
-                          Possible questions are: ' + str(possibleQuestions) )
+                          Possible questions are: ' + str(possibleQuestions))
         else:
             # return the next question
             self._currentQuestion = possibleQuestions[0]
@@ -88,7 +92,7 @@ class wizard:
         '''
         We get here when the user clicks on the "Previous" button in the GTK user interface.
 
-        @return: The previous question, with the answers the user selected.
+        :return: The previous question, with the answers the user selected.
         '''
         # Special case, we can't go back because we don't have a previous question
         if self._firstQuestion:
@@ -99,32 +103,34 @@ class wizard:
         # already answered values from the user
         self._currentQuestion = self._already_asked.pop()
         return self._currentQuestion
-        
-        
-    def getWizardDescription(self):
+
+    def get_wizard_description(self):
         '''
         This method should be overwritten by the actual wizards.
-        
-        @return: A string that describes what the wizard will let you configure.
+
+        :return: A string that describes what the wizard will let you configure.
         '''
         return ''
 
-    def getName(self):
+    def get_name(self):
         '''
-        @return: The name of the wizard.
+        :return: The name of the wizard.
         '''
         return ''
-        
-    def setAnswer(self, optionsMap):
+
+    def set_answer(self, options_list):
         '''
-        Saves the answer for the current question, and finds the next question to be performed to the user.
+        Saves the answer for the current question, and finds the next question
+        to be performed to the user.
 
         This method raises an exception if the selected options are invalid.
-        
-        @parameter optionsMap: This is a map with the answers for every question that was made to the user.
+
+        :param options_list: This is a map with the answers for every question
+                               that was made to the user.
         '''
-        # This line may rise a w3afException        
-        self._nextQuestionId = self._currentQuestion.getNextQuestionId( optionsMap )
-        
+        # This line may rise a w3afException
+        self._nextQuestionId = self._currentQuestion.get_next_question_id(
+            options_list)
+
         # save the options selected by the user, to be able to perform a "previous"
-        self._user_options = optionsMap
+        self._user_options = options_list

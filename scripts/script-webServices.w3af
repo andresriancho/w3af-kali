@@ -1,18 +1,18 @@
 # webServices
 
 http-settings
-set proxyAddress 127.0.0.1
-set proxyPort 8080
+set proxy_address 127.0.0.1
+set proxy_port 8080
 back
 
 misc-settings
 set fuzzCookie False
 back
 plugins
-output console,textFile
+output console,text_file
 output
-output config textFile
-set fileName output-w3af.txt
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console

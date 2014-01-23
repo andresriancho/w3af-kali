@@ -1,9 +1,9 @@
 # This plugin should find most of the vulnerabilities
 
 plugins
-output console,textFile
-output config textFile
-set fileName output-w3af.txt
+output console,text_file
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console
@@ -19,6 +19,6 @@ back
 
 start
 
-assert len(kb.kb.getData('generic','generic')) == 0
+
 
 exit

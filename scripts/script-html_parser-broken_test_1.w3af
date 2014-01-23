@@ -1,11 +1,11 @@
 # Unit test for html parser
 
 plugins
-discovery allowedMethods
-output console,textFile
+infrastructure allowed_methods
+output console,text_file
 output
-output config textFile
-set fileName output-w3af.txt
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console
@@ -17,6 +17,6 @@ set target http://moth/w3af/core/htmlParser/input_out_of_form_1.html
 back
 start
 
-assert len(w3af_core._fuzzableRequestList[1].getDc()) == 2
+
 
 exit

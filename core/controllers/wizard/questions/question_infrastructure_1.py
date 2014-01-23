@@ -3,7 +3,7 @@ question_infrastructure_1.py
 
 Copyright 2008 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,64 +19,55 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-from core.controllers.w3afException import w3afException
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+from core.data.options.opt_factory import opt_factory
+from core.data.options.option_list import OptionList
 from core.controllers.wizard.question import question
-
-from core.data.options.optionList import optionList
 
 
 class question_infrastructure_1(question):
     '''
     This is the first question of the wizard, where you have to speficy the target.
     '''
-    def __init__(self):
-        question.__init__( self )
-    
-        self._questionId = 'infrastructure_1'
+    def __init__(self, w3af_core):
+        question.__init__(self, w3af_core)
 
-        self._questionTitle = 'Target URL'
-        
-        self._questionString = 'In this step you should specify the URL of the target web application.'
-        self._questionString += ' Remember that you can separate different URLs with commas like this: \n'
-        self._questionString += '    - http://host.tld/a.php , http://host.tld/b.php'
-        
-    def _getOptionObjects(self):
-        '''
-        @return: A list of options for this question.
-        '''
+        self._question_id = 'infrastructure_1'
 
+        self._question_title = 'Target URL'
+
+        self._question_str = 'In this step you should specify the URL of the target web application.'
+        self._question_str += ' Remember that you can separate different URLs with commas like this: \n'
+        self._question_str += '    - http://host.tld/a.php , http://host.tld/b.php'
+
+    def _get_option_objects(self):
+        '''
+        :return: A list of options for this question.
+        '''
         self._d1 = 'Target URL'
-        o1 = option( 'target','http://', self._d1, 'list')
-    
-        ol = optionList()
+        o1 = opt_factory('target', 'http://example.com', self._d1, 'url_list')
+
+        ol = OptionList()
         ol.add(o1)
 
         return ol
-        
-    def getNextQuestionId(self,  optionsMap ):
+
+    def get_next_question_id(self, options_list):
         # I don't care about the target OS for these tests, so I add them here with the default value
-        o2 = option('targetOS','unknown', '', 'string')
-        o3 = option('targetFramework','unknown', '', 'string')
-        
-        #   Manually copy the optionList object... the copy.deepcopy method fails :(
-        ol_copy = optionList()
-        for o in optionsMap:
+        o2 = opt_factory('target_os', 'unknown', '', 'string')
+        o3 = opt_factory('target_framework', 'unknown', '', 'string')
+
+        #   Manually copy the OptionList... the copy.deepcopy method fails :(
+        ol_copy = OptionList()
+        for o in options_list:
             ol_copy.add(o)
-       
+
         # Get the "Target URL" and change it back to "target" so the core can understand it
         o1 = ol_copy['target']
         ol_copy.add(o2)
         ol_copy.add(o3)
-        
+
         # Save the target to the core, all the validations are made there.
-        self.w3af_core.target.setOptions( ol_copy )
+        self.w3af_core.target.set_options(ol_copy)
 
         # The next question
         return 'infrastructure_2'
-

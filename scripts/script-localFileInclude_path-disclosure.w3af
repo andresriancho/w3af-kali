@@ -1,16 +1,16 @@
 # This is the local file inclusion demo:
 
 plugins
-audit osCommanding, localFileInclude
-discovery webSpider
-discovery config webSpider
-set onlyForward True
+audit os_commanding, lfi
+crawl web_spider
+crawl config web_spider
+set only_forward True
 back
-grep pathDisclosure
+grep path_disclosure
 
-output console,textFile
-output config textFile
-set fileName output-w3af.txt
+output console,text_file
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 back
@@ -22,7 +22,7 @@ back
 start
 
 exploit
-exploit localFileReader
+exploit local_file_reader
 
 interact 0
 
@@ -34,8 +34,8 @@ list
 exit
 back
 
-assert len(kb.kb.getData('localFileInclude','localFileInclude')) == 3
-assert len(kb.kb.getData('localFileReader','shell')) == 1
-assert len(kb.kb.getData('pathDisclosure','listFiles')) > 2
+
+
+
 
 exit

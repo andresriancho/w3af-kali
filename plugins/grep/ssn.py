@@ -3,7 +3,7 @@ ssn.py
 
 Copyright 2008 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,140 +19,67 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
 import re
 import itertools
 
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
+from core.controllers.plugins.grep_plugin import GrepPlugin
+from core.data.bloomfilter.scalable_bloom import ScalableBloomFilter
+from core.data.kb.vuln import Vuln
+from plugins.grep.ssndata.ssnAreasGroups import areas_groups_map
 
-from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
+import core.data.kb.knowledge_base as kb
 import core.data.constants.severity as severity
-from .ssndata.ssnAreasGroups import areas_groups_map
 
 
-class ssn(baseGrepPlugin):
+class ssn(GrepPlugin):
     '''
     This plugin detects the occurence of US Social Security numbers in web pages.
 
-    @author: dliz <dliz !at! users.sourceforge.net>
+    :author: dliz <dliz !at! users.sourceforge.net>
     '''
-    # match numbers of the form: 'nnn-nn-nnnn', 'nnnnnnnnn', 'nnn nn nnnn'
-    regex = '(?:^|[^\d])(\d{3})(?:[\- ]?)(\d{2})(?:[\- ]?)(\d{4})(?:[^\d]|$)'
+    # match numbers of the form: 'nnn-nn-nnnn' with some extra restrictions
+    regex = '(?:^|[^\d-])(?!(000|666))([0-6]\d{2}|7([0-6]\d|7[012])) ?-? ?(?!00)(\d{2}) ?-? ?(?!0000)(\d{4})(?:^|[^\d-])'
     ssn_regex = re.compile(regex)
-    
 
     def __init__(self):
-        baseGrepPlugin.__init__(self)
-        
-        self._already_inspected = scalable_bloomfilter()
-        self._ssnResponses = []
-                
+        GrepPlugin.__init__(self)
+
+        self._already_inspected = ScalableBloomFilter()
+
     def grep(self, request, response):
         '''
         Plugin entry point, find the SSN numbers.
-        
-        @parameter request: The HTTP request object.
-        @parameter response: The HTTP response object
-        @return: None.
 
-        >>> from core.data.url.httpResponse import httpResponse
-        >>> from core.data.request.fuzzableRequest import fuzzableRequest
-        >>> from core.data.parsers.urlParser import url_object
-        
-        Simple test, empty string.
-        >>> body = ''
-        >>> url = url_object('http://www.w3af.com/')
-        >>> headers = {'content-type': 'text/html'}
-        >>> response = httpResponse(200, body , headers, url, url)
-        >>> request = fuzzableRequest(url)
-        >>> s = ssn()
-        >>> s._already_inspected = set()
-        >>> s.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
-        0
-
-        With "-" separating the SSN parts
-        >>> kb.kb.cleanup(); s._already_inspected = set()
-        >>> body = 'header 771-12-9876 footer'
-        >>> headers = {'content-type': 'text/html'}
-        >>> response = httpResponse(200, body , headers, url, url)
-        >>> s.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
-        1
-
-        With HTML tags in the middle:
-        >>> kb.kb.cleanup(); s._already_inspected = set()
-        >>> body = 'header <b>771</b>-<b>12</b>-<b>9876</b> footer'
-        >>> headers = {'content-type': 'text/html'}
-        >>> response = httpResponse(200, body , headers, url, url)
-        >>> s.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
-        1
-
-        All the numbers together:
-        >>> kb.kb.cleanup(); s._already_inspected = set()
-        >>> body = 'header 771129876 footer'
-        >>> headers = {'content-type': 'text/html'}
-        >>> response = httpResponse(200, body , headers, url, url)
-        >>> s.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
-        1
-
-        One extra number at the end:
-        >>> kb.kb.cleanup(); s._already_inspected = set()
-        >>> body = 'header 7711298761 footer'
-        >>> headers = {'content-type': 'text/html'}
-        >>> response = httpResponse(200, body , headers, url, url)
-        >>> s.grep(request, response)
-        >>> len(kb.kb.getData('ssn', 'ssn'))
-        0
+        :param request: The HTTP request object.
+        :param response: The HTTP response object
+        :return: None.
         '''
-        uri = response.getURI()
-        if response.is_text_or_html() and response.getCode() == 200 and \
-            response.getClearTextBody() is not None and \
-            uri not in self._already_inspected:
-            
+        uri = response.get_uri()
+
+        if response.is_text_or_html() and response.get_code() == 200 \
+        and response.get_clear_text_body() is not None \
+        and uri not in self._already_inspected:
+
             # Don't repeat URLs
             self._already_inspected.add(uri)
-            found_ssn, validated_ssn = self._find_SSN(response.getClearTextBody())
+
+            found_ssn, validated_ssn = self._find_SSN(
+                response.get_clear_text_body())
             if validated_ssn:
-                v = vuln.vuln()
-                v.setPluginName(self.getName())
-                v.setURI( uri )
-                v.setId( response.id )
-                v.setSeverity(severity.LOW)
-                v.setName( 'US Social Security Number disclosure' )
-                msg = 'The URL: "' + uri + '" possibly discloses a US '
-                msg += 'Social Security Number: "'+ validated_ssn +'"'
-                v.setDesc( msg )
-                v.addToHighlight( found_ssn )
-                kb.kb.append( self, 'ssn', v )
-     
+                desc = 'The URL: "%s" possibly discloses a US Social Security'\
+                       ' Number: "%s".'
+                desc = desc % (uri, validated_ssn)
+                v = Vuln('US Social Security Number disclosure', desc,
+                         severity.LOW, response.id, self.get_name())
+                v.set_uri(uri)
+
+                v.add_to_highlight(found_ssn)
+                self.kb_append_uniq(self, 'ssn', v, 'URL')
+
     def _find_SSN(self, body_without_tags):
         '''
-        @return: SSN as found in the text and SSN in its regular format if the body had an SSN
-
-        >>> s = ssn()
-        >>> s._find_SSN( '' )
-        (None, None)
-        >>> s._find_SSN( 'header 771129876 footer' )
-        ('771129876', '771-12-9876')
-        >>> s._find_SSN( '771129876' )
-        ('771129876', '771-12-9876')
-        >>> s._find_SSN( 'header 771 12 9876 footer' )
-        ('771 12 9876', '771-12-9876')
-        >>> s._find_SSN( 'header 771 12 9876 32 footer' )
-        ('771 12 9876', '771-12-9876')
-        >>> s._find_SSN( 'header 771 12 9876 32 64 footer' )
-        ('771 12 9876', '771-12-9876')
-        >>> s._find_SSN( 'header 771129876 771129875 footer' )
-        ('771129876', '771-12-9876')
+        :return: SSN as found in the text and SSN in its regular format if the
+                 body had an SSN
         '''
         validated_ssn = None
         ssn = None
@@ -164,13 +91,12 @@ class ssn(baseGrepPlugin):
                 break
 
         return ssn, validated_ssn
-    
-    
+
     def _validate_SSN(self, potential_ssn):
         '''
         This method is called to validate the digits of the 9-digit number
         found, to confirm that it is a valid SSN. All the publicly available SSN
-        checks are performed. The number is an SSN if: 
+        checks are performed. The number is an SSN if:
         1. the first three digits <= 772
         2. the number does not have all zeros in any digit group 3+2+4 i.e. 000-xx-####,
         ###-00-#### or ###-xx-0000 are not allowed
@@ -180,26 +106,29 @@ class ssn(baseGrepPlugin):
 
         Source of information: wikipedia and socialsecurity.gov
         '''
-        area_number = int(potential_ssn.group(1))
-        group_number = int(potential_ssn.group(2))
-        serial_number = int(potential_ssn.group(3))
+        try:
+            area_number = int(potential_ssn.group(2))
+            group_number = int(potential_ssn.group(4))
+            serial_number = int(potential_ssn.group(5))
+        except:
+            return False
 
         if not group_number:
             return False
         if not serial_number:
             return False
 
-        group = areas_groups_map.get(area_number)        
+        group = areas_groups_map.get(area_number)
         if not group:
             return False
-        
+
         odd_one = xrange(1, 11, 2)
-        even_two = xrange(10, 100, 2) # (10-98 even only)
+        even_two = xrange(10, 100, 2)  # (10-98 even only)
         even_three = xrange(2, 10, 2)
-        odd_four = xrange(11, 100, 2) # (11-99 odd only)
+        odd_four = xrange(11, 100, 2)  # (11-99 odd only)
         le_group = lambda x: x <= group
         isSSN = False
-    
+
         # For little odds (odds between 1 and 9)
         if group in odd_one:
             if group_number <= group:
@@ -207,7 +136,7 @@ class ssn(baseGrepPlugin):
 
         # For big evens (evens between 10 and 98)
         elif group in even_two:
-            if group_number in itertools.chain(odd_one, 
+            if group_number in itertools.chain(odd_one,
                                                filter(le_group, even_two)):
                 isSSN = True
 
@@ -222,43 +151,17 @@ class ssn(baseGrepPlugin):
             if group_number in itertools.chain(odd_one, even_two, even_three,
                                                filter(le_group, odd_four)):
                 isSSN = True
-        
+
         if isSSN:
             return '%s-%s-%s' % (area_number, group_number, serial_number)
+
         return None
 
-
-
-    def end(self):
+    def get_long_desc(self):
         '''
-        This method is called when the plugin won't be used anymore.
-        '''
-        # Print results
-        self.printUniq( kb.kb.getData( 'ssn', 'ssn' ), 'URL' )
-
-    def getOptions(self):
-        '''
-        @return: A list of option objects for this plugin.
-        '''    
-        ol = optionList()
-        return ol
-        
-    def setOptions(self, opt):
-        pass
-     
-    def getLongDesc(self):
-        '''
-        @return: A DETAILED description of the plugin functions and features.
+        :return: A DETAILED description of the plugin functions and features.
         '''
         return '''
-        This plugins scans every response page to find the strings that are likely to be 
-        the US social security numbers. 
+        This plugins scans every response page to find the strings that are likely
+        to be the US social security numbers.
         '''
-        
-    def getPluginDeps(self):
-        '''
-        @return: A list with the names of the plugins that should be run before the
-        current one.
-        '''
-        return []
- 

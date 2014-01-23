@@ -3,7 +3,7 @@ itertools_toolset.py
 
 Copyright 2012 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -25,15 +25,17 @@ import operator
 #
 #    Source for this code was taken from http://docs.python.org/library/itertools.html
 #
+
+
 def unique_everseen(iterable, key=None):
     """
     List unique elements, preserving order. Remember all elements ever seen.
-    
+
     >>> [x for x in unique_everseen('AAAABBBCCDAABBB')]
     ['A', 'B', 'C', 'D']
     >>> [x for x in unique_everseen('ABBCcAD', str.lower)]
     ['A', 'B', 'C', 'D']
-    
+
     """
     seen = set()
     seen_add = seen.add
@@ -47,6 +49,7 @@ def unique_everseen(iterable, key=None):
             if k not in seen:
                 seen_add(k)
                 yield element
+
 
 def unique_justseen(iterable, key=None):
     """

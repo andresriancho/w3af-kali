@@ -1,17 +1,13 @@
 import re
-from plugins.attack.payloads.base_payload import base_payload
-from core.ui.consoleUi.tables import table
+from plugins.attack.payloads.base_payload import Payload
+from core.ui.console.tables import table
 
 
-class running_vm(base_payload):
+class running_vm(Payload):
     '''
     This payload check if the Server is running through a VM
     '''
-    def api_read(self, parameters):
-        result = {}
-        result['running_vm'] = False
-        files = []
-
+    def fname_generator(self):
         candidates = []
         candidates.append('0000:00:0f.0')
         candidates.append('0000:00:00.0')
@@ -28,6 +24,24 @@ class running_vm(base_payload):
         candidates.append('0000:00:18.0')
         candidates.append('0000:02:00.0')
         candidates.append('0000:02:03.0')
+        candidates.append('0000:00:02.0')
+
+        for candidate in candidates:
+            yield '/sys/bus/pci/devices/' + candidate + '/uevent'
+
+        files = []
+        files.append('/var/log/dmesg')
+        files.append('/proc/interrupts')
+        files.append('/proc/cpuinfo')
+        files.append('/proc/iomem')
+        files.append('/proc/meminfo')
+
+        for file_ in files:
+            yield file_
+
+    def api_read(self):
+        result = {}
+        result['running_vm'] = False
 
         pci_list = []
         pci_list.append('15AD')
@@ -36,65 +50,60 @@ class running_vm(base_payload):
         pci_list.append('80ee:beef')
         pci_list.append('80ee:cafe')
 
-
-        def parse_pci_id( uevent ):
+        def parse_pci_id(uevent):
             processor = re.search('(?<=PCI_ID=)(.*)', uevent)
             if processor:
-                return processor.group(1)
+                return processor.group(1).lower()
             else:
                 return ''
 
-        def parse_subsys_id( uevent ):
+        def parse_subsys_id(uevent):
             processor = re.search('(?<=PCI_SUBSYS_ID=)(.*)', uevent)
             if processor:
-                return processor.group(1)
+                return processor.group(1).lower()
             else:
                 return ''
 
-
-        for candidate in candidates:
-            file = self.shell.read('/sys/bus/pci/devices/'+candidate+'/uevent')
-            pci_id = parse_pci_id(file)
-            pci_subsys_id = parse_subsys_id(file)
+        for fname, content in self.read_multi(self.fname_generator()):
+            pci_id = parse_pci_id(content)
+            pci_subsys_id = parse_subsys_id(content)
             for pci_item in pci_list:
                 if pci_item in pci_id or pci_item in pci_subsys_id:
                     result['running_vm'] = True
+                    break
 
-        files.append('/var/log/dmesg')
-        files.append('/proc/interrupts')
-        files.append('/proc/cpuinfo')
-        files.append('/proc/iomem')
-        files.append('/proc/meminfo')
-        for file in files:
-            file_content = self.shell.read(file)
-            if 'vmware' in file_content.lower() or 'qemu' in file_content.lower() \
-                or 'virtualbox' in file_content.lower() or 'bochs' in file_content.lower():
-                result['running_vm'] = True
-        
+            content_lower = content.lower()
+            for vm_engine in ('vmware', 'qemu', 'virtualbox', 'bochs'):
+                if vm_engine in content_lower:
+                    result['running_vm'] = True
+                    break
+
         kernel_modules = self.exec_payload('list_kernel_modules').keys()
-        if 'vmware' in str(kernel_modules).lower() or 'qemu' in str(kernel_modules).lower() \
-            or 'virtualbox' in str(kernel_modules).lower() or 'bochs' in str(kernel_modules).lower():
-            result['running_vm'] = True
-        
+        str_kernel_modules = str(kernel_modules).lower()
+        for vm_engine in ('vmware', 'qemu', 'virtualbox', 'bochs'):
+            if vm_engine in str_kernel_modules:
+                result['running_vm'] = True
+                break
+
         return result
-    
+
     def api_win_read(self):
         result = []
         iis6log_content = self.shell.read('/windows/iis6.log')
         #if 'VMWare'
-    
-    def run_read(self, parameters):
-        api_result = self.api_read( parameters )
+
+    def run_read(self):
+        api_result = self.api_read()
 
         rows = []
-        rows.append( ['Running inside Virtual Machine',] ) 
-        rows.append( [] )
-        
+        rows.append(['Running inside Virtual Machine', ])
+        rows.append([])
+
         if api_result['running_vm']:
-            rows.append(['The remote host is a virtual machine.',])
+            rows.append(['The remote host is a virtual machine.', ])
         else:
-            rows.append(['The remote host is NOT a virtual machine.',])
-            
-        result_table = table( rows )
-        result_table.draw( 80 )                    
+            rows.append(['The remote host is NOT a virtual machine.', ])
+
+        result_table = table(rows)
+        result_table.draw(80)
         return rows

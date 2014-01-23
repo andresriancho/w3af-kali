@@ -3,7 +3,7 @@ test_os_commanding.py
 
 Copyright 2012 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,36 +19,37 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
-from ..helper import PluginTest, PluginConfig
+from plugins.tests.helper import PluginTest, PluginConfig
+
 
 class TestOSCommanding(PluginTest):
-    
+
     target_url = 'http://moth/w3af/audit/os_commanding/'
-    
+
     _run_configs = {
         'cfg': {
             'target': target_url,
             'plugins': {
-                 'audit': (PluginConfig('osCommanding'),),
-                 'discovery': (
-                      PluginConfig(
-                          'webSpider',
-                          ('onlyForward', True, PluginConfig.BOOL)),
-                  )
-                 }
+                'audit': (PluginConfig('os_commanding'),),
+                'crawl': (
+                    PluginConfig(
+                        'web_spider',
+                        ('only_forward', True, PluginConfig.BOOL)),
+                )
             }
         }
-    
+    }
+
     def test_found_osc(self):
         # Run the scan
         cfg = self._run_configs['cfg']
         self._scan(cfg['target'], cfg['plugins'])
 
         # Assert the general results
-        vulns = self.kb.getData('osCommanding', 'osCommanding')
+        vulns = self.kb.get('os_commanding', 'os_commanding')
         self.assertEquals(4, len(vulns))
-        self.assertEquals(all(["OS commanding vulnerability" == v.getName() for v in vulns ]),
-                          True)
+        self.assertTrue(all(
+            ["OS commanding vulnerability" == v.get_name() for v in vulns]))
 
         # Verify the specifics about the vulnerabilities
         EXPECTED = [
@@ -58,10 +59,9 @@ class TestOSCommanding(PluginTest):
             ('blind_osc.php', 'cmd')
         ]
 
-        found_vulns = [ (v.getURL().getFileName() , v.getMutant().getVar()) for v in vulns]
-        
-        self.assertEquals( set(EXPECTED),
-                           set(found_vulns)
-                          )
+        found_vulns = [(v.get_url(
+        ).get_file_name(), v.get_mutant().get_var()) for v in vulns]
 
-        
+        self.assertEquals(set(EXPECTED),
+                          set(found_vulns)
+                          )

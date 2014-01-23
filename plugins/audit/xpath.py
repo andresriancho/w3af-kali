@@ -3,7 +3,7 @@ xpath.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,28 +21,20 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 from __future__ import with_statement
 
-import core.controllers.outputManager as om
+import core.controllers.output_manager as om
 
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-from core.data.fuzzer.fuzzer import createMutants
-from core.data.esmre.multi_in import multi_in
-
-from core.controllers.basePlugin.baseAuditPlugin import baseAuditPlugin
-from core.controllers.w3afException import w3afException
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
 import core.data.constants.severity as severity
 
-import re
+from core.controllers.plugins.audit_plugin import AuditPlugin
+from core.data.fuzzer.fuzzer import create_mutants
+from core.data.esmre.multi_in import multi_in
+from core.data.kb.vuln import Vuln
 
 
-class xpath(baseAuditPlugin):
+class xpath(AuditPlugin):
     '''
     Find XPATH injection vulnerabilities.
-    @author: Andres Riancho ( andres.riancho@gmail.com )
+    :author: Andres Riancho (andres.riancho@gmail.com)
     '''
 
     XPATH_PATTERNS = (
@@ -55,6 +47,7 @@ class xpath(baseAuditPlugin):
         'Cannot convert expression to a number',
         'Document Axis does not allow any context Location Steps',
         'Empty Path Expression',
+        'DOMXPath::'
         'Empty Relative Location Path',
         'Empty Union Expression',
         "Expected ')' in",
@@ -71,139 +64,97 @@ class xpath(baseAuditPlugin):
         "Expected token ']'",
         "<p>msxml4.dll</font>",
         "<p>msxml3.dll</font>",
-            
+
         # Put this here cause i did not know if it was a sql injection
         # This error appears when you put wierd chars in a lotus notes document
         # search ( nsf files ).
         '4005 Notes error: Query is not understandable',
-            
-        # This one will generate some false positives, but i'll leve it here for now
-        # until i have a complete list of errors.
-        'xpath'
     )
-    _multi_in = multi_in( XPATH_PATTERNS )
+    _multi_in = multi_in(XPATH_PATTERNS)
 
     def __init__(self):
-        baseAuditPlugin.__init__(self)
-        
-        # Internal variables
-        self._errors = []
+        AuditPlugin.__init__(self)
 
-    def audit(self, freq ):
+    def audit(self, freq, orig_response):
         '''
         Tests an URL for xpath injection vulnerabilities.
-        
-        @param freq: A fuzzableRequest
+
+        :param freq: A FuzzableRequest
         '''
-        om.out.debug( 'xpath plugin is testing: ' + freq.getURL() )
-        
-        oResponse = self._uri_opener.send_mutant(freq)
         xpath_strings = self._get_xpath_strings()
-        mutants = createMutants( freq , xpath_strings, oResponse=oResponse )
-            
-        for mutant in mutants:
-            
-            # Only spawn a thread if the mutant has a modified variable
-            # that has no reported bugs in the kb
-            if self._has_no_bug(mutant):
-                args = (mutant,)
-                kwds = {'callback': self._analyze_result }
-                self._run_async(meth=self._uri_opener.send_mutant, args=args,
-                                                                    kwds=kwds)
-        self._join()
-        
-    def _get_xpath_strings( self ):
+        mutants = create_mutants(freq, xpath_strings, orig_resp=orig_response)
+
+        self._send_mutants_in_threads(self._uri_opener.send_mutant,
+                                      mutants,
+                                      self._analyze_result)
+
+    def _get_xpath_strings(self):
         '''
         Gets a list of strings to test against the web app.
-        
-        @return: A list with all xpath strings to test.
+
+        :return: A list with all xpath strings to test.
         '''
         xpath_strings = []
         xpath_strings.append("d'z\"0")
-        
+
         # http://www.owasp.org/index.php/Testing_for_XML_Injection
         xpath_strings.append("<!--")
-        
+
         return xpath_strings
-    
-    def _analyze_result( self, mutant, response ):
+
+    def _analyze_result(self, mutant, response):
         '''
         Analyze results of the _send_mutant method.
         '''
-        with self._plugin_lock:
-            
-            #
-            #   I will only report the vulnerability once.
-            #
-            if self._has_no_bug(mutant):
-                
-                xpath_error_list = self._find_xpath_error( response )
-                for xpath_error in xpath_error_list:
-                    if xpath_error not in mutant.getOriginalResponseBody():
-                        v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
-                        v.setName( 'XPATH injection vulnerability' )
-                        v.setSeverity(severity.MEDIUM)
-                        v.setDesc( 'XPATH injection was found at: ' + mutant.foundAt() )
-                        v.setId( response.id )
-                        v.addToHighlight( xpath_error )
-                        kb.kb.append( self, 'xpath', v )
-                        break
-    
-    def end(self):
-        '''
-        This method is called when the plugin wont be used anymore.
-        '''
-        self._join()
-        self.printUniq( kb.kb.getData( 'xpath', 'xpath' ), 'VAR' )
-    
-    def _find_xpath_error( self, response ):
+        #
+        #   I will only report the vulnerability once.
+        #
+        if self._has_no_bug(mutant):
+
+            xpath_error_list = self._find_xpath_error(response)
+            for xpath_error in xpath_error_list:
+                if xpath_error not in mutant.get_original_response_body():
+                    
+                    desc = 'XPATH injection was found at: %s' % mutant.found_at()
+                    
+                    v = Vuln.from_mutant('XPATH injection vulnerability', desc,
+                                         severity.MEDIUM, response.id,
+                                         self.get_name(), mutant)
+                    
+                    v.add_to_highlight(xpath_error)
+                    self.kb_append_uniq(self, 'xpath', v)
+                    break
+
+    def _find_xpath_error(self, response):
         '''
         This method searches for xpath errors in html's.
-        
-        @parameter response: The HTTP response object
-        @return: A list of errors found on the page
+
+        :param response: The HTTP response object
+        :return: A list of errors found on the page
         '''
         res = []
-        for xpath_error_match in self._multi_in.query( response.body ):
-            msg = 'Found XPATH injection. The error showed by the web application is (only'
-            msg +=' a fragment is shown): "' + xpath_error_match
-            msg += '". The error was found on response with id ' + str(response.id) + '.'
-            om.out.information( msg )
-            res.append( xpath_error_match )
+        for xpath_error_match in self._multi_in.query(response.body):
+            msg = 'Found XPATH injection. The error showed by the web'\
+                  ' application is (only a fragment is shown): "%s".'\
+                  ' The error was found on response with id %s.'
+            om.out.information(msg % (xpath_error_match, response.id))
+            res.append(xpath_error_match)
         return res
-                
-    def getOptions( self ):
-        '''
-        @return: A list of option objects for this plugin.
-        '''    
-        ol = optionList()
-        return ol
 
-    def setOptions( self, OptionList ):
+    def get_plugin_deps(self):
         '''
-        This method sets all the options that are configured using the user interface 
-        generated by the framework using the result of getOptions().
-        
-        @parameter OptionList: A dictionary with the options for the plugin.
-        @return: No value is returned.
-        ''' 
-        pass
-
-    def getPluginDeps( self ):
-        '''
-        @return: A list with the names of the plugins that should be run before the
+        :return: A list with the names of the plugins that should be run before the
         current one.
         '''
-        return ['grep.error500']
-    
-    def getLongDesc( self ):
+        return ['grep.error_500']
+
+    def get_long_desc(self):
         '''
-        @return: A DETAILED description of the plugin functions and features.
+        :return: A DETAILED description of the plugin functions and features.
         '''
         return '''
         This plugin finds XPATH injections.
-        
-        To find this vulnerabilities the plugin sends the string "d'z'0" to every injection point,
-        and searches the response for XPATH errors.
+
+        To find this vulnerabilities the plugin sends the string "d'z'0" to
+        every injection point, and searches the response for XPATH errors.
         '''

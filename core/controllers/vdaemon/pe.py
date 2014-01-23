@@ -3,7 +3,7 @@ pe.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -22,46 +22,48 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import sys
 import os
-from core.controllers.w3afException import *
+from core.controllers.exceptions import *
+
 
 class pe:
     '''
-    This class represents a PE file. 
-    
-    @author: Andres Riancho ( andres.riancho@gmail.com )
+    This class represents a PE file.
+
+    :author: Andres Riancho (andres.riancho@gmail.com)
     '''
-    def __init__( self, arch='32bit' ):
+    def __init__(self, arch='32bit'):
         self._arch = arch
         self._shellcode = '\x90'
         self._maxPayloadLen = 1024
-        self._templateFileName = 'core' + os.path.sep + 'controllers' + os.path.sep + 'vdaemon' + os.path.sep + 'peTemplate.dat'
-    
-    def setShellCode( self, sc ):
-        if len( sc ) > self._maxPayloadLen:
+        self._templateFileName = 'core' + os.path.sep + 'controllers' + \
+            os.path.sep + 'vdaemon' + os.path.sep + 'peTemplate.dat'
+
+    def set_shell_code(self, sc):
+        if len(sc) > self._maxPayloadLen:
             raise w3afException('Payload to long!')
         self._shellcode = sc
-        
-    def getShellCode( self ):
+
+    def get_shell_code(self):
         return self._shellcode
-        
-    def dump( self ):
+
+    def dump(self):
         '''
-        @return: A string with the complete pe file.
+        :return: A string with the complete pe file.
         '''
         try:
-            template = file( self._templateFileName, 'r' ).read()
+            template = file(self._templateFileName, 'r').read()
         except Exception, e:
-            raise w3afException('Failed to open PE template file. Exception: ' + str(e) )
+            raise w3afException(
+                'Failed to open PE template file. Exception: ' + str(e))
         else:
             paddingLen = self._maxPayloadLen - len(self._shellcode)
-            executable = template.replace( '\x90' * self._maxPayloadLen, self._shellcode + '\x90' * paddingLen )
-            
+            executable = template.replace('\x90' * self._maxPayloadLen, self._shellcode + '\x90' * paddingLen)
+
         return executable
-        
+
 if __name__ == '__main__':
     e = pe()
     e._templateFileName = 'eggTemplate.dat'
-    f = file('genpe','w')
-    f.write( e.dump() )
+    f = file('genpe', 'w')
+    f.write(e.dump())
     f.close()
-    

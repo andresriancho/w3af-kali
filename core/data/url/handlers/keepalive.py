@@ -9,9 +9,9 @@
 #   Lesser General Public License for more details.
 #
 #   You should have received a copy of the GNU Lesser General Public
-#   License along with this library; if not, write to the 
-#     Free Software Foundation, Inc., 
-#     59 Temple Place, Suite 330, 
+#   License along with this library; if not, write to the
+#     Free Software Foundation, Inc.,
+#     59 Temple Place, Suite 330,
 #     Boston, MA  02111-1307  USA
 
 # This file is part of urlgrabber, a high-level cross-protocol url-grabber
@@ -30,7 +30,7 @@
 >> keepalive_handler = HTTPHandler()
 >> opener = urllib2.build_opener(keepalive_handler)
 >> urllib2.install_opener(opener)
->> 
+>>
 >> fo = urllib2.urlopen('http://www.python.org')
 
 If a connection to a given host is requested, and all of the existing
@@ -118,18 +118,19 @@ import threading
 import urllib
 import sys
 import time
+import ssl
 
-import core.controllers.outputManager as om
-from core.controllers.w3afException import w3afException, \
-    w3afMustStopByKnownReasonExc
+import core.controllers.output_manager as om
 import core.data.kb.config as cf
-from core.data.constants.httpConstants import NO_CONTENT
+
+from core.data.constants.response_codes import NO_CONTENT
+from core.controllers.exceptions import (w3afException,
+                                         w3afMustStopByKnownReasonExc)
+
 
 HANDLE_ERRORS = 1 if sys.version_info < (2, 4) else 0
-DEBUG = None
+DEBUG = False
 
-# Global connection timeout. In seconds.
-TIMEOUT = 25
 # Max connections allowed per host.
 MAXCONNECTIONS = 50
 # If found this number of timeouts in-a-row per target host then we may either:
@@ -143,6 +144,7 @@ RESP_OK = 0
 RESP_TIMEOUT = 1
 RESP_BAD = 2
 
+
 class URLTimeoutError(urllib2.URLError):
     '''
     Our own URLError timeout exception. Basically a wrapper for socket.timeout.
@@ -151,7 +153,12 @@ class URLTimeoutError(urllib2.URLError):
         urllib2.URLError.__init__(self, (408, 'timeout'))
 
     def __str__(self):
-        return '<urlopen error timeout>'
+        default_timeout = socket.getdefaulttimeout()
+        if default_timeout is not None:
+            return 'HTTP timeout error after %s seconds.' % default_timeout
+        else:
+            return 'HTTP timeout error.'
+
 
 def closeonerror(read_meth):
     '''
@@ -165,6 +172,7 @@ def closeonerror(read_meth):
             inst.close()
             raise
     return new_read_meth
+
 
 class HTTPResponse(httplib.HTTPResponse):
     # we need to subclass HTTPResponse in order to
@@ -185,53 +193,50 @@ class HTTPResponse(httplib.HTTPResponse):
     # Both readline and readlines have been stolen with almost no
     # modification from socket.py
 
-
     def __init__(self, sock, debuglevel=0, strict=0, method=None):
-        if method: # the httplib in python 2.3 uses the method arg
-            httplib.HTTPResponse.__init__(self, sock, debuglevel, method)
-        else: # 2.2 doesn't
-            httplib.HTTPResponse.__init__(self, sock, debuglevel)
+        httplib.HTTPResponse.__init__(self, sock, debuglevel, strict=strict,
+                                      method=method)
         self.fileno = sock.fileno
         self.code = None
         self._rbuf = ''
         self._rbufsize = 8096
-        self._handler = None # inserted by the handler later
+        self._handler = None  # inserted by the handler later
         self._host = None   # (same)
         self._url = None     # (same)
-        self._connection = None # (same)
+        self._connection = None  # (same)
         self._method = method
         self._multiread = None
         self._encoding = None
-    
-    @property
-    def URL(self):
-        return self.geturl()
 
     def geturl(self):
         return self._url
-    
-    @property
-    def encoding(self):
+
+    URL = property(geturl)
+
+    def get_encoding(self):
         return self._encoding
-    
-    @encoding.setter
-    def encoding(self, enc):
+
+    def set_encoding(self, enc):
         self._encoding = enc
+    
+    encoding = property(get_encoding, set_encoding)
 
     def _raw_read(self, amt=None):
         '''
-        This is the original read function from httplib with a minor 
-        modification that allows me to check the size of the file being 
+        This is the original read function from httplib with a minor
+        modification that allows me to check the size of the file being
         fetched, and throw an exception in case it is too big.
         '''
         if self.fp is None:
             return ''
 
-        if self.length > cf.cf.getData('maxFileSize'):
-            self.status = NO_CONTENT
-            self.reason = 'No Content'  # Reason-Phrase
-            self.close()
-            return ''
+        max_file_size = cf.cf.get('max_file_size') or None
+        if max_file_size:
+            if self.length > max_file_size:
+                self.status = NO_CONTENT
+                self.reason = 'No Content'  # Reason-Phrase
+                self.close()
+                return ''
 
         if self.chunked:
             return self._read_chunked(amt)
@@ -305,34 +310,39 @@ class HTTPResponse(httplib.HTTPResponse):
             return s
 
     def readline(self, limit=-1):
-        data = ""
         i = self._rbuf.find('\n')
         while i < 0 and not (0 < limit <= len(self._rbuf)):
             new = self._raw_read(self._rbufsize)
-            if not new: break
+            if not new:
+                break
             i = new.find('\n')
-            if i >= 0: i = i + len(self._rbuf)
+            if i >= 0:
+                i = i + len(self._rbuf)
             self._rbuf = self._rbuf + new
-        if i < 0: i = len(self._rbuf)
-        else: i = i + 1
-        if 0 <= limit < len(self._rbuf): i = limit
+        if i < 0:
+            i = len(self._rbuf)
+        else:
+            i = i + 1
+        if 0 <= limit < len(self._rbuf):
+            i = limit
         data, self._rbuf = self._rbuf[:i], self._rbuf[i:]
         return data
 
     @closeonerror
     def readlines(self, sizehint=0):
         total = 0
-        list = []
+        line_list = []
         while 1:
             line = self.readline()
-            if not line: break
-            list.append(line)
+            if not line:
+                break
+            line_list.append(line)
             total += len(line)
             if sizehint and total >= sizehint:
                 break
-        return list
+        return line_list
 
-    def setBody(self, data):
+    def set_body(self, data):
         '''
         This was added to make my life a lot simpler while implementing mangle
         plugins
@@ -340,7 +350,7 @@ class HTTPResponse(httplib.HTTPResponse):
         self._multiread = data
 
 
-class ConnectionManager:
+class ConnectionManager(object):
     '''
     The connection manager must be able to:
         * keep track of all existing HTTPConnections
@@ -352,55 +362,56 @@ class ConnectionManager:
     def __init__(self):
         self._lock = threading.RLock()
         self._host_pool_size = MAXCONNECTIONS
-        self._hostmap = {} # map hosts to a list of connections
-        self._used_cons = [] # connections being used per host
-        self._free_conns = [] # available connections
+        self._hostmap = {}  # map hosts to a list of connections
+        self._used_cons = []  # connections being used per host
+        self._free_conns = []  # available connections
 
     def remove_connection(self, conn, host=None):
         '''
         Remove a connection, it was closed by the server.
-        
-        @param conn: Connection to remove
-        @param host: The host for to the connection. If passed, the connection
+
+        :param conn: Connection to remove
+        :param host: The host for to the connection. If passed, the connection
         will be removed faster.
         '''
+        # Just make sure we don't leak open connections
+        conn.close()
+
         with self._lock:
 
             if host:
                 if host not in self._hostmap:
-                    raise ValueError, 'Host "%s" not present in pool.' % host
+                    raise ValueError('Host "%s" not present in pool.' % host)
                 if conn in self._hostmap[host]:
                     self._hostmap[host].remove(conn)
 
-            else: # We don't know the host. Need to find it by looping
+            else:
+                # We don't know the host. Need to find it by looping
                 for _host, conns in self._hostmap.items():
                     if conn in conns:
                         host = _host
                         conns.remove(conn)
                         break
 
-            removed = False
-            try:
-                self._used_cons.remove(conn)
-                removed = True
-            except ValueError:
+            for lst in (self._free_conns, self._used_cons):
                 try:
-                    self._free_conns.remove(conn)
-                    removed = True
+                    lst.remove(conn)
                 except ValueError:
+                    # I don't care much about the connection not being in
+                    # the free_conns or used_conns. This might happen because
+                    # of a thread locking issue (basically, someone is not
+                    # locking before moving connections around).
                     pass
-            if not removed:
-                raise ValueError, "Connection obj <%s> not present in pool" % \
-                conn
-
-            conn_total = self.get_connections_total(host)
-            msg = 'keepalive: removed one connection, len(self._hostmap' \
-            '["%s"]): %s' % (host, conn_total)
-            om.out.debug(msg)
-
+            
             # No more conns for 'host', remove it from mapping
+            conn_total = self.get_connections_total(host)
             if host and not conn_total:
                 del self._hostmap[host]
+            
+            if DEBUG:
+                msg = 'keepalive: removed one connection, len(self._hostmap' \
+                      '["%s"]): %s' % (host, conn_total)
+                om.out.debug(msg)
 
     def free_connection(self, conn):
         '''
@@ -413,15 +424,16 @@ class ConnectionManager:
     def replace_connection(self, bad_conn, host, conn_factory):
         '''
         Re-create a mal-functioning connection.
-        
-        @param bad_conn: The bad connection
-        @param host: The host for the connection
-        @param conn_factory: The factory function for new connection creation.
+
+        :param bad_conn: The bad connection
+        :param host: The host for the connection
+        :param conn_factory: The factory function for new connection creation.
         '''
         with self._lock:
             self.remove_connection(bad_conn, host)
-            msg = 'keepalive: replacing bad connection with a new one'
-            om.out.debug(msg)
+            if DEBUG:
+                msg = 'keepalive: replacing bad connection with a new one'
+                om.out.debug(msg)
             new_conn = conn_factory(host)
             conns = self._hostmap.setdefault(host, [])
             conns.append(new_conn)
@@ -431,9 +443,9 @@ class ConnectionManager:
     def get_available_connection(self, host, conn_factory):
         '''
         Return an available connection ready to be reused
-        
-        @param host: Host for the connection.
-        @param conn_factory: Factory function for connection creation. Receives
+
+        :param host: Host for the connection.
+        :param conn_factory: Factory function for connection creation. Receives
             <host> as parameter.
         '''
         with self._lock:
@@ -456,22 +468,26 @@ class ConnectionManager:
                 # No?... well, let's try to create a new one.
                 conn_total = self.get_connections_total(host)
                 if not ret_conn and conn_total < self._host_pool_size:
-                    msg = 'keepalive: added one connection, len(self._hostmap'\
-                    '["%s"]): %s' % (host, conn_total + 1)
-                    om.out.debug(msg)
+                    if DEBUG:
+                        msg = 'keepalive: added one connection, len(self._hostmap'\
+                              '["%s"]): %s' % (host, conn_total + 1)
+                        om.out.debug(msg)
                     ret_conn = conn_factory(host)
                     self._used_cons.append(ret_conn)
                     self._hostmap[host].append(ret_conn)
 
-                if ret_conn is not None: # Good! We have one!
+                if ret_conn is not None:  # Good! We have one!
                     return ret_conn
-                else: # Maybe we should wait a little and try again 8^)
+                else:  # Maybe we should wait a little and try again 8^)
                     retry_count -= 1
                     time.sleep(0.3)
 
             msg = 'keepalive: been waiting too long for a pool connection.' \
-            ' I\'m giving up. Seems like the pool is full.'
-            om.out.debug(msg)
+                  ' I\'m giving up. Seems like the pool is full.'
+
+            if DEBUG:
+                om.out.debug(msg)
+
             raise w3afException(msg)
 
     def resize_pool(self, new_size):
@@ -480,14 +496,13 @@ class ConnectionManager:
         '''
         pass
 
-
     def get_all(self, host=None):
         '''
         If <host> is passed return a list containing the created connections
-        for that host. Otherwise return a dict with 'host: str' and 
+        for that host. Otherwise return a dict with 'host: str' and
         'conns: list' as items.
-        
-        @param host: Host
+
+        :param host: Host
         '''
         if host:
             return list(self._hostmap.get(host, []))
@@ -496,23 +511,32 @@ class ConnectionManager:
 
     def get_connections_total(self, host=None):
         '''
-        If <host> is None return the grand total of created connections; 
+        If <host> is None return the grand total of created connections;
         otherwise return the total of created conns. for <host>.
         '''
         values = self._hostmap.values() if (host is None) \
-                                            else [self._hostmap[host]]
+            else [self._hostmap[host]]
         return reduce(operator.add, map(len, values or [[]]))
 
-# Create the pool instance to be used. Intended to be shared by handlers.
-# See our HTTPHandler and HTTPSHandler class definitions below.
-connMgr = ConnectionManager()
 
-
-class KeepAliveHandler:
-
-    _cm = connMgr
-
+class KeepAliveHandler(object):
+    
     def __init__(self):
+        # Create the connection pool instance
+        #
+        # Note: In the initial code this connection manager was created at
+        #       the module level and was shared between the HTTP and HTTPS
+        #       keep alive handlers. This was buggy since at any point if
+        #       a user requested http://host.tld and then https://host.tld
+        #       a connection to the HTTP one was returned from the manager
+        #       for the HTTPS request.
+        #
+        #       This change lets us still keep a "persistent" connection
+        #       manager since our opener_settings and xurllib will only
+        #       create one instance for the KeepAliveHandler and use that
+        #       during the whole scan.
+        self._cm = ConnectionManager()
+        
         # Typically a urllib2.OpenerDirector instance. Set by the
         # urllib2 mechanism.
         self.parent = None
@@ -524,7 +548,6 @@ class KeepAliveHandler:
         self._curr_check_failures = IN_A_ROW_TIMEOUTS
         # Tail list filter factory function
         self._get_tail_filter = lambda: deque(maxlen=self._curr_check_failures)
-
 
     def get_open_connections(self):
         '''
@@ -541,7 +564,6 @@ class KeepAliveHandler:
         '''
         for conn in self._cm.get_all(host):
             self._cm.remove_connection(conn, host)
-            conn.close()
 
     def close_all(self):
         '''
@@ -550,7 +572,6 @@ class KeepAliveHandler:
         for conns in self._cm.get_all().values():
             for conn in conns:
                 self._cm.remove_connection(conn)
-                conn.close()
 
     def _request_closed(self, connection):
         '''
@@ -561,7 +582,6 @@ class KeepAliveHandler:
 
     def _remove_connection(self, host, conn):
         self._cm.remove_connection(conn, host)
-        conn.close()
 
     def do_open(self, req):
         '''
@@ -577,9 +597,9 @@ class KeepAliveHandler:
             # Check if all our last 'resp_statuses' were timeouts and raise
             # a w3afMustStopException if this is the case.
             if len(resp_statuses) == self._curr_check_failures and \
-                all(st == RESP_TIMEOUT for st in resp_statuses):
-                msg = ('w3af found too much consecutive timeouts. The remote '
-                'webserver seems to be unresponsive; please verify manually.')
+                    all(st == RESP_TIMEOUT for st in resp_statuses):
+                msg = ('w3af found too many consecutive timeouts. The remote '
+                       'webserver seems to be unresponsive; please verify manually.')
                 reason = 'Timeout while trying to reach target.'
                 raise w3afMustStopByKnownReasonExc(msg, reason=reason)
 
@@ -614,37 +634,42 @@ class KeepAliveHandler:
                     self._start_transaction(conn, req)
                     resp = conn.getresponse()
 
-        except (socket.error, httplib.HTTPException), err:
+        except socket.timeout:
             # We better discard this connection
             self._cm.remove_connection(conn, host)
-            if isinstance(err, socket.timeout):
-                resp_statuses.append(RESP_TIMEOUT)
-                _err = URLTimeoutError()
-            else:
-                resp_statuses.append(RESP_BAD)
-                if isinstance(err, httplib.HTTPException):
-                    err = repr(err)
-                _err = urllib2.URLError(err)
-            raise _err
+            resp_statuses.append(RESP_TIMEOUT)
+            raise URLTimeoutError()
 
-        # This response seems to be fine
-        resp_statuses.append(RESP_OK)
-
-        # If not a persistent connection, don't try to reuse it
-        if resp.will_close:
+        except socket.error:
+            # We better discard this connection
             self._cm.remove_connection(conn, host)
-
-        if DEBUG:
-            DEBUG.info("STATUS: %s, %s", resp.status, resp.reason)
-        resp._handler = self
-        resp._host = host
-        resp._url = req.get_full_url()
-        resp._connection = conn
-        resp.code = resp.status
-        resp.headers = resp.msg
-        resp.msg = resp.reason
-        return resp
-
+            resp_statuses.append(RESP_BAD)
+            raise
+        
+        except httplib.HTTPException:
+            # We better discard this connection
+            self._cm.remove_connection(conn, host)
+            resp_statuses.append(RESP_BAD)
+            raise
+        
+        else:
+            # This response seems to be fine
+            resp_statuses.append(RESP_OK)
+    
+            # If not a persistent connection, don't try to reuse it
+            if resp.will_close:
+                self._cm.remove_connection(conn, host)
+    
+            if DEBUG:
+                om.out.debug("STATUS: %s, %s" % (resp.status, resp.reason))
+            resp._handler = self
+            resp._host = host
+            resp._url = req.get_full_url()
+            resp._connection = conn
+            resp.code = resp.status
+            resp.headers = resp.msg
+            resp.msg = resp.reason
+            return resp
 
     def _reuse_connection(self, conn, req, host):
         '''
@@ -670,10 +695,9 @@ class KeepAliveHandler:
             # is that it's now possible this call will raise a DIFFERENT
             # exception
             if DEBUG:
-                DEBUG.error("unexpected exception - closing connection to %s" \
-                            " (%d)", host, id(conn))
+                om.out.error("unexpected exception - closing connection to %s"
+                             " (%d)" % (host, id(conn)))
             self._cm.remove_connection(conn, host)
-            conn.close()
             raise
 
         if r is None or r.version == 9:
@@ -682,12 +706,13 @@ class KeepAliveHandler:
             # the socket has been closed by the server since we
             # last used the connection.
             if DEBUG:
-                DEBUG.info("failed to re-use connection to %s (%d)", host,
-                           id(conn))
+                om.out.debug("failed to re-use connection to %s (%d)" % (host,
+                             id(conn)))
             r = None
         else:
             if DEBUG:
-                DEBUG.info("re-using connection to %s (%d)", host, id(conn))
+                om.out.debug(
+                    "re-using connection to %s (%d)" % (host, id(conn)))
             r._multiread = None
 
         return r
@@ -712,20 +737,19 @@ class KeepAliveHandler:
             else:
                 conn.putrequest(req.get_method(), req.get_selector(),
                                 skip_host=1, skip_accept_encoding=1)
-        except httplib.ImproperConnectionState:
+        except (socket.error, httplib.HTTPException):
             raise
-        except (socket.error, httplib.HTTPException), err:
-            raise urllib2.URLError(err)
         else:
-            # Add headers.
-            headerDict = dict(self.parent.addheaders)
-            headerDict.update(req.headers)
-            headerDict.update(req.unredirected_hdrs)
-    
-            for k, v in headerDict.iteritems():
-                conn.putheader(k, v)
+            # Add headers
+            header_dict = dict(self.parent.addheaders)
+            header_dict.update(req.headers)
+            header_dict.update(req.unredirected_hdrs)
+
+            for k, v in header_dict.iteritems():
+                conn.putheader(to_utf8_raw(k),
+                               to_utf8_raw(v))
             conn.endheaders()
-    
+
             if data is not None:
                 conn.send(data)
 
@@ -746,6 +770,7 @@ class HTTPHandler(KeepAliveHandler, urllib2.HTTPHandler):
     def _get_connection(self, host):
         return HTTPConnection(host)
 
+
 class HTTPSHandler(KeepAliveHandler, urllib2.HTTPSHandler):
     def __init__(self, proxy):
         KeepAliveHandler.__init__(self)
@@ -754,9 +779,9 @@ class HTTPSHandler(KeepAliveHandler, urllib2.HTTPSHandler):
         try:
             host, port = self._proxy.split(':')
         except:
-            msg = 'The proxy you are specifying is invalid! ('
-            msg += self._proxy + '), IP:Port is expected.'
-            raise w3afException(msg)
+            msg = 'The proxy you are specifying (%s) is invalid! The expected'\
+                  ' format is <ip_address>:<port> is expected.'
+            raise w3afException(msg % proxy)
 
         if not host or not port:
             self._proxy = None
@@ -766,17 +791,18 @@ class HTTPSHandler(KeepAliveHandler, urllib2.HTTPSHandler):
 
     def _get_connection(self, host):
         if self._proxy:
-            proxyHost, port = self._proxy.split(':')
-            return ProxyHTTPSConnection(proxyHost, port)
+            proxy_host, port = self._proxy.split(':')
+            return ProxyHTTPSConnection(proxy_host, port)
         else:
             return HTTPSConnection(host)
+
 
 class _HTTPConnection(httplib.HTTPConnection):
 
     def __init__(self, host, port=None, strict=None,
                  timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
         httplib.HTTPConnection.__init__(self, host, port, strict,
-                                        timeout=TIMEOUT)
+                                        timeout=timeout)
         self.is_fresh = True
 
 
@@ -784,7 +810,7 @@ class ProxyHTTPConnection(_HTTPConnection):
     '''
     this class is used to provide HTTPS CONNECT support.
     '''
-    _ports = {'http' : 80, 'https' : 443}
+    _ports = {'http': 80, 'https': 443}
 
     def __init__(self, host, port=None, strict=None):
         _HTTPConnection.__init__(self, host, port, strict)
@@ -794,7 +820,7 @@ class ProxyHTTPConnection(_HTTPConnection):
         #real host/port to be used to make CONNECT request to proxy
         proto, rest = urllib.splittype(url)
         if proto is None:
-            raise ValueError, "unknown URL type: %s" % url
+            raise ValueError("unknown URL type: %s" % url)
         #get host
         host, rest = urllib.splithost(rest)
         self._real_host = host
@@ -806,15 +832,28 @@ class ProxyHTTPConnection(_HTTPConnection):
             try:
                 self._real_port = self._ports[proto]
             except KeyError:
-                raise ValueError, "unknown protocol for: %s" % url
+                raise ValueError("unknown protocol for: %s" % url)
         else:
             self._real_port = int(port)
 
     def connect(self):
         httplib.HTTPConnection.connect(self)
+        
         #send proxy CONNECT request
-        self.send("CONNECT %s:%d HTTP/1.0\r\n\r\n" % (self._real_host,
-                                                      self._real_port))
+        new_line = '\r\n'
+        self.send("CONNECT %s:%d HTTP/1.1%s" % (self._real_host,
+                                                self._real_port,
+                                                new_line))
+        
+        connect_headers = {'Proxy-Connection': 'keep-alive',
+                           'Connection': 'keep-alive',
+                           'Host': self._real_host}
+        
+        for header_name, header_value in connect_headers.items():
+            self.send('%s: %s%s' % (header_name, header_value, new_line))
+        
+        self.send(new_line)
+        
         #expect a HTTP/1.0 200 Connection established
         response = self.response_class(self.sock, strict=self.strict,
                                        method=self._method)
@@ -823,13 +862,15 @@ class ProxyHTTPConnection(_HTTPConnection):
         if code != 200:
             #proxy returned and error, abort connection, and raise exception
             self.close()
-            raise socket.error, "Proxy connection failed: %d %s" % \
-            (code, message.strip())
+            raise socket.error("Proxy connection failed: %d %s" %
+                              (code, message.strip()))
         #eat up header block from proxy....
         while True:
-            #should not use directly fp probablu
+            #should not use directly fp probably
             line = response.fp.readline()
-            if line == '\r\n': break
+            if line == '\r\n':
+                break
+
 
 class ProxyHTTPSConnection(ProxyHTTPConnection):
     '''
@@ -849,15 +890,23 @@ class ProxyHTTPSConnection(ProxyHTTPConnection):
     def connect(self):
         ProxyHTTPConnection.connect(self)
         #make the sock ssl-aware
-        ssl = socket.ssl(self.sock, self.key_file, self.cert_file)
-        self.sock = httplib.FakeSocket(self.sock, ssl)
+        ssl_sock_inst = ssl.wrap_socket(self.sock, self.key_file,
+                                        self.cert_file)
+        self.sock = ssl_sock_inst
+
+def to_utf8_raw(unicode_or_str):
+    if isinstance(unicode_or_str, unicode):
+        # Is 'ignore' the best option here?
+        return unicode_or_str.encode('utf-8', 'ignore')
+    return unicode_or_str
 
 class HTTPConnection(_HTTPConnection):
     # use the modified response class
     response_class = HTTPResponse
 
     def __init__(self, host, port=None, strict=None):
-        _HTTPConnection.__init__(self, host, port, strict, TIMEOUT)
+        _HTTPConnection.__init__(self, host, port, strict)
+
 
 class HTTPSConnection(httplib.HTTPSConnection):
     response_class = HTTPResponse
@@ -865,5 +914,5 @@ class HTTPSConnection(httplib.HTTPSConnection):
     def __init__(self, host, port=None, key_file=None, cert_file=None,
                  strict=None):
         httplib.HTTPSConnection.__init__(self, host, port, key_file, cert_file,
-                                        strict, timeout=TIMEOUT)
+                                         strict)
         self.is_fresh = True

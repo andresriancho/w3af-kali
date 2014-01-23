@@ -3,7 +3,7 @@ objects.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,100 +19,65 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
-from core.controllers.basePlugin.baseGrepPlugin import baseGrepPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.info as info
-
-from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-
 from lxml import etree
 
+import core.data.kb.knowledge_base as kb
 
-class objects(baseGrepPlugin):
+from core.controllers.plugins.grep_plugin import GrepPlugin
+from core.data.bloomfilter.scalable_bloom import ScalableBloomFilter
+from core.data.kb.info import Info
+
+
+class objects(GrepPlugin):
     '''
     Grep every page for objects and applets.
-      
-    @author: Andres Riancho ( andres.riancho@gmail.com )
+
+    :author: Andres Riancho (andres.riancho@gmail.com)
     '''
 
     def __init__(self):
-        baseGrepPlugin.__init__(self)
-        
+        GrepPlugin.__init__(self)
+
         # Compile the XPATH
         self._tag_xpath = etree.XPath('//object | //applet')
         self._tag_names = ('object', 'applet')
-        self._already_analyzed = scalable_bloomfilter()
-        
+        self._already_analyzed = ScalableBloomFilter()
 
     def grep(self, request, response):
         '''
         Plugin entry point. Parse the object tags.
-        
-        @parameter request: The HTTP request object.
-        @parameter response: The HTTP response object
-        @return: None
+
+        :param request: The HTTP request object.
+        :param response: The HTTP response object
+        :return: None
         '''
-        url = response.getURL()
-        dom = response.getDOM()
-        
+        url = response.get_url()
+        dom = response.get_dom()
+
         if response.is_text_or_html() and dom is not None \
-           and url not in self._already_analyzed:
+        and url not in self._already_analyzed:
 
             self._already_analyzed.add(url)
-            
-            elem_list = self._tag_xpath( dom )
+
+            elem_list = self._tag_xpath(dom)
             for element in elem_list:
 
                 tag_name = element.tag
                 
-                i = info.info()
-                i.setPluginName(self.getName())
-                i.setName(tag_name.title() + ' tag')
-                i.setURL(url)
-                i.setId( response.id )
-                msg = 'The URL: "%s" has an "%s" tag. We recommend you download the '
-                msg +=  'client side code and analyze it manually.'
-                msg = msg % (i.getURI(), tag_name)
-                i.setDesc( msg )
-                i.addToHighlight( tag_name )
+                desc = 'The URL: "%s" has an "%s" tag. We recommend you download'\
+                      ' the client side code and analyze it manually.'
+                desc = desc % (response.get_uri(), tag_name)
 
-                kb.kb.append( self, tag_name, i )
-    
-    def setOptions( self, OptionList ):
-        pass
-    
-    def getOptions( self ):
-        '''
-        @return: A list of option objects for this plugin.
-        '''    
-        ol = optionList()
-        return ol
+                i = Info('Browser plugin content', desc, response.id,
+                         self.get_name())
+                i.set_url(url)
+                i.add_to_highlight(tag_name)
 
-    def end(self):
+                self.kb_append_uniq(self, tag_name, i, 'URL')
+
+    def get_long_desc(self):
         '''
-        This method is called when the plugin wont be used anymore.
-        '''
-        for obj_type in self._tag_names:
-            self.printUniq( kb.kb.getData( 'objects', obj_type ), 'URL' )
-                
-    def getPluginDeps( self ):
-        '''
-        @return: A list with the names of the plugins that should be run before the
-        current one.
-        '''
-        return []
-    
-    def getLongDesc( self ):
-        '''
-        @return: A DETAILED description of the plugin functions and features.
+        :return: A DETAILED description of the plugin functions and features.
         '''
         return '''
         This plugin greps every page for applets and other types of objects.

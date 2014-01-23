@@ -3,7 +3,7 @@ test_eval.py
 
 Copyright 2012 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,57 +19,58 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
-from ..helper import PluginTest, PluginConfig
+from plugins.tests.helper import PluginTest, PluginConfig
 
 
 class TestEval(PluginTest):
-    
+
     target_echo = 'http://moth/w3af/audit/eval/eval.php'
     target_delay = 'http://moth/w3af/audit/eval/eval-blind.php'
-    
+
     _run_configs = {
         'echo': {
             'target': target_echo + '?c=',
             'plugins': {
-                 'audit': (PluginConfig('eval',
-                                        ('useEcho', True, PluginConfig.BOOL)),
-                            ),
-                 }
-            },
+                'audit': (PluginConfig('eval',
+                                       ('use_echo', True, PluginConfig.BOOL)),
+                          ),
+            }
+        },
 
         'delay': {
             'target': target_delay + '?c=',
             'plugins': {
-                 'audit': (PluginConfig('eval',
-                                        ('useEcho', False, PluginConfig.BOOL)),
-                            ),
-                 }
-            }                    
+                'audit': (PluginConfig('eval',
+                                       ('use_echo', False, PluginConfig.BOOL)),
+                          ),
+            }
         }
-    
+    }
+
     def test_found_eval_echo(self):
         cfg = self._run_configs['echo']
         self._scan(cfg['target'], cfg['plugins'])
-        
-        vulns = self.kb.getData('eval', 'eval')
+
+        vulns = self.kb.get('eval', 'eval')
         self.assertEquals(1, len(vulns))
-        
+
         # Now some tests around specific details of the found vuln
         vuln = vulns[0]
-        self.assertEquals('eval() input injection vulnerability', vuln.getName())
-        self.assertEquals("c", vuln.getVar())
-        self.assertEquals(self.target_echo, str(vuln.getURL() ))
-    
+        self.assertEquals(
+            'eval() input injection vulnerability', vuln.get_name())
+        self.assertEquals("c", vuln.get_var())
+        self.assertEquals(self.target_echo, str(vuln.get_url()))
+
     def test_found_eval_delay(self):
         cfg = self._run_configs['delay']
         self._scan(cfg['target'], cfg['plugins'])
-        
-        vulns = self.kb.getData('eval', 'eval')
+
+        vulns = self.kb.get('eval', 'eval')
         self.assertEquals(1, len(vulns))
-        
+
         # Now some tests around specific details of the found vuln
         vuln = vulns[0]
-        self.assertEquals('eval() input injection vulnerability', vuln.getName())
-        self.assertEquals("c", vuln.getVar())
-        self.assertEquals(self.target_delay, str(vuln.getURL() ))
-        
+        self.assertEquals(
+            'eval() input injection vulnerability', vuln.get_name())
+        self.assertEquals("c", vuln.get_var())
+        self.assertEquals(self.target_delay, str(vuln.get_url()))

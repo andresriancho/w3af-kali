@@ -5,7 +5,7 @@ encode_decode.py
 
 Copyright 2008 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,52 +21,64 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
 import re
-from htmlentitydefs import name2codepoint
 import urllib
 import sys
+
+from htmlentitydefs import name2codepoint
+
+from core.data.misc.encoding import HTML_ENCODE
+from core.data.constants.encodings import DEFAULT_ENCODING
 
 # This pattern matches a character entity reference (a decimal numeric
 # references, a hexadecimal numeric reference, or a named reference).
 CHAR_REF_PATT = re.compile(r'&(#(\d+|x[\da-fA-F]+)|[\w.:-]+);?', re.U)
 
+
 def htmldecode(text, use_repr=False):
     """
-    Decode HTML entities in the given text.
-
-    >>> htmldecode('hola mundo') == 'hola mundo'
-    True
-    >>> htmldecode(u'hólá múndó') == u'hólá múndó'
-    True
-    >>> htmldecode(u'hola &#0443') == u'hola \u01bb' ## u'hola ƻ'
-    True
-    >>> htmldecode(u'hola mundo &#x41') == u'hola mundo A'
-    True
-    >>> htmldecode(u'&aacute;') == u'\xe1' ## u'á'
-    True
+    :return: Decode HTML entities in the given text and return it as unicode.
     """
-    
+
     # Internal function to do the work
     def entitydecode(match):
         entity = match.group(1)
-        
+
         # In some cases the entity is invalid and it triggers an exception
         # in unichr, that's why I need to have a try/except
         try:
             if entity.startswith('#x'):
                 return unichr(int(entity[2:], 16))
-            
+
             elif entity.startswith('#'):
                 return unichr(int(entity[1:]))
-            
+
             elif entity in name2codepoint:
                 return unichr(name2codepoint[entity])
             else:
                 return match.group(0)
         except:
             return match.group(0)
-            
+
+    # TODO: Requires more analysis
+    #
+    # re.sub decodes the text before applying the regular expression
+    # and if we don't decode it ourselves, the default settings are
+    # used, which can (in strange cases), trigger a UnicodeDecodeError
+    #
+    # In some cases, the text has special characters, which we want to
+    # encode in &#xYY format. We encode it like this because it is the
+    # "best thing we can do" with the available time we have
+    #
+    # It seems that I still need to learn more about the encoding/decoding
+    # stuff, since adding this isinstance fixes a bug that I can't reproduce
+    # with the test_encode_decode, even with the same input string :S
+    #
+    # My understanding of this isinstance is that we're basically preventing
+    # a "double decode" which can trigger UnicodeDecodeError
+    if not isinstance(text, unicode):
+        text = text.decode(DEFAULT_ENCODING, errors=HTML_ENCODE)
+
     # "main"
     return CHAR_REF_PATT.sub(entitydecode, text)
 
@@ -75,10 +87,10 @@ def urlencode(query, encoding, safe='/<>"\'=:()'):
     '''
     This is my version of urllib.urlencode. It adds "/" as a safe character
     and also adds support for "repeated parameter names".
-    
+
     Note:
         This function is EXPERIMENTAL and should be used with care ;)
-        
+
     Original documentation:
         Encode a sequence of two-element tuples or dictionary into a URL query
         string.
@@ -89,19 +101,6 @@ def urlencode(query, encoding, safe='/<>"\'=:()'):
         If the query arg is a sequence of two-element tuples, the order of the
         parameters in the output will match the order of parameters in the
         input.
-
-
-    >>> from urlparse import parse_qs
-    >>> urlencode(parse_qs(u'a=1&a=c'), 'latin1')
-    'a=1&a=c'
-    >>> urlencode(parse_qs(u'a=1&b=c'), 'latin1')
-    'a=1&b=c'
-    >>> urlencode(parse_qs(u'a=á&a=2'), 'latin1')
-    'a=%C3%A1&a=2'
-    >>> urlencode(u'a=b&c=d', 'utf-8')
-    Traceback (most recent call last):
-      ...
-    TypeError: not a valid non-string sequence or mapping object
     '''
 
     if hasattr(query, "items"):
@@ -123,18 +122,18 @@ def urlencode(query, encoding, safe='/<>"\'=:()'):
             try:
                 tb = sys.exc_info()[2]
                 raise TypeError, "not a valid non-string sequence or " \
-                        "mapping object", tb
+                    "mapping object", tb
             finally:
                 del tb
 
     l = []
     is_unicode = lambda x: isinstance(x, unicode)
-    
+
     for k, v in query:
         # first work with keys
         k = k.encode(encoding) if is_unicode(k) else str(k)
         k = urllib.quote(k, safe)
-        
+
         if isinstance(v, basestring):
             v = [v]
         else:
@@ -148,7 +147,7 @@ def urlencode(query, encoding, safe='/<>"\'=:()'):
                 toapp = k + '='
             else:
                 ele = ele.encode(encoding) if is_unicode(ele) else str(ele)
-                toapp = k + '=' + urllib.quote(ele, safe) 
+                toapp = k + '=' + urllib.quote(ele, safe)
             l.append(toapp)
-    
+
     return '&'.join(l)

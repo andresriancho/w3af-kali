@@ -1,10 +1,10 @@
 # This is the local file inclusion demo:
 
 plugins
-audit localFileInclude
-output console,textFile
-output config textFile
-set fileName output-w3af.txt
+audit lfi
+output console,text_file
+output config text_file
+set output_file output-w3af.txt
 #set verbose True
 back
 
@@ -20,10 +20,10 @@ back
 
 start
 
-assert len(kb.kb.getData('localFileInclude','localFileInclude')) == 1 
+
 
 exploit
-exploit localFileReader
+exploit local_file_reader
 interact 0
 
 payload tcp

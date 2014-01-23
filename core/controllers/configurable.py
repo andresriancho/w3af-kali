@@ -3,7 +3,7 @@ configurable.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,47 +20,46 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-class configurable(object):
+
+class Configurable(object):
     '''
     This is mostly "an interface", this "interface" states that all
-    classes that implement it, should
-    implement the following methods :
-        1. setOptions( optionsMap )
-        2. getOptions()
-        
-    @author: Andres Riancho ( andres.riancho@gmail.com )
+    classes that implement it, should implement the following methods:
+        1. set_options( options_list )
+        2. get_options()
+
+    :author: Andres Riancho (andres.riancho@gmail.com)
     '''
-    def setOptions(self, optionsMap):
+    def set_options(self, options_list):
         '''
-        Sets the Options given on the optionsMap to self. The options
+        Sets the Options given on the options_list to self. The options
         are the result of a user entering some data on a window that
         was constructed using the XML Options that was retrieved from
-        the plugin using getOptions()
-        
-        This method MUST be implemented on every configurable object. 
-        
-        @return: No value is returned.
-        ''' 
-        raise NotImplementedError('Configurable object is not implementing '
-                                  'required method setOptions')
-        
+        the plugin using get_options()
 
-    def getOptions(self):
+        This method MUST be implemented on every configurable object.
+
+        :return: No value is returned.
         '''
-        This method returns an optionList containing the options
+        raise NotImplementedError('Configurable object is not implementing '
+                                  'required method set_options')
+
+    def get_options(self):
+        '''
+        This method returns an OptionList containing the options
         objects that the configurable object has. Using this option
-        list the framework will build a window, a menu, or some 
+        list the framework will build a window, a menu, or some
         other input method to retrieve the info from the user.
-        
-        This method MUST be implemented on every plugin. 
-        
-        @return: optionList object.
+
+        This method MUST be implemented on every plugin.
+
+        :return: OptionList.
         '''
         raise NotImplementedError('Configurable object is not implementing '
-                                  'required method getOptions')
+                                  'required method get_options')
 
-    def getName(self):
+    def get_name(self):
         return type(self).__name__
-        
-    def getType(self):
+
+    def get_type(self):
         return 'configurable'

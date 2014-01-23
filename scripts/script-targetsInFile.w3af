@@ -1,12 +1,12 @@
 # Targets can be specified in a file like this:
 
 plugins
-discovery allowedMethods,webSpider
+infrastructure allowed_methods,web_spider
 discovery
-output console,textFile
+output console,text_file
 output
-output config textFile
-set fileName output-agfnet.txt
+output config text_file
+set output_file output-agfnet.txt
 set verbosity 10
 back
 output config console

@@ -1,13 +1,13 @@
 import re
-from plugins.attack.payloads.base_payload import base_payload
-from core.ui.consoleUi.tables import table
+from plugins.attack.payloads.base_payload import Payload
+from core.ui.console.tables import table
 
 
-class ssh_config_files(base_payload):
+class ssh_config_files(Payload):
     '''
     This payload shows SSH Server configuration files
     '''
-    def api_read(self, parameters):
+    def api_read(self):
         result = {}
         files = []
 
@@ -24,31 +24,31 @@ class ssh_config_files(base_payload):
         files.append('/etc/sshd_config')
         files.append('/etc/openssh/sshd_config')
 
-        for file in files:
-            hostkey = parse_hostkey(self.shell.read(file))
+        for file_ in files:
+            hostkey = parse_hostkey(self.shell.read(file_))
             for key in hostkey:
                 files.append(key)
 
-        for file in files:
-            content = self.shell.read(file)
+        for file_ in files:
+            content = self.shell.read(file_)
             if content:
-                result[file] = content
+                result[file_] = content
 
         return result
 
-    def run_read(self, parameters):
-        api_result = self.api_read( parameters )
-        
+    def run_read(self):
+        api_result = self.api_read()
+
         if not api_result:
             return 'SSH configuration files not found.'
         else:
             rows = []
-            rows.append( ['SSH configuration files'] ) 
-            rows.append( [] )
-            
+            rows.append(['SSH configuration files'])
+            rows.append([])
+
             for filename in api_result:
-                rows.append( [filename,] )
-                
-            result_table = table( rows )
-            result_table.draw( 80 )                    
+                rows.append([filename, ])
+
+            result_table = table(rows)
+            result_table.draw(80)
             return rows

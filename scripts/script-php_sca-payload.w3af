@@ -1,7 +1,7 @@
 
 plugins
-audit localFileInclude
-output console,textFile
+audit lfi
+output console,text_file
 output config console
 set verbose True
 back
@@ -14,21 +14,21 @@ back
 
 start
 
-assert len(kb.kb.getData('localFileInclude','localFileInclude')) == 1 
+
 
 exploit
-exploit localFileReader
+exploit local_file_reader
 interact 0
 
 payload php_sca 
 
 exit
-#exploit osCommandingShell
+#exploit os_commanding
 
 exit
 back
 
-assert len(kb.kb.getData('xss','xss')) == 2
+
 
 exit
 exit

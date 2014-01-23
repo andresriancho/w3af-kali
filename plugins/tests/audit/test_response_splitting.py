@@ -3,7 +3,7 @@ test_response_splitting.py
 
 Copyright 2012 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -18,52 +18,53 @@ You should have received a copy of the GNU General Public License
 along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
+from nose.plugins.attrib import attr
 
-from ..helper import PluginTest, PluginConfig
+from plugins.tests.helper import PluginTest, PluginConfig
 
 
+@attr('smoke')
 class TestResponseSplitting(PluginTest):
-    
+
     direct_url = 'http://moth/w3af/audit/response_splitting/response_splitting.php'
-    error_url = 'http://moth/w3af/audit/response_splitting/response_splitting_err.php' 
-    
+    error_url = 'http://moth/w3af/audit/response_splitting/response_splitting_err.php'
+
     _run_configs = {
         'cfg_direct': {
             'target': direct_url + '?header=None',
             'plugins': {
-                 'audit': (PluginConfig('responseSplitting'),),
-                 }
-            },
+                'audit': (PluginConfig('response_splitting'),),
+            }
+        },
 
         'cfg_error': {
             'target': error_url + '?header=None',
             'plugins': {
-                 'audit': (PluginConfig('responseSplitting'),),
-                 }
+                'audit': (PluginConfig('response_splitting'),),
             }
         }
-    
+    }
+
     def test_found_direct(self):
         cfg = self._run_configs['cfg_direct']
         self._scan(cfg['target'], cfg['plugins'])
-        vulns = self.kb.getData('responseSplitting', 'responseSplitting')
-        self.assertEquals(1, len(vulns))
-        
+        vulns = self.kb.get('response_splitting', 'response_splitting')
+        self.assertEquals(1, len(vulns), vulns)
+
         # Now some tests around specific details of the found vuln
         vuln = vulns[0]
-        self.assertEquals('Response splitting vulnerability', vuln.getName())
-        self.assertEquals(self.direct_url, str(vuln.getURL()))
-        self.assertEquals('header', vuln.getVar())
-    
+        self.assertEquals('Response splitting vulnerability', vuln.get_name())
+        self.assertEquals(self.direct_url, str(vuln.get_url()))
+        self.assertEquals('header', vuln.get_var())
+
     def test_found_error(self):
         cfg = self._run_configs['cfg_error']
         self._scan(cfg['target'], cfg['plugins'])
-        vulns = self.kb.getData('responseSplitting', 'responseSplitting')
-        self.assertEquals(1, len(vulns))
-        
+        vulns = self.kb.get('response_splitting', 'response_splitting')
+        self.assertEquals(1, len(vulns), vulns)
+
         # Now some tests around specific details of the found vuln
         vuln = vulns[0]
-        self.assertEquals('Parameter modifies headers', vuln.getName())
-        self.assertEquals(self.error_url, str(vuln.getURL()))
-        self.assertEquals('header', vuln.getVar())
-                
+        self.assertEquals('Parameter modifies response headers', vuln.get_name())
+        self.assertEquals(self.error_url, str(vuln.get_url()))
+        self.assertEquals('header', vuln.get_var())

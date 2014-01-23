@@ -6,16 +6,16 @@ back
 
 plugins
 
-discovery webSpider
-discovery config webSpider
-set onlyForward True
+crawl web_spider
+crawl config web_spider
+set only_forward True
 back
 
 audit xss
 
-output console,textFile
-output config textFile
-set fileName output-w3af.txt
+output console,text_file
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 back
@@ -26,6 +26,6 @@ back
 
 start
 
-assert len( kb.kb.getData('xss', 'xss') ) == 1
+
 
 exit

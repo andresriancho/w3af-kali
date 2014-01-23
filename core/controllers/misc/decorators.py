@@ -3,7 +3,7 @@ decorators.py
 
 Copyright 2011 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -18,15 +18,15 @@ You should have received a copy of the GNU General Public License
 along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
-
 import math
 import time
+
 
 def runonce(exc_class=Exception):
     '''
     Function to decorate methods that should be called only once.
-    
-    @param exc_class: The Exception class to be raised when the method has
+
+    :param exc_class: The Exception class to be raised when the method has
         already been called.
     '''
     def runonce_meth(meth):
@@ -38,35 +38,36 @@ def runonce(exc_class=Exception):
         return inner_runonce_meth
     return runonce_meth
 
+
 def retry(tries, delay=1, backoff=2, exc_class=None, err_msg=''):
     '''
     Retries a function or method if an exception was raised.
-    
-    @param tries: Number of attempts. Must be >= 1.
-    @param delay: Initial delay before retrying. Must be nonnegative.
-    @param backoff: Indicates how much the delay should lengthen after
+
+    :param tries: Number of attempts. Must be >= 1.
+    :param delay: Initial delay before retrying. Must be nonnegative.
+    :param backoff: Indicates how much the delay should lengthen after
         each failure. Must greater than 1.
-    @param exc_class: Exception class to use if all attempts have been
+    :param exc_class: Exception class to use if all attempts have been
         exhausted.
-    @param err_msg: Error message to use when an instance of `exc_class`
+    :param err_msg: Error message to use when an instance of `exc_class`
         is raised. If no value is passed the string representation of the
         current exception is used.
     '''
 
     if backoff <= 1:
         raise ValueError("'backoff' must be greater than 1")
-    
+
     tries = math.floor(tries)
     if tries < 1:
         raise ValueError("'tries' must be 1 or greater.")
-    
+
     if delay < 0:
         raise ValueError("'delay' must be nonnegative.")
-    
+
     def deco_retry(f):
         def f_retry(*args, **kwargs):
             mtries, mdelay = tries - 1, delay
-            
+
             while mtries >= 0:
                 try:
                     rv = f(*args, **kwargs)
@@ -78,7 +79,7 @@ def retry(tries, delay=1, backoff=2, exc_class=None, err_msg=''):
                         raise
                 else:
                     return rv
-                                
+
                 mtries -= 1
                 time.sleep(mdelay)
                 mdelay *= backoff

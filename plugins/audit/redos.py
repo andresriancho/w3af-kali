@@ -3,7 +3,7 @@ redos.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,192 +21,108 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 from __future__ import with_statement
 
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
-from core.controllers.basePlugin.baseAuditPlugin import baseAuditPlugin
-from core.data.fuzzer.fuzzer import createMutants
-
-# kb stuff
-import core.data.kb.vuln as vuln
-import core.data.kb.info as info
 import core.data.constants.severity as severity
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.config as cf
+import core.data.kb.knowledge_base as kb
 
-import re
+from core.controllers.plugins.audit_plugin import AuditPlugin
+from core.controllers.delay_detection.aprox_delay_controller import (AproxDelayController,
+                                                                     EXPONENTIALLY)
+from core.controllers.delay_detection.aprox_delay import AproxDelay
+from core.data.fuzzer.fuzzer import create_mutants
+from core.data.kb.vuln import Vuln
 
 
-class redos(baseAuditPlugin):
+class redos(AuditPlugin):
     '''
     Find ReDoS vulnerabilities.
-    
-    @author: Sebastien Duquette ( sebastien.duquette@gmail.com )
-    @author: Andres Riancho ( andres.riancho@gmail.com )
+
+    :author: Sebastien Duquette ( sebastien.duquette@gmail.com )
+    :author: Andres Riancho (andres.riancho@gmail.com)
     '''
     def __init__(self):
-        baseAuditPlugin.__init__(self)
-        
-        # Some internal variables
-        # The wait time of the unfuzzed request
-        self._original_wait_time = 0
-        
-        # The wait time of the first test I'm going to perform
-        self._wait_time = 1
-    
-    def audit(self, freq ):
+        AuditPlugin.__init__(self)
+
+    def audit(self, freq, orig_response):
         '''
         Tests an URL for ReDoS vulnerabilities using time delays.
-        
-        @param freq: A fuzzableRequest
+
+        :param freq: A FuzzableRequest
         '''
-        #
-        #   We know for a fact that PHP is NOT vulnerable to this attack
-        #
-        #   TODO: Add other frameworks that are not vulnerable!
-        #
-        for powered_by in kb.kb.getData('serverHeader','poweredByString'):
-            if 'php' in powered_by.lower():
-                return
-        
-        if 'php' in freq.getURL().getExtension().lower():
+        if self.ignore_this_request(freq):
             return
-        
-        om.out.debug( 'redos plugin is testing: ' + freq.getURL() )
-    
-        # Send the fuzzableRequest without any fuzzing, so we can measure the response 
-        # time of this script in order to compare it later
-        res = self._uri_opener.send_mutant(freq, grep=False)
-        self._original_wait_time = res.getWaitTime()
-        
-        # Prepare the strings to create the mutants
-        patterns_list = self._get_wait_patterns(run=1)
-        mutants = createMutants( freq , patterns_list )
-        
-        for mutant in mutants:
-            # Only spawn a thread if the mutant has a modified variable
-            # that has no reported bugs in the kb
-            if self._has_no_bug(mutant):
-                args = (mutant,)
-                kwds = {'callback': self._analyze_wait }
-                self._run_async(meth=self._uri_opener.send_mutant, args=args,
-                                                                    kwds=kwds)
+
+        fake_mutants = create_mutants(freq, ['', ])
+
+        for mutant in fake_mutants:
+            for delay_obj in self.get_delays():
                 
-        self._join()
+                adc = AproxDelayController(mutant, delay_obj, self._uri_opener,
+                                           delay_setting=EXPONENTIALLY)
+                success, responses = adc.delay_is_controlled()
+    
+                if success:
+                    # Now I can be sure that I found a vuln, we control the
+                    # response time with the delay
+                    desc = 'ReDoS was found at: %s' % mutant.found_at()
+                    
+                    response_ids = [r.id for r in responses]
+                    
+                    v = Vuln.from_mutant('ReDoS vulnerability', desc,
+                                         severity.MEDIUM, response_ids,
+                                         self.get_name(), mutant)
+                    
+                    self.kb_append_uniq(self, 'redos', v)
+                    break
 
-    def _analyze_wait( self, mutant, response ):
+    def get_delays(self):
         '''
-        Analyze results of the _send_mutant method that was sent in the audit method.
+        IMPORTANT NOTE: I need different instances of the delay objects in
+                        order to avoid any threading issues. 
         '''
-        with self._plugin_lock:
-            
-            #
-            #   I will only report the vulnerability once.
-            #
-            if self._has_no_bug(mutant, pname='preg_replace',
-                                kb_varname='preg_replace'):
+        return [ AproxDelay('%sX!',     'a', 10),
+                 AproxDelay('a@a.%sX!', 'a', 10),
+                 AproxDelay('%s9!',     '1', 10)]
                 
-                if response.getWaitTime() > (self._original_wait_time + self._wait_time) :
-                    
-                    # This could be because of a ReDoS vuln, an error that generates a delay in the
-                    # response or simply a network delay; so I'll resend changing the length and see
-                    # what happens.
-                    
-                    first_wait_time = response.getWaitTime()
-                    
-                    # Replace the old pattern with the new one:
-                    original_wait_param = mutant.getModValue()
-                    more_wait_param = original_wait_param.replace( 'X', 'XX' )
-                    more_wait_param = more_wait_param.replace( '9', '99' )
-                    mutant.setModValue( more_wait_param )
-                    
-                    # send
-                    response = self._uri_opener.send_mutant(mutant)
-                    
-                    # compare the times
-                    if response.getWaitTime() > (first_wait_time * 1.5):
-                        # Now I can be sure that I found a vuln, I control the time of the response.
-                        v = vuln.vuln( mutant )
-                        v.setPluginName(self.getName())
-                        v.setName( 'ReDoS vulnerability' )
-                        v.setSeverity(severity.MEDIUM)
-                        v.setDesc( 'ReDoS was found at: ' + mutant.foundAt() )
-                        v.setDc( mutant.getDc() )
-                        v.setId( response.id )
-                        v.setURI( response.getURI() )
-                        kb.kb.append( self, 'redos', v )
-
-                    else:
-                        # The first delay existed... I must report something...
-                        i = info.info()
-                        i.setPluginName(self.getName())
-                        i.setName('Possible ReDoS vulnerability')
-                        i.setId( response.id )
-                        i.setDc( mutant.getDc() )
-                        i.setMethod( mutant.getMethod() )
-                        msg = 'A possible ReDoS was found at: ' + mutant.foundAt() 
-                        msg += ' . Please review manually.'
-                        i.setDesc( msg )
-                        
-                        # Just printing to the debug log, we're not sure about this
-                        # finding and we don't want to clog the report with false
-                        # positives
-                        om.out.debug( str(i) )
-
-    
-    def end(self):
+    def ignore_this_request(self, freq):
         '''
-        This method is called when the plugin wont be used anymore.
-        '''
-        self._join()
-        self.printUniq( kb.kb.getData( 'redos', 'redos' ), 'VAR' )
-    
-    def _get_wait_patterns( self, run ):
-        '''
-        @return: This method returns a list of commands to try to execute in order
-        to introduce a time delay.
-        '''
-        patterns = []
+        We know for a fact that PHP is NOT vulnerable to this attack
+        TODO: Add other frameworks that are not vulnerable!
         
-        patterns.append('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaX!')
-        patterns.append('a@a.aaaaaaaaaaaaaaaaaaaaaaX!')
-        patterns.append('1111111111111111111111111111111119!')
-        
-        return patterns
-    
-    def getOptions( self ):
+        :return: True if the request should be ignored.
         '''
-        @return: A list of option objects for this plugin.
-        '''    
-        ol = optionList()
-        return ol
+        if 'php' in freq.get_url().get_extension().lower():
+            return True
+        
+        # TODO: Improve the performance for this method since it's doing
+        #       two potentially unnecessary SELECT statements to the DB
+        #       maybe the way to avoid this is to use the observer pattern
+        #       suggested here https://github.com/andresriancho/w3af/issues/54
+        #       subscribe to changes to these kb locations and perform checks
+        #       on local attributes which are updated only when the kb sends
+        #       us some information
+        for powered_by in kb.kb.raw_read('server_header', 'powered_by_string'):
+            if 'php' in powered_by.lower():
+                return True
 
-    def setOptions( self, OptionList ):
-        '''
-        This method sets all the options that are configured using the user interface 
-        generated by the framework using the result of getOptions().
+        for preg_replace_vuln in kb.kb.get('preg_replace', 'preg_replace'):
+            if preg_replace_vuln.get_url() == freq.get_url():
+                return True
         
-        @parameter OptionList: A dictionary with the options for the plugin.
-        @return: No value is returned.
-        ''' 
-        pass
-    
-    def getPluginDeps( self ):
+        return False
+
+    def get_plugin_deps(self):
         '''
-        @return: A list with the names of the plugins that should be run before the
-        current one.
+        :return: A list with the names of the plugins that should be run before
+                 the current one.
         '''
-        return ['discovery.serverHeader']
-    
-    def getLongDesc( self ):
+        return ['infrastructure.server_header']
+
+    def get_long_desc(self):
         '''
-        @return: A DETAILED description of the plugin functions and features.
+        :return: A DETAILED description of the plugin functions and features.
         '''
         return '''
         This plugin finds ReDoS (regular expression DoS) vulnerabilities as
         explained here:
-                    - http://www.checkmarx.com/NewsDetails.aspx?id=23 
+            - http://en.wikipedia.org/wiki/ReDoS
         '''

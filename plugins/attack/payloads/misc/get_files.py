@@ -1,14 +1,15 @@
-import core.data.kb.knowledgeBase as kb
+import core.data.kb.knowledge_base as kb
 import re
 
 files = []
 
-def check_files( file_list ):
+
+def check_files(file_list):
     '''
     Verify if a list of files exist and have content.
-    
-    @parameter file_list: The list of files to check.
-    @return: The list of files that exist.
+
+    :param file_list: The list of files to check.
+    :return: The list of files that exist.
     '''
     checked = []
     for file in file_list:
@@ -19,7 +20,8 @@ def check_files( file_list ):
             pass
     return checked
 
-def get_files( file_content ):
+
+def get_files(file_content):
     files = re.findall('.*', file_content, re.MULTILINE)
     if files:
         #files = check_files(files)
@@ -29,5 +31,3 @@ def get_files( file_content ):
         return files
     else:
         return ''
-
-

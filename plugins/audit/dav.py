@@ -3,7 +3,7 @@ dav.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,58 +19,58 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
-from core.controllers.basePlugin.baseAuditPlugin import baseAuditPlugin
-
-import core.data.kb.knowledgeBase as kb
-import core.data.kb.vuln as vuln
-import core.data.kb.info as info
 import core.data.constants.severity as severity
-from core.data.parsers.urlParser import url_object
 
-from core.data.bloomfilter.bloomfilter import scalable_bloomfilter
-from core.controllers.coreHelpers.fingerprint_404 import is_404
+from core.data.bloomfilter.scalable_bloom import ScalableBloomFilter
+from core.data.fuzzer.utils import rand_alpha, rand_alnum
+from core.data.dc.headers import Headers
+from core.data.kb.vuln import Vuln
+from core.data.kb.info import Info
+from core.controllers.plugins.audit_plugin import AuditPlugin
 
-from core.controllers.w3afException import w3afException
-from core.data.fuzzer.fuzzer import createRandAlpha, createRandAlNum
 
-
-class dav(baseAuditPlugin):
+class dav(AuditPlugin):
     '''
     Verify if the WebDAV module is properly configured.
-    
-    @author: Andres Riancho ( andres.riancho@gmail.com )
+
+    :author: Andres Riancho (andres.riancho@gmail.com)
     '''
 
     def __init__(self):
-        baseAuditPlugin.__init__(self)
-        
-        # Internal variables
-        self._already_tested_dirs = scalable_bloomfilter()
+        AuditPlugin.__init__(self)
 
-    def audit(self, freq ):
+        # Internal variables
+        self._already_tested_dirs = ScalableBloomFilter()
+
+    def audit(self, freq, orig_response):
         '''
         Searches for file upload vulns using PUT method.
-        
-        @param freq: A fuzzableRequest
+
+        :param freq: A FuzzableRequest
         '''
         # Start
-        domain_path = freq.getURL().getDomainPath()
+        domain_path = freq.get_url().get_domain_path()
         if domain_path not in self._already_tested_dirs:
-            om.out.debug( 'dav plugin is testing: ' + freq.getURL() )
-            self._already_tested_dirs.add( domain_path )
-            
-            self._PUT( domain_path )
-            self._PROPFIND( domain_path )
-            self._SEARCH( domain_path )
-            
-    def _SEARCH( self, domain_path ):
+            self._already_tested_dirs.add(domain_path)
+            #
+            #    Send the three requests in different threads, store the
+            #    apply_result objects in order to be able to "join()" in the
+            #    next for loop
+            #
+            #    TODO: This seems to be a fairly common use case: Send args to N
+            #    functions that need to be run in different threads. If possible
+            #    code this into threadpool.py in order to make this code clearer
+            results = []
+            for func in [self._PUT, self._PROPFIND, self._SEARCH]:
+                apply_res = self.worker_pool.apply_async(func,
+                                                         (domain_path,))
+                results.append(apply_res)
+
+            for apply_res in results:
+                apply_res.get()
+
+    #pylint: disable=C0103
+    def _SEARCH(self, domain_path):
         '''
         Test SEARCH method.
         '''
@@ -81,24 +81,25 @@ class dav(baseAuditPlugin):
         content += "</g:sql>\r\n"
         content += "</g:searchrequest>\r\n"
 
-        res = self._uri_opener.SEARCH( domain_path , data=content )
-        
-        content_matches =  '<a:response>' in res or '<a:status>' in res or 'xmlns:a="DAV:"' in res
-        
-        if content_matches and res.getCode() in xrange(200, 300):
-            v = vuln.vuln()
-            v.setPluginName(self.getName())
-            v.setURL( res.getURL() )
-            v.setId( res.id )
-            v.setSeverity(severity.MEDIUM)
-            v.setName( 'Insecure DAV configuration' )
-            v.setMethod( 'SEARCH' )
-            msg = 'Directory listing with HTTP SEARCH method was found at directory: "'
-            msg += domain_path + '"'
-            v.setDesc( msg )
-            kb.kb.append( self, 'dav', v )
+        res = self._uri_opener.SEARCH(domain_path, data=content)
+
+        content_matches = '<a:response>' in res or '<a:status>' in res or \
+            'xmlns:a="DAV:"' in res
+
+        if content_matches and res.get_code() in xrange(200, 300):
+            msg = 'Directory listing with HTTP SEARCH method was found at' \
+                  'directory: "%s".' % domain_path
+                  
+            v = Vuln('Insecure DAV configuration', msg, severity.MEDIUM,
+                     res.id, self.get_name())
+
+            v.set_url(res.get_url())
+            v.set_method('SEARCH')
             
-    def _PROPFIND( self, domain_path ):
+            self.kb_append(self, 'dav', v)
+
+    #pylint: disable=C0103
+    def _PROPFIND(self, domain_path):
         '''
         Test PROPFIND method
         '''
@@ -108,113 +109,94 @@ class dav(baseAuditPlugin):
         content += "<a:displayname:/>\r\n"
         content += "</a:prop>\r\n"
         content += "</a:propfind>\r\n"
-        
-        res = self._uri_opener.PROPFIND( domain_path , data=content, headers={'Depth': '1'} )
-        # Remember that httpResponse objects have a faster "__in__" than
-        # the one in strings; so string in response.getBody() is slower than
-        # string in response               
-        if "D:href" in res and res.getCode() in xrange(200, 300):
-            v = vuln.vuln()
-            v.setPluginName(self.getName())
-            v.setURL( res.getURL() )
-            v.setId( res.id )
-            v.setSeverity(severity.MEDIUM)
-            v.setName( 'Insecure DAV configuration' )
-            v.setMethod( 'PROPFIND' )
-            msg = 'Directory listing with HTTP PROPFIND method was found at directory: "'
-            msg += domain_path + '"'
-            v.setDesc( msg )
-            kb.kb.append( self, 'dav', v )
-        
-    def _PUT( self, domain_path ):
+
+        hdrs = Headers([('Depth', '1')])
+        res = self._uri_opener.PROPFIND(
+            domain_path, data=content, headers=hdrs)
+
+        if "D:href" in res and res.get_code() in xrange(200, 300):
+            msg = 'Directory listing with HTTP PROPFIND method was found at' \
+                  ' directory: "%s".' % domain_path
+
+            v = Vuln('Insecure DAV configuration', msg, severity.MEDIUM,
+                     res.id, self.get_name())
+
+            v.set_url(res.get_url())
+            v.set_method('PROPFIND')
+
+            self.kb_append(self, 'dav', v)
+
+    #pylint: disable=C0103
+    def _PUT(self, domain_path):
         '''
         Tests PUT method.
         '''
         # upload
-        url = domain_path.urlJoin( createRandAlpha( 5 ) )
-        rndContent = createRandAlNum(6)
-        put_response = self._uri_opener.PUT( url , data=rndContent )
-        
-        # check if uploaded
-        res = self._uri_opener.GET( url , cache=True )
-        if res.getBody() == rndContent:
-            v = vuln.vuln()
-            v.setPluginName(self.getName())
-            v.setURL( url )
-            v.setId( [put_response.id, res.id] )
-            v.setSeverity(severity.HIGH)
-            v.setName( 'Insecure DAV configuration' )
-            v.setMethod( 'PUT' )
-            msg = 'File upload with HTTP PUT method was found at resource: "' + domain_path + '".'
-            msg += ' A test file was uploaded to: "' + res.getURL() + '".'
-            v.setDesc( msg )
-            kb.kb.append( self, 'dav', v )
-        
-        # Report some common errors
-        elif put_response.getCode() == 500:
-            i = info.info()
-            i.setPluginName(self.getName())
-            i.setURL( url )
-            i.setId( res.id )
-            i.setName( 'DAV incorrect configuration' )
-            i.setMethod( 'PUT' )
-            msg = 'DAV seems to be incorrectly configured. The web server answered with a 500'
-            msg += ' error code. In most cases, this means that the DAV extension failed in'
-            msg += ' some way. This error was found at: "' + put_response.getURL() + '".'
-            i.setDesc( msg )
-            kb.kb.append( self, 'dav', i )
-        
-        # Report some common errors
-        elif put_response.getCode() == 403:
-            i = info.info()
-            i.setPluginName(self.getName())
-            i.setURL( url )
-            i.setId( [put_response.id, res.id] )
-            i.setName( 'DAV insufficient privileges' )
-            i.setMethod( 'PUT' )
-            msg = 'DAV seems to be correctly configured and allowing you to use the PUT method'
-            msg +=' but the directory does not have the correct permissions that would allow'
-            msg += ' the web server to write to it. This error was found at: "'
-            msg += put_response.getURL() + '".'
-            i.setDesc( msg )
-            kb.kb.append( self, 'dav', i )
-            
-    def end(self):
-        '''
-        This method is called when the plugin wont be used anymore.
-        '''
-        self.printUniq( kb.kb.getData( 'dav', 'dav' ), 'VAR' )
-        
-    def getOptions( self ):
-        '''
-        @return: A list of option objects for this plugin.
-        '''    
-        ol = optionList()
-        return ol
-        
-    def setOptions( self, optionMap ):
-        '''
-        This method sets all the options that are configured using the user interface 
-        generated by the framework using the result of getOptions().
-        
-        @parameter OptionList: A dictionary with the options for the plugin.
-        @return: No value is returned.
-        ''' 
-        pass
+        url = domain_path.url_join(rand_alpha(5))
+        rnd_content = rand_alnum(6)
+        put_response = self._uri_opener.PUT(url, data=rnd_content)
 
-    def getPluginDeps( self ):
+        # check if uploaded
+        res = self._uri_opener.GET(url, cache=True)
+        if res.get_body() == rnd_content:
+            msg = 'File upload with HTTP PUT method was found at resource:' \
+                  ' "%s". A test file was uploaded to: "%s".'
+            msg = msg % (domain_path, res.get_url())
+            
+            v = Vuln('Insecure DAV configuration', msg, severity.HIGH,
+                     [put_response.id, res.id], self.get_name())
+
+            v.set_url(url)
+            v.set_method('PUT')
+            
+            self.kb_append(self, 'dav', v)
+
+        # Report some common errors
+        elif put_response.get_code() == 500:
+            msg = 'DAV seems to be incorrectly configured. The web server' \
+                  ' answered with a 500 error code. In most cases, this means'\
+                  ' that the DAV extension failed in some way. This error was'\
+                  ' found at: "%s".' % put_response.get_url()
+
+            i = Info('DAV incorrect configuration', msg, res.id, self.get_name())
+
+            i.set_url(url)
+            i.set_method('PUT')
+            
+            self.kb_append(self, 'dav', i)
+
+        # Report some common errors
+        elif put_response.get_code() == 403:
+            msg = 'DAV seems to be correctly configured and allowing you to'\
+                  ' use the PUT method but the directory does not have the'\
+                  ' correct permissions that would allow the web server to'\
+                  ' write to it. This error was found at: "%s".'
+            msg = msg % put_response.get_url()
+            
+            i = Info('DAV incorrect configuration', msg,
+                     [put_response.id, res.id], self.get_name())
+
+            i.set_url(url)
+            i.set_method('PUT')
+            
+            self.kb_append(self, 'dav', i)
+
+    def get_plugin_deps(self):
         '''
-        @return: A list with the names of the plugins that should be run before the
-        current one.
+        :return: A list with the names of the plugins that should be run before
+                 the current one.
         '''
-        return ['discovery.allowedMethods', 'discovery.serverHeader']
-    
-    def getLongDesc( self ):
+        return ['infrastructure.allowed_methods',
+                'infrastructure.server_header']
+
+    def get_long_desc(self):
         '''
-        @return: A DETAILED description of the plugin functions and features.
+        :return: A DETAILED description of the plugin functions and features.
         '''
         return '''
-        This plugin finds WebDAV configuration errors. These errors are generally server configuration errors rather
-        than a web application errors. To check for vulnerabilities of this kind, the plugin will try to PUT a file on a directory
-        that has WebDAV enabled, if the file is uploaded successfully, then we have found a bug.
+        This plugin finds WebDAV configuration errors. These errors are generally
+        server configuration errors rather than a web application errors. To
+        check for vulnerabilities of this kind, the plugin will try to PUT a
+        file on a directory that has WebDAV enabled, if the file is uploaded
+        successfully, then we have found a bug.
         '''

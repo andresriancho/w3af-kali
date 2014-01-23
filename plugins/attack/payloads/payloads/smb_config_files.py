@@ -1,13 +1,13 @@
 import re
-from plugins.attack.payloads.base_payload import base_payload
-from core.ui.consoleUi.tables import table
+from plugins.attack.payloads.base_payload import Payload
+from core.ui.console.tables import table
 
 
-class smb_config_files(base_payload):
+class smb_config_files(Payload):
     '''
     This payload shows SMB configuration files
     '''
-    def api_read(self, parameters):
+    def api_read(self):
         result = {}
         files = []
 
@@ -25,22 +25,22 @@ class smb_config_files(base_payload):
         for file in files:
             content = self.shell.read(file)
             if content:
-                result[ file ] = content
+                result[file] = content
         return result
-        
-    def run_read(self, parameters):
-        api_result = self.api_read( parameters )
-        
+
+    def run_read(self):
+        api_result = self.api_read()
+
         if not api_result:
             return 'No SMB configuration files were identified.'
         else:
             rows = []
-            rows.append( ['SMB configuration files'] ) 
-            rows.append( [] )
+            rows.append(['SMB configuration files'])
+            rows.append([])
             for filename in api_result:
-                rows.append( [filename,] )
+                rows.append([filename, ])
 
-            result_table = table( rows )
-            result_table.draw( 80 )                    
+            result_table = table(rows)
+            result_table.draw(80)
 
             return rows
