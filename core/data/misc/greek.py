@@ -3,7 +3,7 @@ greek.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,13 +21,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 _abbrevs = [
-    (1<<50L, 'P'),
-    (1<<40L, 'T'), 
-    (1<<30L, 'G'), 
-    (1<<20L, 'M'), 
-    (1<<10L, 'k'),
+    (1 << 50L, 'P'),
+    (1 << 40L, 'T'),
+    (1 << 30L, 'G'),
+    (1 << 20L, 'M'),
+    (1 << 10L, 'k'),
     (1, '')
-    ]
+]
+
 
 def greek(size):
     """
@@ -36,5 +37,4 @@ def greek(size):
     for factor, suffix in _abbrevs:
         if size > factor:
             break
-    return str( int(size/factor) ) + suffix
-    
+    return str(int(size / factor)) + suffix

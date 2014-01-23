@@ -1,24 +1,24 @@
-# This scripts tests the fingerPKS plugin
+# This scripts tests the finger_pks plugin
 
 plugins
-output console,textFile
-output config textFile
-set fileName output-w3af.txt
+output console,text_file
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console
 set verbose False
 back
 
-discovery fingerPKS
+discovery finger_pks
 back
 
 target
-set target http://www.cybsec.com/
+set target http://www.bonsai-sec.com/
 back
 
 start
 
-assert len(kb.kb.getData('mails','mails')) >= 20
+
 
 exit

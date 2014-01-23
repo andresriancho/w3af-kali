@@ -1,9 +1,9 @@
 '''
-disk_item.py
+DiskItem.py
 
 Copyright 2012 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,10 +21,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 
-class disk_item(object):
+class DiskItem(object):
     '''
-    This is a very simple class that's intented to be a base class for objects
-    that want to be stored in a disk_list of disk_set. It basically exposes the
+    This is a very simple class that's intended to be a base class for objects
+    that want to be stored in a DiskList of DiskSet. It basically exposes the
     "get_eq_attrs" method which returns a list with the names of the attributes
     that make this object "unique".
     '''

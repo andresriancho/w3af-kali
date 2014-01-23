@@ -4,10 +4,10 @@ misc-settings
 set fuzzFileContent True
 back
 plugins
-output console,textFile
+output console,text_file
 output
-output config textFile
-set fileName output-w3af.txt
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console

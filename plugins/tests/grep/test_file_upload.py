@@ -3,7 +3,7 @@ test_file_upload.py
 
 Copyright 2012 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,58 +19,56 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-from plugins.grep.fileUpload import fileUpload
 import unittest
 
-from core.data.url.httpResponse import httpResponse
-from core.data.request.fuzzableRequest import fuzzableRequest
-from core.data.parsers.urlParser import url_object
-import core.data.kb.knowledgeBase as kb
+import core.data.kb.knowledge_base as kb
+
+from plugins.grep.file_upload import file_upload
+from core.data.dc.headers import Headers
+from core.data.url.HTTPResponse import HTTPResponse
+from core.data.request.fuzzable_request import FuzzableRequest
+from core.data.parsers.url import URL
 
 
 class test_file_upload(unittest.TestCase):
-    
+
     def setUp(self):
-        self.plugin = fileUpload()
+        self.plugin = file_upload()
+        kb.kb.clear('file_upload', 'file_upload')
 
-        from core.controllers.coreHelpers.fingerprint_404 import fingerprint_404_singleton
-        from core.data.url.xUrllib import xUrllib
-        f = fingerprint_404_singleton( [False, False, False] )
-        f.set_urlopener( xUrllib() )
-        kb.kb.save('fileUpload', 'fileUpload', [])
+    def tearDown(self):
+        self.plugin.end()
 
-        
     def test_simple(self):
         body = 'header <form><input type="file"></form> footer'
-        url = url_object('http://www.w3af.com/')
-        headers = {'content-type': 'text/html'}
-        response = httpResponse(200, body , headers, url, url)
-        request = fuzzableRequest(url, method='GET')
+        url = URL('http://www.w3af.com/')
+        headers = Headers([('content-type', 'text/html')])
+        response = HTTPResponse(200, body, headers, url, url, _id=1)
+        request = FuzzableRequest(url, method='GET')
         self.plugin.grep(request, response)
-        
-        self.assertEquals( len(kb.kb.getData('fileUpload', 'fileUpload')), 1 )
-        i = kb.kb.getData('fileUpload', 'fileUpload')[0]
-        self.assertEquals( i.getName(), 'File upload form' )
-            
+
+        self.assertEquals(len(kb.kb.get('file_upload', 'file_upload')), 1)
+        i = kb.kb.get('file_upload', 'file_upload')[0]
+        self.assertEquals(i.get_name(), 'File upload form')
+
     def test_complex(self):
         body = 'header <form><Input type="File"></form> footer'
-        url = url_object('http://www.w3af.com/')
-        headers = {'content-type': 'text/html'}
-        response = httpResponse(200, body , headers, url, url)
-        request = fuzzableRequest(url, method='GET')
+        url = URL('http://www.w3af.com/')
+        headers = Headers([('content-type', 'text/html')])
+        response = HTTPResponse(200, body, headers, url, url, _id=1)
+        request = FuzzableRequest(url, method='GET')
         self.plugin.grep(request, response)
-        
-        self.assertEquals( len(kb.kb.getData('fileUpload', 'fileUpload')), 1 )
-        i = kb.kb.getData('fileUpload', 'fileUpload')[0]
-        self.assertEquals( i.getName(), 'File upload form' )
+
+        self.assertEquals(len(kb.kb.get('file_upload', 'file_upload')), 1)
+        i = kb.kb.get('file_upload', 'file_upload')[0]
+        self.assertEquals(i.get_name(), 'File upload form')
 
     def test_none(self):
         body = 'header <form><noinput type="file"></form> footer'
-        url = url_object('http://www.w3af.com/')
-        headers = {'content-type': 'text/html'}
-        response = httpResponse(200, body , headers, url, url)
-        request = fuzzableRequest(url, method='GET')
+        url = URL('http://www.w3af.com/')
+        headers = Headers([('content-type', 'text/html')])
+        response = HTTPResponse(200, body, headers, url, url, _id=1)
+        request = FuzzableRequest(url, method='GET')
         self.plugin.grep(request, response)
-        
-        self.assertEquals( len(kb.kb.getData('fileUpload', 'fileUpload')), 0 )
+
+        self.assertEquals(len(kb.kb.get('file_upload', 'file_upload')), 0)

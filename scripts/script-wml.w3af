@@ -1,19 +1,19 @@
 # wml support test
 
 plugins
-output console,textFile
+output console,text_file
 output
-output config textFile
-set fileName output-w3af.txt
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console
 set verbose False
 back
-discovery webSpider,allowedMethods
+crawl web_spider,allowed_methods
 
-discovery config webSpider
-set onlyForward True
+crawl config web_spider
+set only_forward True
 back
 
 audit sqli
@@ -23,7 +23,7 @@ set target http://moth/w3af/core/wml_parser/index.html
 back
 start
 
-assert len(kb.kb.getData('urls','url_objects')) >= 7
-assert len(kb.kb.getData('sqli','sqli')) == 1
+
+
 
 exit

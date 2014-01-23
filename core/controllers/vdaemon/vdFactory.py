@@ -3,7 +3,7 @@ vdFactory.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,30 +19,33 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
+import core.controllers.output_manager as om
 
 from core.controllers.vdaemon.lnxVd import lnxVd
 from core.controllers.vdaemon.winVd import winVd
-
-import core.controllers.outputManager as om
-from core.controllers.intrusionTools.execMethodHelpers import *
-from core.controllers.w3afException import w3afException
+from core.controllers.intrusion_tools.execMethodHelpers import os_detection_exec
+from core.controllers.exceptions import w3afException
 
 
-def getVirtualDaemon( exec_method ):
+def get_virtual_daemon(exec_method):
     '''
-    Uses the exec_method to run remote commands and determine what's the remote OS is,
-    and based on that info, it returns the corresponding virtual daemon.
+    Uses the exec_method to run remote commands and determine what's the
+    remote OS is, and based on that info, it returns the corresponding virtual
+    daemon.
     '''
     try:
-        os = osDetectionExec( exec_method )
+        os = os_detection_exec(exec_method)
     except w3afException, w3:
         raise w3
     else:
         if os == 'windows':
-            om.out.debug('Identified remote OS as Windows, returning winVd object.')
-            return winVd( exec_method )
+            om.out.debug(
+                'Identified remote OS as Windows, returning winVd object.')
+            return winVd(exec_method)
         elif os == 'linux':
-            om.out.debug('Identified remote OS as Linux, returning lnxVd object.')
-            return lnxVd( exec_method )
+            om.out.debug(
+                'Identified remote OS as Linux, returning lnxVd object.')
+            return lnxVd(exec_method)
         else:
-            raise w3afException('Failed to get a virtual daemon for the remote OS: ' + os )
+            raise w3afException(
+                'Failed to get a virtual daemon for the remote OS: ' + os)

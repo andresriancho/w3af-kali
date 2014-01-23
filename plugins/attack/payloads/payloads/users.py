@@ -1,12 +1,12 @@
-from plugins.attack.payloads.base_payload import base_payload
-from core.ui.consoleUi.tables import table
+from plugins.attack.payloads.base_payload import Payload
+from core.ui.console.tables import table
 
 
-class users(base_payload):
+class users(Payload):
     '''
     This payload shows users name
     '''
-    def api_read(self, parameters):
+    def api_read(self):
         result = {}
 
         passwd = self.shell.read('/etc/passwd')
@@ -22,28 +22,29 @@ class users(base_payload):
                     except:
                         pass
                     else:
-                        desc = desc.replace(',,,','')
+                        desc = desc.replace(',,,', '')
                         if not directory.endswith('/'):
                             directory += '/'
-                        result[user] = {'home': directory, 'shell': shell, 'desc': desc}
-                        
+                        result[user] = {'home':
+                                        directory, 'shell': shell, 'desc': desc}
+
         return result
-    
-    def run_read(self, parameters):
-        api_result = self.api_read( parameters )
-                
+
+    def run_read(self):
+        api_result = self.api_read()
+
         if not api_result:
             return 'Users list not found.'
         else:
             rows = []
-            rows.append( ['User', 'Home directory', 'Shell', 'Description'] )
-            rows.append( [] )
+            rows.append(['User', 'Home directory', 'Shell', 'Description'])
+            rows.append([])
             for username in api_result:
                 home = api_result[username]['home']
                 shell = api_result[username]['shell']
                 desc = api_result[username]['desc']
-                rows.append( [username, home, shell, desc] )
-                    
-            result_table = table( rows )
-            result_table.draw( 80 )
+                rows.append([username, home, shell, desc])
+
+            result_table = table(rows)
+            result_table.draw(80)
             return rows

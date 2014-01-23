@@ -3,7 +3,7 @@ string_representation.py
 
 Copyright 2011 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 '''
 
 
-class string_representation(object):
+class StringRepresentation(object):
     '''
     Generates an image representation of any string. Very useful for comparing
     two or more strings in a split second. This representation can be used to
@@ -30,60 +30,30 @@ class string_representation(object):
 
     def __init__(self, instr, width=60, height=40):
         '''
-        @param instr: The input string to represent.
+        :param instr: The input string to represent.
         '''
         self.parsed_instr = {}
         self.gen_representation(instr, width, height)
-        
+
     def gen_representation(self, instr, width, height):
         '''
-        @param width: The width of the string to generate
-        @param height: The width of the string to generate
-        
-        >>> instr = 'A\\n' * 40
-        >>> si = string_representation( instr, 40, 40 )
-        >>> si.get_representation()[1] == 25
-        True
-        >>> si.get_representation()[0] == 25
-        True
-
-        >>> instr = 'AA\\n' * 40
-        >>> si = string_representation( instr, 40, 40 )
-        >>> si.get_representation()[1] == 10
-        True
-        >>> si.get_representation()[0] == 10
-        True
-
-        >>> instr = 'AA\\n' * 83
-        >>> si = string_representation( instr, 40, 40 )
-        >>> si.get_representation()[1] == 20
-        True
-        >>> si.get_representation()[0] == 20
-        True
-        >>> len( si.get_representation() ) == 40
-        True
-
-        >>> instr = 'AB\\n' * 157
-        >>> si = string_representation( instr, 41, 40 )
-        >>> len( si.get_representation() ) == 41
-        True
-
+        :param width: The width of the string to generate
+        :param height: The width of the string to generate
         '''
         linecount = lambda ln: sum(map(ord, (char for char in ln)))
         split = instr.split('\n')
         length = max(len(split), width)
         step, extra = divmod(length, width)
-        
+
         sumlinecounts = lambda st, en: \
-                            sum(linecount(ln) for ln in split[st:en])
-        
-        
-        for i, j in enumerate(xrange(0, length-extra, step)):
-            accum = sumlinecounts(j, j+step)
+            sum(linecount(ln) for ln in split[st:en])
+
+        for i, j in enumerate(xrange(0, length - extra, step)):
+            accum = sumlinecounts(j, j + step)
             self.parsed_instr[i] = accum % height
         if extra:
             self.parsed_instr[i] = \
-                        (accum + sumlinecounts(j+step, None)) % height
-            
+                (accum + sumlinecounts(j + step, None)) % height
+
     def get_representation(self):
         return self.parsed_instr

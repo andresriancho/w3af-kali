@@ -1,17 +1,17 @@
-# This script is a test for the htmlFile output plugin
+# This script is a test for the html_file output plugin
 
 plugins
-output console, htmlFile
-output config htmlFile
-set fileName output-w3af.html
+output console, html_file
+output config html_file
+set output_file output-w3af.html
 set verbose True
 back
 output config console
 back
 
-discovery webSpider
-discovery config webSpider
-set onlyForward True
+crawl web_spider
+crawl config web_spider
+set only_forward True
 back
 audit xss
 back
@@ -22,6 +22,6 @@ back
 
 start
 
-assert len(kb.kb.getData('xss','xss')) >= 9
+
 
 exit

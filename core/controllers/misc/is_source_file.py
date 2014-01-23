@@ -3,7 +3,7 @@ is_source_file.py
 
 Copyright 2010 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -23,43 +23,25 @@ import re
 from core.data.esmre.multi_re import multi_re
 
 SOURCE_CODE = (
-        ('<\?(?! *xml)(?!xpacket).*\?>', 'PHP'),
-        ('<%.*?%>', 'ASP or JSP'),
-        ('<jsp:.*?>', 'JSP'),
-        ('<!--\s*%.*?%(--)?>', 'PHP'),
-        ('<!--\s*\?.*?\?(--)?>', 'ASP or JSP'),
-        ('<!--\s*jsp:.*?(--)?>', 'JSP'),
+    ('<\?(?! *xml)(?!xpacket).*\?>', 'PHP'),
+    ('<%.*?%>', 'ASP or JSP'),
+    ('<jsp:.*?>', 'JSP'),
+    ('<!--\s*%.*?%(--)?>', 'PHP'),
+    ('<!--\s*\?.*?\?(--)?>', 'ASP or JSP'),
+    ('<!--\s*jsp:.*?(--)?>', 'JSP'),
 )
 
 _multi_re = multi_re(SOURCE_CODE, re.IGNORECASE | re.DOTALL)
 
 
-def is_source_file( file_content ):
+def is_source_file(file_content):
     '''
-    @parameter file_content: 
-    @return: A tuple with (
-                            a re.match object if the file_content matches a source code file,
-                            a string with the source code programming language
-                          ).
-                          
-    >>> is_source_file( 'foo <? echo "a"; ?> bar' ) != (None, None )
-    True
-
-    >>> is_source_file( 'foo <? echo "bar' ) == (None, None )
-    True
-
-    >>> is_source_file( 'foo <?xml ?> "bar' ) == (None, None )
-    True
-
-    >>> is_source_file( 'foo <?xpacket ?> "bar' ) == (None, None )
-    True
-
-    >>> is_source_file( 'foo <?ypacket ?> "bar' ) != (None, None )
-    True
+    :param file_content: The content of the http response body to analyze
+    :return: A tuple with:
+                a re.match object if the file_content matches a source code file,
+                a string with the source code programming language
     '''
-    for match, _, _, lang in _multi_re.query( file_content ):
+    for match, _, _, lang in _multi_re.query(file_content):
         return (match, lang)
-    
+
     return (None, None)
-
-

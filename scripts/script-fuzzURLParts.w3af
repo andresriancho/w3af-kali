@@ -4,10 +4,10 @@ misc-settings
 set fuzzURLParts True
 back
 plugins
-output console,textFile
+output console,text_file
 output
-output config textFile
-set fileName output-w3af.txt
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console
@@ -19,5 +19,5 @@ target
 set target http://moth/w3af/core/fuzzURLParts/article/1
 back
 start
-assert len( kb.kb.getData('xss', 'xss') ) > 0
+
 exit

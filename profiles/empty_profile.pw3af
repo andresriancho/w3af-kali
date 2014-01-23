@@ -1,17 +1,17 @@
 [misc-settings]
 maxThreads = 15
-fuzzFormComboValues = tmb
-fuzzFCExt = txt
+form_fuzzing_mode = tmb
+fuzzed_files_extension = gif
 autoDependencies = True
 demo = False
-fuzzableHeaders = 
+fuzzable_headers = 
 fuzzCookie = False
-fuzzFileContent = True
-fuzzFileName = False
-maxDiscoveryTime = 120
+fuzz_form_files = True
+fuzz_url_filenames = False
+max_discovery_time = 120
 
-nonTargets = 
-localAddress = 127.0.0.1
+non_targets = 
+local_ip_address = 127.0.0.1
 
 [target]
 target = 
@@ -23,25 +23,23 @@ verbose = True
 description = This is an empty profile that you can use to start a new configuration from.
 name = empty_profile
 
-[output.gtkOutput]
-
 [http-settings]
-proxyPort = 8080
-urlParameter = 
-basicAuthDomain = 
+proxy_port = 8080
+url_parameter = 
+basic_auth_domain = 
 maxFileSize = 400000
-proxyAddress = 
-headersFile = 
-always404 = 
-maxRetrys = 2
-never404 = 
-ntlmAuthUser = 
-ntlmAuthPass = 
-ignoreSessCookies = False
-cookieJarFile = 
+proxy_address = 
+headers_file = 
+always_404 = 
+max_http_retries = 2
+never_404 = 
+ntlm_auth_user = 
+ntlm_auth_passwd = 
+ignore_session_cookies = False
+cookie_jar_file = 
 timeout = 10
-userAgent = w3af.sourceforge.net
-basicAuthUser = 
-basicAuthPass = 
-404string = 
+user_agent = w3af.org
+basic_auth_user = 
+basic_auth_passwd = 
+string_match_404 = 
 

@@ -4,7 +4,7 @@ form.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,80 +20,88 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
 import operator
 import random
 
+import core.controllers.output_manager as om
+
 from core.data.constants.encodings import DEFAULT_ENCODING
-from core.data.dc.dataContainer import DataContainer
+from core.data.dc.data_container import DataContainer
 from core.data.parsers.encode_decode import urlencode
-from core.data.parsers.urlParser import url_object
-import core.controllers.outputManager as om
+from core.data.parsers.url import URL
 
 
 class Form(DataContainer):
     '''
     This class represents a HTML form.
-    
-    @author: Andres Riancho ( andres.riancho@gmail.com ) |
-        Javier Andalia (jandalia =at= gmail.com)
+
+    :author: Andres Riancho (andres.riancho@gmail.com) |
+             Javier Andalia (jandalia =at= gmail.com)
     '''
     # Max
     TOP_VARIANTS = 15
-    MAX_VARIANTS_TOTAL = 10**9
+    MAX_VARIANTS_TOTAL = 10 ** 9
     SEED = 1
-    
+
+    INPUT_TYPE_FILE = 'file'
+    INPUT_TYPE_CHECKBOX = 'checkbox'
+    INPUT_TYPE_RADIO = 'radio'
+    INPUT_TYPE_TEXT = 'text'
+    INPUT_TYPE_HIDDEN = 'hidden'
+    INPUT_TYPE_SUBMIT = 'submit'
+    INPUT_TYPE_SELECT = 'select'
+
     def __init__(self, init_val=(), encoding=DEFAULT_ENCODING):
         super(Form, self).__init__(init_val, encoding)
-        
+
         # Internal variables
         self._method = None
         self._action = None
         self._types = {}
         self._files = []
         self._selects = {}
-        self._submitMap = {}
-        
+        self._submit_map = {}
+
         # This is used for processing checkboxes
         self._secret_value = "3_!21#47w@"
-        
-    def getAction(self):
+
+    def get_action(self):
         '''
-        @return: The Form action.
+        :return: The Form action.
         '''
         return self._action
-        
-    def setAction(self, action):
+
+    def set_action(self, action):
         '''
         >>> f = Form()
-        >>> f.setAction('http://www.google.com/')
+        >>> f.set_action('http://www.google.com/')
         Traceback (most recent call last):
           ...
-        TypeError: The action of a Form must be of urlParser.url_object type.
+        TypeError: The action of a Form must be of url.URL type.
         >>> f = Form()
-        >>> action = url_object('http://www.google.com/')
-        >>> f.setAction(action)
-        >>> f.getAction() == action
+        >>> action = URL('http://www.google.com/')
+        >>> f.set_action(action)
+        >>> f.get_action() == action
         True
         '''
-        if not isinstance(action, url_object):
+        if not isinstance(action, URL):
             raise TypeError('The action of a Form must be of '
-                             'urlParser.url_object type.')
+                            'url.URL type.')
         self._action = action
-        
-    def getMethod(self):
+
+    def get_method(self):
         '''
-        @return: The Form method.
+        :return: The Form method.
         '''
         return self._method
-    
-    def setMethod(self, method):
+
+    def set_method(self, method):
         self._method = method.upper()
-    
-    def getFileVariables( self ):
+
+    def get_file_vars(self):
         return self._files
 
-    def _setVar(self, name, value):
+    def _set_var(self, name, value):
         '''
         Auxiliary setter for name=value
         '''
@@ -101,10 +109,10 @@ class Form(DataContainer):
         vals = self.setdefault(name, [])
         vals.append(value)
 
-    def addFileInput( self, attrs ):
+    def add_file_input(self, attrs):
         '''
         Adds a file input to the Form
-        @parameter attrs: attrs=[("class", "screen")]
+        :param attrs: attrs=[("class", "screen")]
         '''
         name = ''
 
@@ -120,67 +128,55 @@ class Form(DataContainer):
                     break
 
         if name:
-            self._files.append( name )
-            self._setVar(name, '')
+            self._files.append(name)
+            self._set_var(name, '')
             # TODO: This does not work if there are different parameters in a form
             # with the same name, and different types
-            self._types[name] = 'file'
-    
+            self._types[name] = self.INPUT_TYPE_FILE
+
     def __str__(self):
         '''
         This method returns a string representation of the Form object.
-        
-        >>> f = Form()
-        >>> _ = f.addInput([("type", "text"), ("name", "abc"), ("value", "123")])
-        >>> str(f)
-        'abc=123'
 
-        >>> f = Form()
-        >>> _ = f.addInput([("type", "text"), ("name", "abc"), ("value", "123")])
-        >>> _ = f.addInput([("type", "text"), ("name", "def"), ("value", "000")])        
-        >>> str(f)
-        'abc=123&def=000'
-        
-        >>> import urllib
-        >>> f = Form() # Default encoding UTF-8
-        >>> _ = f.addInput([("type", "text"), ("name", u"v"),("value", u"áéíóú")])
-        >>> _ = f.addInput([("type", "text"), ("name", u"c"), ("value", u"ñçÑÇ")])
-        >>> f.addSubmit('address', 'bsas')
-        >>> urllib.unquote(str(f)).decode('utf-8') == u'c=ñçÑÇ&address=bsas&v=áéíóú'
-        True
+        Please note that if the form has radio/select/checkboxes the
+        first value will be put into the string representation and the
+        others will be lost.
 
-        @return: string representation of the Form object.
+        @see: Unittest in test_form.py
+        :return: string representation of the Form object.
         '''
-        #
-        # FIXME: hmmm I think that we are missing something here... what about
-        # self._select values. See FIXME below.
-        #
         d = dict(self)
-        d.update(self._submitMap)
+        d.update(self._submit_map)
+
+        avoid_duplicates = (self.INPUT_TYPE_CHECKBOX, self.INPUT_TYPE_RADIO,
+                            self.INPUT_TYPE_SELECT)
+
+        for key in d:
+            key_type = self._types.get(key, None)
+            if key_type in avoid_duplicates:
+                d[key] = d[key][:1]
+
         return urlencode(d, encoding=self.encoding)
-        
-    def addSubmit( self, name, value ):
+
+    def add_submit(self, name, value):
         '''
         This is something I hadn't thought about !
         <input type="submit" name="b0f" value="Submit Request">
         '''
-        self._submitMap[name] = value
-        
-    def addInput(self, attrs):
-        '''
-        Adds a input to the Form
-        
-        @parameter attrs: attrs=[("class", "screen")]
-        '''
+        self._submit_map[name] = value
 
+    def add_input(self, attrs):
         '''
-        <INPUT type="text" name="email"><BR>
-        <INPUT type="radio" name="sex" value="Male"> Male<BR>
+        Adds an input to the Form object. Input examples:
+            <INPUT type="text" name="email"><BR>
+            <INPUT type="radio" name="sex" value="Male"> Male<BR>
+
+        :param attrs: attrs=[("class", "screen")]
         '''
         # Set the default input type to text.
-        attr_type = 'text'
+        attr_type = self.INPUT_TYPE_TEXT
         name = value = ''
-        
+
         # Try to get the name:
         for attr in attrs:
             if attr[0] == 'name':
@@ -203,28 +199,28 @@ class Form(DataContainer):
             if attr[0] == 'value':
                 value = attr[1]
 
-        if attr_type == 'submit':
-            self.addSubmit( name, value )
+        if attr_type == self.INPUT_TYPE_SUBMIT:
+            self.add_submit(name, value)
         else:
-            self._setVar(name, value)
-        
+            self._set_var(name, value)
+
         # Save the attr_type
         self._types[name] = attr_type
-        
+
         #
         # TODO May be create special internal method instead of using
-        # addInput()?
+        # add_input()?
         #
         return (name, value)
 
-    def getType( self, name ):
+    def get_type(self, name):
         return self._types[name]
 
-    def addCheckBox(self, attrs):
+    def add_check_box(self, attrs):
         """
         Adds checkbox field
         """
-        name, value = self.addInput(attrs)
+        name, value = self.add_input(attrs)
 
         if not name:
             return
@@ -235,20 +231,20 @@ class Form(DataContainer):
         if value not in self._selects[name]:
             self._selects[name].append(value)
             self._selects[name].append(self._secret_value)
-            
-        self._types[name] = 'checkbox'
 
-    def addRadio(self, attrs):
+        self._types[name] = self.INPUT_TYPE_CHECKBOX
+
+    def add_radio(self, attrs):
         """
         Adds radio field
         """
-        name, value = self.addInput(attrs)
+        name, value = self.add_input(attrs)
 
         if not name:
             return
-        
-        self._types[name] = 'radio'
-        
+
+        self._types[name] = self.INPUT_TYPE_RADIO
+
         if name not in self._selects:
             self._selects[name] = []
 
@@ -259,17 +255,17 @@ class Form(DataContainer):
         if value not in self._selects[name]:
             self._selects[name].append(value)
 
-    def addSelect(self, name, options):
+    def add_select(self, name, options):
         """
         Adds one more select field with options
         Options is list of options attrs (tuples)
         """
         if not name:
             return
-        
+
         self._selects.setdefault(name, [])
-        self._types[name] = 'select'
-        
+        self._types[name] = self.INPUT_TYPE_SELECT
+
         value = ""
         for option in options:
             for attr in option:
@@ -277,9 +273,9 @@ class Form(DataContainer):
                     value = attr[1]
                     self._selects[name].append(value)
 
-        self._setVar(name, value)
+        self._set_var(name, value)
 
-    def getVariants(self, mode="tmb"):
+    def get_variants(self, mode="tmb"):
         """
         Generate all Form's variants by mode:
           "all" - all values
@@ -288,16 +284,16 @@ class Form(DataContainer):
           "t" - top values
           "b" - bottom values
         """
-        
+
         if mode not in ("all", "tb", "tmb", "t", "b"):
-            raise ValueError, "mode must be in ('all', 'tb', 'tmb', 't', 'b')"
-        
+            raise ValueError("mode must be in ('all', 'tb', 'tmb', 't', 'b')")
+
         yield self
 
         # Nothing to do
         if not self._selects:
             return
-        
+
         secret_value = self._secret_value
         sel_names = self._selects.keys()
         matrix = self._selects.values()
@@ -306,7 +302,7 @@ class Form(DataContainer):
         for sample_path in self._getSamplePaths(mode, matrix):
             # Clone self
             self_variant = self.copy()
-            
+
             for row_index, col_index in enumerate(sample_path):
                 sel_name = sel_names[row_index]
                 try:
@@ -315,26 +311,29 @@ class Form(DataContainer):
                     '''
                     This handles "select" tags that have no options inside.
 
-                    The getVariants method should return a variant with the 
+                    The get_variants method should return a variant with the
                     select tag name that is always an empty string.
 
                     This case reported by Taras at
                     https://sourceforge.net/apps/trac/w3af/ticket/171015
                     '''
                     value = ''
-                
+
                 if value != secret_value:
                     # FIXME: Needs to support repeated parameter names
                     self_variant[sel_name] = [value]
                 else:
                     # FIXME: Is it solution good? Simply delete unwanted
                     #        send checkboxes?
-                    if self_variant.get(sel_name): # We might had removed it b4
+                    #
+                    # We might had removed it before
+                    if self_variant.get(sel_name):
                         del self_variant[sel_name]
-            
+
             yield self_variant
 
     def _getSamplePaths(self, mode, matrix):
+
         if mode in ["t", "tb"]:
             yield [0] * len(matrix)
 
@@ -342,21 +341,24 @@ class Form(DataContainer):
             yield [-1] * len(matrix)
         # mode in ["tmb", "all"]
         elif mode in ["tmb", "all"]:
-            variants_total = self._getVariantsCount(matrix, mode)
-            
+
+            variants_total = self._get_variantsCount(matrix, mode)
+
             # Combinatoric explosion. We only want TOP_VARIANTS paths top.
             # Create random sample. We ensure that random sample is unique
             # matrix by using `SEED` in the random generation
             if variants_total > self.TOP_VARIANTS:
-                
                 # Inform user
                 om.out.information("w3af found an HTML form that has several"
-                   " checkbox, radio and select input tags inside. Testing "
-                   "all combinations of those values would take too much "
-                   "time, the framework will only test %s randomly "
-                   "distributed variants." % self.TOP_VARIANTS)
+                                   " checkbox, radio and select input tags inside. Testing "
+                                   "all combinations of those values would take too much "
+                                   "time, the framework will only test %s randomly "
+                                   "distributed variants." % self.TOP_VARIANTS)
 
-                # Init random object. Set our seed.
+                # Init random object. Set our seed so we get the same variants
+                # in two runs. This is important for users because they expect
+                # the tool to find the same vulnerabilities in two consecutive
+                # scans!
                 rand = random.Random()
                 rand.seed(self.SEED)
 
@@ -369,8 +371,8 @@ class Form(DataContainer):
                 # Which was amazingly reported by one of our users
                 # http://sourceforge.net/apps/trac/w3af/ticket/161481
                 #
-                # Given that we want to test SOME of the combinations we're 
-                # going to settle with a rand.sample from the first 
+                # Given that we want to test SOME of the combinations we're
+                # going to settle with a rand.sample from the first
                 # MAX_VARIANTS_TOTAL (=10**9) items (that works in python2)
                 #
                 # >>> xrange(10**9)
@@ -380,7 +382,7 @@ class Form(DataContainer):
                 variants_total = min(variants_total, self.MAX_VARIANTS_TOTAL)
 
                 for path in rand.sample(xrange(variants_total),
-                                            self.TOP_VARIANTS):
+                                        self.TOP_VARIANTS):
                     yield self._decodePath(path, matrix)
 
             # Less than TOP_VARIANTS elems in matrix
@@ -391,12 +393,12 @@ class Form(DataContainer):
                         # Create new 3-length vector
                         if len(vector) > 3:
                             new_vector = [vector[0]]
-                            new_vector.append(vector[len(vector)/2])
+                            new_vector.append(vector[len(vector) / 2])
                             new_vector.append(vector[-1])
                             matrix[row] = new_vector
 
                     # New variants total
-                    variants_total = self._getVariantsCount(matrix, mode)
+                    variants_total = self._get_variantsCount(matrix, mode)
 
                 # Now get all paths!
                 for path in xrange(variants_total):
@@ -405,23 +407,23 @@ class Form(DataContainer):
 
     def _decodePath(self, path, matrix):
         '''
-        Decode the integer `path` into a tuple of ints where the ith-elem 
+        Decode the integer `path` into a tuple of ints where the ith-elem
         is the index to select from vector given by matrix[i].
 
         Diego Buthay (dbuthay@gmail.com) made a significant contribution to
         the used algorithm.
-        
-        @param path: integer
-        @param matrix: list of lists
-        @return: Tuple of integers
-        '''        
+
+        :param path: integer
+        :param matrix: list of lists
+        :return: Tuple of integers
+        '''
         # Hack to make the algorithm work.
         matrix.append([1])
-        get_count = lambda i: reduce(operator.mul, map(len, matrix[i+1:]))
+        get_count = lambda i: reduce(operator.mul, map(len, matrix[i + 1:]))
         remainder = path
         decoded_path = []
 
-        for i in xrange(len(matrix)-1):
+        for i in xrange(len(matrix) - 1):
             base = get_count(i)
             decoded_path.append(remainder / base)
             remainder = remainder % base
@@ -430,12 +432,12 @@ class Form(DataContainer):
         matrix.pop()
 
         return decoded_path
-    
-    def _getVariantsCount(self, matrix, mode):
+
+    def _get_variantsCount(self, matrix, mode):
         '''
-        
-        @param matrix: 
-        @param tmb: 
+
+        :param matrix:
+        :param tmb:
         '''
         if mode in ["t", "b"]:
             return 1

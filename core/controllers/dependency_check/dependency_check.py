@@ -3,7 +3,7 @@ dependency_check.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,207 +20,128 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 import sys
-import platform
+import warnings
+import logging
 
-import core.controllers.outputManager as om
+from .lazy_load import lazy_load
+from .utils import verify_python_version, pip_installed
+from .helper_script import generate_helper_script
+from .platforms.current_platform import (SYSTEM_NAME,
+                                         PKG_MANAGER_CMD,
+                                         SYSTEM_PACKAGES,
+                                         PIP_CMD,
+                                         PIP_PACKAGES,
+                                         os_package_is_installed,
+                                         after_hook)
 
-from core.controllers.dependency_check.lazy_load import lazy_load
-
-
-def dependency_check():
+    
+def dependency_check(pip_packages=PIP_PACKAGES, system_packages=SYSTEM_PACKAGES,
+                     system_name=SYSTEM_NAME, pkg_manager_cmd=PKG_MANAGER_CMD,
+                     pip_cmd=PIP_CMD, exit_on_failure=True):
     '''
     This function verifies that the dependencies that are needed by the
     framework core are met.
+    
+    :return: True if the process should exit
     '''
-    #mem_test('at start')
-    om.out.debug('Checking core dependencies')
+    verify_python_version()
     
-    # Check python version
-    major, minor, micro, releaselevel, serial = sys.version_info
-    if major == 2:
-        if minor not in (6, 7):
-            msg = 'Error: Python 2.%s found but Python 2.6 or 2.7 required.' % minor
-            print msg
-    elif major > 2:
-        msg = 'It seems that you are running Python 3k, please let us know if'
-        msg += ' w3af works as expected at w3af-develop@lists.sourceforge.net !'
+    disable_warnings()
+    
+    #
+    #    Check for missing python modules
+    #
+    failed_deps = []
+    for w3af_dependency in pip_packages:
+        try:
+            if not lazy_load(w3af_dependency.module_name):
+                failed_deps.append(w3af_dependency)
+        except KeyboardInterrupt:
+            print 'User exit with Ctrl+C.'
+            sys.exit(-1)
+    
+    #
+    #    Check for missing operating system packages
+    #
+    missing_os_packages = []
+    for _, packages in system_packages.items():
+        for package in packages:
+            if not os_package_is_installed(package):
+                missing_os_packages.append(package)
+    
+    os_packages = list(set(missing_os_packages))
+
+    if not pip_installed():
+        os_packages.extend(system_packages['PIP'])
+
+    # All installed?
+    if not failed_deps and not os_packages:
+        # False means: do not exit()
+        return False
+
+    script_path = generate_helper_script(pkg_manager_cmd, os_packages,
+                                         pip_cmd, failed_deps)
+
+    #
+    #    Report the missing system packages
+    #
+    if os_packages:
+        missing_pkgs = ' '.join(os_packages)
+        
+        msg = 'On %s systems please install the following operating'\
+              ' system packages before running the pip installer:\n'\
+              '    %s %s\n' 
+        print msg % (system_name, pkg_manager_cmd, missing_pkgs)
+        
+    #
+    #    Report all missing python modules
+    #    
+    if failed_deps:
+        msg = 'Your python installation needs the following modules'\
+              ' to run w3af:\n'
+        msg += '    ' + ' '.join([fdep.module_name for fdep in failed_deps])
+        print msg, '\n'
+        
+        #
+        #    Report missing pip packages
+        #
+        not_git_pkgs = [fdep.package_name for fdep in failed_deps if not fdep.is_git]
+        git_pkgs = [fdep.package_name for fdep in failed_deps if fdep.is_git]
+        
+        msg = 'After installing any missing operating system packages, use pip to'\
+              ' install the remaining modules:\n'
+        
+        if not_git_pkgs:
+            msg += '    sudo %s install %s\n' % (pip_cmd, ' '.join(not_git_pkgs))
+        
+        if git_pkgs:
+            for missing_git_pkg in git_pkgs:
+                msg += '    sudo %s install -e %s\n' % (pip_cmd, missing_git_pkg)
+        
         print msg
-        sys.exit( 1 )
-        
-    reasonForExit = False
-    packages = []
-    packages_debian = []
-    packages_mac_ports = []
-    additional_information = []
     
-    if platform.system() != 'Windows':
-        try:
-            from pybloomfilter import BloomFilter as mmap_filter
-        except Exception, e:
-            msg = '    pybloomfiltermmap is a required dependency in *nix systems,'
-            msg += '    in order to install it please run the following commands:'
-            msg += '    sudo apt-get install python2.6-dev\n'
-            msg += '    sudo easy_install pybloomfiltermmap'
-            additional_information.append(msg)
-            reasonForExit = True
-    #mem_test('after bloom filter import')
-    try:
-        import esmre
-        import esm
-    except ImportError:
-        msg = '    esmre is an optional (for now) library for running w3af which'
-        msg += ' will speed up pattern matching for most plugins. You'
-        msg += ' can download it from http://code.google.com/p/esmre/ or run'
-        msg += ' the following command to install it:\n'
-        msg += '    sudo easy_install esmre\n'
-        
-        #packages.append('esmre')
-        #packages.append('esm')
-        #additional_information.append(msg)
+    msg = 'A script with these commands has been created for you at %s'
+    print msg % script_path
     
-    # nltk raises a warning... which I want to ignore...
-    # This is the original warning:
-    #
-    # /usr/lib/python2.5/site-packages/nltk/__init__.py:117: UserWarning: draw module, ...
-    # warnings.warn("draw module, app module, and gui downloader not loaded "
-    #
-    import warnings
-    warnings.filterwarnings('ignore', '.*',)
-    #mem_test('after esmre import')
-    if not lazy_load('nltk'):
-        packages.append('nltk')
-        packages_debian.append('python-nltk')
-        #TODO
-        #packages_mac_port.append()
-        msg  = '    If you can not install nltk, please try the following:\n'
-        msg += '        wget http://pyyaml.org/download/pyyaml/PyYAML-3.09.tar.gz\n'
-        msg += '        tar -xzvf PyYAML-3.09.tar.gz\n'
-        msg += '        cd PyYAML-3.09\n'
-        msg += '        python setup.py install\n'
-        msg += '        cd ..\n'
-        msg += '        wget http://nltk.googlecode.com/files/nltk-2.0b9.tar.gz\n'
-        msg += '        tar -xzvf nltk-2.0b9.tar.gz\n'
-        msg += '        cd nltk-2.0b9\n'
-        msg += '        python setup.py install'
-        additional_information.append(msg)
-        reasonForExit = True
-    #mem_test('after nltk import')
+    enable_warnings()
+    after_hook()
     
-    if not lazy_load('extlib.SOAPpy.SOAPpy'):
-        if not lazy_load('SOAPpy'):
-            packages.append('SOAPpy')
-            packages_debian.append('python-soappy')
-            #TODO
-            #packages_mac_port.append()
-            reasonForExit = True
-    #mem_test('after soappy import')
-    try:
-        import extlib.pyPdf.pyPdf as pyPdf
-    except:
-        try:
-            import pyPdf
-        except:
-            packages.append('pyPdf')
-            packages_debian.append('python-pypdf')
-            #TODO
-            #packages_mac_port.append()
-            reasonForExit = True
-    #mem_test('after pypdf import')   
-    try:
-        from OpenSSL import SSL
-    except:
-        packages.append('pyOpenSSL')
-        packages_debian.append('python-pyopenssl')
-        packages_mac_ports.extend(['py26-openssl'])
-        reasonForExit = True
-    #mem_test('after ssl import')
-    try:
-        from lxml import etree
-    except:
-        packages.append('lxml')
-        packages_debian.append('python-lxml')
-        #TODO
-        #packages_mac_port.append()
-        reasonForExit = True
-    #mem_test('after lxml import')
-    try:
-        import pysvn
-    except Exception, e:
-        if e.message.startswith('pysvn was built'):
-            msg  = '    It looks like your pysvn library installation is broken\n'
-            msg += '    (are you using BT4 R2?). The error we get when importing\n'
-            msg += '    the pysvn library is "%s". \n\n' % e.message
-            
-            msg += '    This is a BackTrack issue (works with Ubuntu 8.04 and 10.10)\n'
-            msg += '    that was fixed by them in their devel repositories, in order to\n'
-            msg += '    enable them you need to follow these steps:\n'
-            msg += '        1. vim /etc/apt/sources.list\n'
-            msg += '        2. Un-comment the BackTrack Devel Repository line (deb http://archive.offensive-security.com/repotest/ ./)'
-            msg += '        3. apt-get update && apt-get dist-upgrade'
-
-            additional_information.append(msg)
-
-        packages.append('pysvn')
-        packages_debian.append('python-svn')
-        #TODO
-        #packages_mac_port.append()
-        reasonForExit = True       
-    #mem_test('after pysvn import')
-    import logging
-    logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-
-    if not lazy_load('scapy'):
-        packages.append('scapy')
-        packages_debian.append('python-scapy')
-        #TODO
-        #packages_mac_port.append()
-        reasonForExit = True
+    if exit_on_failure:
+        sys.exit(1)
     else:
-        try:
-            import scapy.config
-        except:
-            msg  = '    Your version of scapy is *very old* and incompatible with w3af. Please install scapy version >= 2.0 .\n'
-            msg += '    You may issue the following commands in order to install the latest version of scapy in your system:\n'
-            msg += '        cd /tmp\n'
-            msg += '        wget http://www.secdev.org/projects/scapy/files/scapy-latest.tar.gz\n'
-            msg += '        tar -xzvf scapy-latest.tar.gz\n'
-            msg += '        cd scapy-2*\n'
-            msg += '        sudo python setup.py install\n'
-            additional_information.append(msg)
-            reasonForExit = True
-        else:
-            if not scapy.config.conf.version.startswith('2.'):
-                msg = '    Your version of scapy (%s) is not compatible with w3af. Please install scapy version >= 2.0 .' % scapy.config.conf.version
-                additional_information.append(msg)
-                reasonForExit = True
-    #mem_test('after scapy import')
-    #Now output the results of the dependency check
-    if packages:
-        msg = 'Your python installation needs the following packages:\n'
-        msg += '    '+' '.join(packages)
-        print msg, '\n'
-    if packages_debian:
-        msg = 'On debian based systems:\n'
-        msg += '    sudo apt-get install '+' '.join(packages_debian)
-        print msg, '\n'
-    if packages_mac_ports:
-        msg = 'On a mac with mac ports installed:\n'
-        msg += '    sudo port install '+' '.join(packages_mac_ports)
-        print msg, '\n'
-    if additional_information:
-        msg = 'Additional information:\n'
-        msg += '\n'.join(additional_information)
-        print msg
-    #Now exit if necessary
-    if reasonForExit:
-        exit(1)
-        
+        return True
 
-def mem_test(when):
-    from core.controllers.profiling.ps_mem import get_memory_usage, human
-    sorted_cmds, shareds, _, _ = get_memory_usage(None, True, True, True )
-    cmd = sorted_cmds[0]
-    msg = "%8sB Private + %8sB Shared = %8sB" % ( human(cmd[1]-shareds[cmd[0]]),
-                                                  human(shareds[cmd[0]]), human(cmd[1])
-                                                )
-    print 'Total memory usage %s: %s' % (when,msg)
+
+def disable_warnings():
+    # nltk raises a warning... which I want to ignore...
+    warnings.filterwarnings('ignore', '.*',)
+
+    # scapy raises an error if tcpdump is not found in PATH
+    logging.disable(logging.CRITICAL)
+
+def enable_warnings():
+    # Enable warnings once again
+    warnings.resetwarnings()
+    
+    # re-enable the logging module
+    logging.disable(logging.NOTSET)

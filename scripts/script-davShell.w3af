@@ -1,9 +1,9 @@
 # This is a test for file uploads using PUT method, and the exploit of that issue
 
 plugins
-output console,textFile
-output config textFile
-set fileName output-w3af.txt
+output console,text_file
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console
@@ -11,7 +11,7 @@ set verbose False
 back
 
 audit dav
-discovery serverHeader
+infrastructure server_header
 back
 
 target
@@ -21,7 +21,7 @@ back
 start
 
 exploit
-exploit davShell
+exploit dav
 
 interact
 interact 0
@@ -33,7 +33,7 @@ payload tcp
 
 exit
 back
-assert len(kb.kb.getData('davShell','shell')) == 1
+
 
 exit
 

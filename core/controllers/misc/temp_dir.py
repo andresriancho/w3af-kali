@@ -3,7 +3,7 @@ temp_dir.py
 
 Copyright 2009 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -27,27 +27,31 @@ from core.controllers.misc.homeDir import get_home_dir
 
 TEMP_DIR = os.path.join(get_home_dir(), 'tmp', str(os.getpid()))
 
+
 def get_temp_dir():
     '''
-    @return: The path where we should create the dir.
+    :return: The path where we should create the dir.
     '''
     return TEMP_DIR
+
 
 def create_temp_dir():
     '''
     Create the temp directory for w3af to work inside.
 
-    @return: A string that contains the temp directory to use, in Linux: "~/.w3af/tmp/<pid>"
+    :return: A string that contains the temp directory to use,
+             in Linux: "~/.w3af/tmp/<pid>"
     '''
     complete_dir = get_temp_dir()
-    if os.path.exists(complete_dir):
-        remove_temp_dir()
-    os.makedirs(complete_dir)
-    os.chmod(complete_dir, stat.S_IRWXU)
+    if not os.path.exists(complete_dir):
+        os.makedirs(complete_dir)
+        os.chmod(complete_dir, stat.S_IRWXU)
     return complete_dir
 
-def remove_temp_dir():
+
+def remove_temp_dir(ignore_errors=False):
     '''
     Remove the temp directory.
     '''
-    shutil.rmtree(get_temp_dir(), ignore_errors=True)
+    shutil.rmtree(get_temp_dir(), ignore_errors=ignore_errors)
+

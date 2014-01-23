@@ -1,28 +1,31 @@
-[grep.strangeHeaders]
+[grep.strange_headers]
 
-[grep.svnUsers]
+[grep.svn_users]
 
-[grep.passwordProfiling]
+[grep.password_profiling]
 
-[grep.blankBody]
+[grep.blank_body]
 
 [misc-settings]
 maxThreads = 15
-fuzzFormComboValues = tmb
-fuzzFCExt = txt
+form_fuzzing_mode = tmb
+fuzzed_files_extension = gif
 autoDependencies = True
 demo = False
-maxDiscoveryTime = 60
-fuzzableHeaders = 
+max_discovery_time = 120
+fuzzable_headers = 
 showProgressBar = True
 fuzzCookie = False
-fuzzFileContent = True
-fuzzFileName = False
-interface = eth0
-localAddress = 192.168.1.100
-nonTargets = 
+fuzz_form_files = True
+fuzz_url_filenames = False
+interface = ppp0
+local_ip_address = 10.5.6.18
+non_targets = 
+fuzz_url_parts = False
+stop_on_first_exception = False
+msf_location = /opt/metasploit3/bin/
 
-[grep.strangeHTTPCode]
+[grep.strange_http_codes]
 
 [grep.oracle]
 
@@ -33,27 +36,26 @@ verbose = False
 
 [grep.objects]
 
-[grep.strangeParameters]
+[grep.strange_parameters]
 
-[grep.errorPages]
+[grep.error_pages]
 
-[grep.fileUpload]
+[grep.file_upload]
 
 [grep.ajax]
 
-[grep.creditCards]
+[grep.credit_cards]
 
-[grep.error500]
+[grep.error_500]
 
-[discovery.webSpider]
+[crawl.web_spider]
 
 [grep.feeds]
 
 [audit.xss]
-checkStored = True
-numberOfChecks = 3
+persistent_xss = True
 
-[grep.hashFind]
+[grep.hash_analysis]
 
 [profile]
 name = fast_scan
@@ -61,59 +63,72 @@ description = Perform a fast scan of the target site, using only a few discovery
 
 [grep.lang]
 
-[grep.findComments]
+[grep.html_comments]
 
-[output.gtkOutput]
-
-[grep.formAutocomplete]
+[grep.form_autocomplete]
 
 [grep.ssn]
 
-[grep.dotNetEventValidation]
+[grep.dot_net_event_validation]
 
-[grep.metaTags]
+[grep.meta_tags]
 
 [audit.sqli]
 
-[grep.strangeReason]
+[grep.strange_reason]
 
-[grep.httpInBody]
+[grep.http_in_body]
 
-[grep.domXss]
+[grep.dom_xss]
 
-[grep.directoryIndexing]
+[grep.directory_indexing]
 
-[grep.codeDisclosure]
+[grep.code_disclosure]
 
-[grep.collectCookies]
+[grep.analyze_cookies]
 
-[grep.getMails]
+[grep.get_emails]
+only_target_domain = True
 
-[grep.privateIP]
+[grep.private_ip]
 
-[grep.pathDisclosure]
+[grep.path_disclosure]
 
 [http-settings]
-proxyPort = 8080
-urlParameter = 
-never404 = 
-basicAuthDomain = 
+proxy_port = 8080
+url_parameter = 
+never_404 = 
+basic_auth_domain = 
 maxFileSize = 400000
-proxyAddress = 
-headersFile = 
-always404 = 
-maxRetrys = 2
-ntlmAuthUser = 
-ntlmAuthPass = 
-ignoreSessCookies = False
+proxy_address = 
+headers_file = 
+always_404 = 
+max_http_retries = 2
+ntlm_auth_user = 
+ntlm_auth_passwd = 
+ignore_session_cookies = False
 timeout = 10
-userAgent = w3af.sourceforge.net
-basicAuthUser = 
-basicAuthPass = 
-404string = 
-cookieJarFile = 
+user_agent = w3af.org
+basic_auth_user = 
+basic_auth_passwd = 
+string_match_404 = 
+cookie_jar_file = 
+ntlm_auth_domain = 
+ntlm_auth_url = 
 
-[grep.wsdlGreper]
+[grep.wsdl_greper]
 
-[grep.httpAuthDetect]
+[grep.http_auth_detect]
+
+[crawl.web_spider]
+only_forward = False
+follow_regex = .*
+ignore_regex = 
+
+[grep.symfony]
+override = False
+
+[grep.user_defined_regex]
+
+[grep.click_jacking]
 

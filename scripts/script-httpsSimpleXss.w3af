@@ -1,15 +1,15 @@
 # This is a simple xss detection demo:
 
 http-settings
-set proxyAddress 127.0.0.1
-set proxyPort 8081
+set proxy_address 127.0.0.1
+set proxy_port 8081
 back
 
 plugins
-output console,textFile
+output console,text_file
 output
-output config textFile
-set fileName output-w3af.txt
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console

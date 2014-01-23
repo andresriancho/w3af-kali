@@ -1,18 +1,18 @@
 # This is a test for the 404 fingerprinting of the core
 
 plugins
-output console,textFile
-output config textFile
-set fileName output-w3af.txt
+output console,text_file
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console
 set verbose False
 back
 
-discovery webSpider
-discovery config webSpider
-set onlyForward True
+crawl web_spider
+crawl config web_spider
+set only_forward True
 back
 back
 
@@ -25,6 +25,6 @@ start
 # 1- The simple_test.html page
 # 2- The exists.html page
 # 3- The index page for the 404 directory
-assert len(kb.kb.getData('urls','url_objects')) == 3
+
 
 exit

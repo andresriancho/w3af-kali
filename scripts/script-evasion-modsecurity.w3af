@@ -1,16 +1,16 @@
 # This is a simple xss detection demo:
 
 #http-settings
-#set proxyAddress 127.0.0.1
-#set proxyPort 8080
+#set proxy_address 127.0.0.1
+#set proxy_port 8080
 #back
 
 plugins
 
-output console,textFile
+output console,text_file
 output
-output config textFile
-set fileName output-w3af.txt
+output config text_file
+set output_file output-w3af.txt
 set verbose True
 back
 output config console
@@ -21,7 +21,7 @@ audit xss
 audit
 # There is no sense in enabling ALLL evasion plugins. IT WONT WORK
 # But i'm enabling them just to test if they raise any exceptions
-evasion modsecurity
+evasion mod_security
 evasion
 back
 
@@ -32,6 +32,6 @@ back
 
 start
 
-assert 1 == 1
+
 
 exit

@@ -3,7 +3,7 @@ levenshtein.py
 
 Copyright 2008 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -25,16 +25,18 @@ import pprint
 
 from upper_bounds import UPPER_BOUNDS
 
+
 def relative_distance_boolean(a_str, b_str, threshold=0.6):
     '''
-    Indicates if the strings to compare are enough "similar". This (optimized)
+    Indicates if the strings to compare are similar enough. This (optimized)
     function is equivalent to the expression:
-    relative_distance(x, y) > threshold
-    
-    @param a_str: A string object
-    @param b_str: A string object
-    @param threshold: Float value indicating the expected "similarity". Must be 0 <= threshold <= 1.0
-    @return: A boolean value
+        relative_distance(x, y) > threshold
+
+    :param a_str: A string object
+    :param b_str: A string object
+    :param threshold: Float value indicating the expected "similarity". Must be
+                      0 <= threshold <= 1.0
+    :return: A boolean value
     '''
 
     if threshold == 0:
@@ -51,6 +53,9 @@ def relative_distance_boolean(a_str, b_str, threshold=0.6):
 
     if blen == 0 or alen == 0:
         return alen == blen
+
+    if blen == alen and a_str == b_str and threshold <= 1.0:
+        return True
 
     ratio = float(blen) / alen
 
@@ -81,6 +86,7 @@ def relative_distance_ge(a_str, b_str, threshold=0.6):
     '''
     return relative_distance_boolean(a_str, b_str, threshold)
 
+
 def relative_distance_lt(a_str, b_str, threshold=0.6):
     '''
     Indicates if the 'similarity' index between strings
@@ -93,10 +99,10 @@ def relative_distance(a_str, b_str):
     '''
     Measures the "similarity" of the strings. A return value value over 0.6
     means the strings are close matches.
-    
-    @param a_str: A string object
-    @param b_str: A string object
-    @return: A float with the distance
+
+    :param a_str: A string object
+    :param b_str: A string object
+    :return: A float with the distance
     '''
     return difflib.SequenceMatcher(None, a_str, b_str).quick_ratio()
 
@@ -114,7 +120,7 @@ def _generate_upper_bounds():
     UPPER_BOUNDS = set()
     UPPER_BOUNDS.add((1.0, 1.0))
 
-    def addToBounds(a, b):
+    def add_to_bounds(a, b):
         size = float(len(b)) / len(a)
         upper_bound = relative_distance(a, b)
         UPPER_BOUNDS.add((size, upper_bound))
@@ -125,7 +131,7 @@ def _generate_upper_bounds():
                 continue
             atest = 'm' * k
             btest = 'm' * k + 'm' * (i - 1)
-            addToBounds(atest, btest)
+            add_to_bounds(atest, btest)
 
     # Remove duplicates
     UPPER_BOUNDS = list(UPPER_BOUNDS)
@@ -146,7 +152,7 @@ if __name__ == "__main__":
     # This tests should be reallocated in a test module.
     '''import time
     import urllib2
-    
+
     performance_tests = []
 
     #performance_tests.append(('a'*25000,'a'*25000,0.999 ))

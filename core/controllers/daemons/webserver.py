@@ -3,7 +3,7 @@ webserver.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,47 +19,22 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
 import BaseHTTPServer
 import mimetypes
 import os
-import socket, threading, select
+import socket
+import threading
+import select
+import time
 
-import core.controllers.outputManager as om
+import core.controllers.output_manager as om
 
 # Created servers
 _servers = {}
-# Used by w3afWebHandler to serve data
-WEBROOT = 'webroot' + os.path.sep
-# Server timeout
-SERVER_TIMEOUT = 3 * 60 # seconds
 
-def start_webserver(ip, port, webroot=None):
-    '''Create a http server deamon. The returned instance is unique for <ip>
-    and <port>.
-    
-    @param ip: IP number
-    @param port: Port number
-    @param webroot: webserver's root directory
-    @return: A local webserver instance bound to the
-        requested address (<ip>, <port>)
-    '''
-    global WEBROOT
-    if webroot is None:
-        webroot = WEBROOT # Use default
-    else:
-        WEBROOT = webroot # Override default
+# Server timeout in seconds
+SERVER_TIMEOUT = 3 * 60
 
-    web_server = _get_inst(ip, port)
-
-    if web_server is None or web_server.is_down():
-        web_server = w3afHTTPServer((ip, port), w3afWebHandler)
-        global _servers
-        _servers[(ip, port)] = web_server
-        # Start server!
-        server_thread = threading.Thread(target=web_server.serve_forever)
-        server_thread.setDaemon(True)
-        server_thread.start()
 
 def is_running(ip, port):
     '''
@@ -70,6 +45,7 @@ def is_running(ip, port):
         return False
     return not web_server.is_down()
 
+
 def _get_inst(ip, port):
     '''
     Return a previously created instance bound to `ip` and `port`. Otherwise
@@ -79,11 +55,14 @@ def _get_inst(ip, port):
 
 
 class w3afHTTPServer(BaseHTTPServer.HTTPServer):
-    '''Must of the behavior added here is included in 
+    '''
+    Most of the behavior added here is included in
     '''
 
-    def __init__(self, server_address, RequestHandlerClass):
-        BaseHTTPServer.HTTPServer.__init__(self, server_address, RequestHandlerClass)
+    def __init__(self, server_address, webroot, RequestHandlerClass):
+        BaseHTTPServer.HTTPServer.__init__(self, server_address,
+                                           RequestHandlerClass)
+        self.webroot = webroot
         self.__is_shut_down = threading.Event()
         self.__shutdown_request = False
 
@@ -120,25 +99,36 @@ class w3afHTTPServer(BaseHTTPServer.HTTPServer):
         if self.verify_request(request, client_address):
             try:
                 self.process_request(request, client_address)
-            except:
+            except Exception:
                 self.handle_error(request, client_address)
                 self.close_request(request)
 
     def server_bind(self):
-        om.out.debug('Changing socket options of w3afHTTPServer to (socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)')
+        msg = 'Changing socket options of w3afHTTPServer to (socket.SOL_SOCKET'\
+              ', socket.SO_REUSEADDR, 1)'
+        om.out.debug(msg)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         BaseHTTPServer.HTTPServer.server_bind(self)
 
+    def get_port(self):
+        try:
+            return self.server_address[1]
+        except:
+            return None
+    
+    def wait_for_start(self):
+        while self.get_port() is None:
+            time.sleep(0.5)
 
 class w3afWebHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
     def do_GET(self):
 
         if self.path[1:].count('../') or self.path[1:].count('..\\'):
-            self.send_error(404, 'Yeah right...')
+            self.send_error(403, 'Yeah right...')
         else:
             try:
-                f = open(WEBROOT + os.path.sep + self.path[1:])
+                f = open(self.server.webroot + os.path.sep + self.path[1:])
             except IOError:
                 try:
                     self.send_error(404, 'File Not Found: %s' % self.path)
@@ -147,11 +137,11 @@ class w3afWebHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             else:
                 try:
                     self.send_response(200)
-                    # This aint nice, but this aint a complete web server implementation
+                    # This isn't nice, but this is NOT a complete web server implementation
                     # it is only here to serve some files to "victim" web servers
-                    type, encoding = mimetypes.guess_type(self.path)
-                    if type is not None:
-                        self.send_header('Content-type', type)
+                    content_type, encoding = mimetypes.guess_type(self.path)
+                    if content_type is not None:
+                        self.send_header('Content-type', content_type)
                     else:
                         self.send_header('Content-type', 'text/html')
                     self.end_headers()
@@ -167,17 +157,52 @@ class w3afWebHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.wfile.close()
         return
 
-    def log_message(self, format, *args):
+    def log_message(self, fmt, *args):
         '''
         I dont want messages to be written to stderr, please write them
         to the om.
         '''
-        message = "Local httpd - src: %s - %s" % \
-            (self.address_string(), format % args)
+        message = "webserver.py: %s - %s" % (self.address_string(), fmt % args)
         om.out.debug(message)
 
 
-if __name__ == "__main__":
-    # This doesnt work, I leave it here as a reminder to myself
-    ws = start_webserver('', 8081 , 'webroot' + os.path.sep)
-    ws.start2()
+def start_webserver(ip, port, webroot, handler=w3afWebHandler):
+    '''Create a http server deamon. The returned instance is unique for <ip>
+    and <port>.
+
+    :param ip: IP address where to bind
+    :param port: Port number
+    :param webroot: webserver's root directory
+    :return: A local webserver instance bound to the requested address (<ip>, <port>)
+    '''
+    server_thread = _get_inst(ip, port)
+
+    if server_thread is None or server_thread.is_down():
+        web_server = w3afHTTPServer((ip, port), webroot, handler)
+        _servers[(ip, port)] = web_server
+        # Start server!
+        server_thread = threading.Thread(target=web_server.serve_forever)
+        server_thread.name = 'WebServer'
+        server_thread.daemon = True
+        server_thread.start()
+
+    return server_thread
+
+def start_webserver_any_free_port(ip, webroot, handler=w3afWebHandler):
+    '''Create a http server deamon in any free port available.
+
+    :param ip: IP address where to bind
+    :param webroot: webserver's root directory
+    :return: A local webserver instance and the port where it's listening
+    '''
+    web_server = w3afHTTPServer((ip, 0), webroot, handler)
+
+    # Start server!
+    server_thread = threading.Thread(target=web_server.serve_forever)
+    server_thread.name = 'WebServer'
+    server_thread.daemon = True
+    server_thread.start()
+
+    web_server.wait_for_start()
+
+    return server_thread, web_server.get_port()

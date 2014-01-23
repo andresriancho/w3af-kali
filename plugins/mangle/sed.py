@@ -3,7 +3,7 @@ sed.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,199 +19,189 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-
-import core.controllers.outputManager as om
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
-from core.controllers.basePlugin.baseManglePlugin import baseManglePlugin
-from core.controllers.basePlugin.baseManglePlugin import headersToString, stringToHeaders
-
 import re
 
-from core.controllers.w3afException import w3afException
-from core.data.request.frFactory import create_fuzzable_request
+import core.controllers.output_manager as om
+
+from core.data.options.opt_factory import opt_factory
+from core.data.options.option_list import OptionList
+from core.data.request.factory import create_fuzzable_request_from_parts
+from core.data.dc.headers import Headers
+
+from core.controllers.plugins.mangle_plugin import ManglePlugin
+from core.controllers.exceptions import w3afException
 
 
-class sed(baseManglePlugin):
+class sed(ManglePlugin):
     '''
     This plugin is a "stream editor" for http requests and responses.
-      
-    @author: Andres Riancho ( andres.riancho@gmail.com )
+
+    :author: Andres Riancho (andres.riancho@gmail.com)
     '''
-    
+
     def __init__(self):
-        baseManglePlugin.__init__(self)
-        self._req_body_manglers = []
-        self._req_head_manglers = []
-        self._res_body_manglers = []
-        self._res_head_manglers = []
+        ManglePlugin.__init__(self)
+        self._manglers = {'q': {'b': set(), 'h': set()},
+                          's': {'b': set(), 'h': set()},}
         
         # User options
         self._user_option_fix_content_len = True
-        self._priority = 20
         self._expressions = ''
-        
-    def mangleRequest(self, request):
+
+    def mangle_request(self, request):
         '''
         This method mangles the request.
-        
-        @param request: This is the request to mangle.
-        @return: A mangled version of the request.
+
+        :param request: This is the request to mangle.
+        :return: A mangled version of the request.
         '''
-        data = request.getData()
-        for regex, string in self._req_body_manglers:
+        data = request.get_data()
+        for regex, string in self._manglers['q']['b']:
             data = regex.sub(string, data)
+
+        header_string = str(request.get_headers())
         
-        header_string = headersToString(request.getHeaders())
-        for regex, string in self._req_head_manglers:
+        for regex, string in self._manglers['q']['h']:
             header_string = regex.sub(string, header_string)
-        header_dict = stringToHeaders(header_string)
         
-        return create_fuzzable_request(
-                                 request.getURL(),
-                                 request.getMethod(),
-                                 data, header_dict
-                                 )
-    
-    def mangleResponse(self, response):
+        headers_inst = Headers.from_string(header_string)
+
+        return create_fuzzable_request_from_parts(
+                                                  request.get_uri(),
+                                                  request.get_method(),
+                                                  data, headers_inst
+                                                  )
+
+    def mangle_response(self, response):
         '''
         This method mangles the response.
-        
-        @param response: This is the response to mangle.
-        @return: A mangled version of the response.
+
+        :param response: This is the response to mangle.
+        :return: A mangled version of the response.
         '''
-        body = response.getBody()
-        
-        for regex, string in self._res_body_manglers:
+        body = response.get_body()
+
+        for regex, string in self._manglers['s']['b']:
             body = regex.sub(string, body)
-        
-        response.setBody(body)
-        
-        header_string = headersToString(response.getHeaders())
-        
-        for regex, string in self._res_head_manglers:
+
+        response.set_body(body)
+
+        header_string = str(response.get_headers())
+
+        for regex, string in self._manglers['s']['h']:
             header_string = regex.sub(string, header_string)
-        
-        response.setHeaders(stringToHeaders(header_string))
-        
-        if self._res_body_manglers and self._user_option_fix_content_len:
-            response = self._fixContentLen(response)
-        
+
+        try:
+            mangled_header = Headers.from_string(header_string)
+        except ValueError:
+            error = 'Your header modifications created an invalid header'\
+                    ' string that could NOT be parsed back to a Header object.'
+            om.out.error(error)
+        else:
+            response.set_headers(mangled_header)
+
+        if self._user_option_fix_content_len:
+            response = self._fix_content_len(response)
+
         return response
-    
-    def setOptions( self, OptionList ):
+
+    def set_options(self, option_list):
         '''
-        Sets the Options given on the OptionList to self. The options are the result of a user
-        entering some data on a window that was constructed using the XML Options that was
-        retrieved from the plugin using getOptions()
-        
-        This method MUST be implemented on every plugin. 
-        
-        @return: No value is returned.
-        ''' 
-        self._user_option_fix_content_len = OptionList['fixContentLen'].getValue()
-        self._priority = OptionList['priority'].getValue()
-        
-        self._expressions = ','.join( OptionList['expressions'].getValue() )
-        self._expressions = re.findall( '([qs])([bh])/(.*?)/(.*?)/;?' , self._expressions )
-        
-        if len( self._expressions ) == 0 and len ( OptionList['expressions'].getValue() ) != 0:
+        Sets the Options given on the OptionList to self. The options are the
+        result of a user entering some data on a window that was constructed
+        using the XML Options that was retrieved from the plugin using
+        get_options()
+
+        This method MUST be implemented on every plugin.
+
+        :return: No value is returned.
+        '''
+        self._user_option_fix_content_len = option_list[
+            'fix_content_len'].get_value()
+
+        self._expressions = ','.join(option_list['expressions'].get_value())
+        self._expressions = re.findall('([qs])([bh])/(.*?)/(.*?)/;?',
+                                       self._expressions)
+
+        if len(self._expressions) == 0 and len(option_list['expressions'].get_value()) != 0:
             raise w3afException('The user specified expression is invalid.')
-        
+
         for exp in self._expressions:
-            if exp[0] not in ['q', 's']:
-                msg = 'The first letter of the sed expression should be q(reQuest) or s(reSponse).'
-                raise w3afException( msg )
+            req_res, body_header, regex_str, target_str = exp
             
-            if exp[1] not in ['b', 'h']:
-                msg = 'The second letter of the sed expression should be b(body) or h(header).'
-                raise w3afException( msg )
-            
+            if req_res not in ('q', 's'):
+                msg = 'The first letter of the sed expression should be "q"'\
+                      ' for indicating request or "s" for response, got "%s"'\
+                      ' instead.'
+                raise w3afException(msg % req_res)
+
+            if body_header not in ('b', 'h'):
+                msg = 'The second letter of the expression should be "b"'\
+                      ' for body or "h" for header, got "%s" instead.'
+                raise w3afException(msg % body_header)
+
             try:
-                regex = re.compile( exp[2] )
-            except:
-                raise w3afException('Invalid regular expression in sed plugin.')
-                
-            if exp[0] == 'q':
-                # The expression mangles the request
-                if exp[1] == 'b':
-                    self._req_body_manglers.append( (regex, exp[3]) )
-                else:
-                    self._req_head_manglers.append( (regex, exp[3]) )
-            else:
-                # The expression mangles the response
-                if exp[1] == 'b':
-                    self._res_body_manglers.append( (regex, exp[3]) )
-                else:
-                    self._res_head_manglers.append( (regex, exp[3]) )
+                regex = re.compile(regex_str)
+            except re.error, re_err:
+                msg = 'Regular expression compilation error at "%s", the'\
+                      ' original exception was "%s".'
+                raise w3afException(msg % (regex_str, re_err))
 
-    def getOptions( self ):
-        '''
-        @return: A list of option objects for this plugin.
-        '''
-        d1 = 'Stream edition expressions'
-        h1 = 'Stream edition expressions are strings that tell the sed plugin what to change.'
-        h1 += ' Sed plugin uses regular expressions, some examples: \n - qh/User/NotLuser/ ;'
-        h1 += ' This will make sed search in the the re[q]uest [h]eader for the string User'
-        h1 += ' and replace it with NotLuser.\n - sb/[fF]orm/form ; This will make sed search'
-        h1 += ' in the re[s]ponse [b]ody for the strings form or Form and replace it with form.'
-        h1 += ' Multiple expressions can be specified separated by commas.'
-        o1 = option('expressions', self._expressions, d1, 'list', help=h1)
-        
-        d2 = 'Fix the content length header after mangling'
-        o2 = option('fixContentLen', self._user_option_fix_content_len, d2, 'boolean')
+            self._manglers[req_res][body_header].add((regex, target_str))
 
-        d3 = 'Plugin execution priority'
-        h3 = 'Mangle plugins are ordered using the priority parameter'
-        o3 = option('priority', self._priority, d3, 'integer', help=h3)
+    def get_options(self):
+        '''
+        :return: A list of option objects for this plugin.
+        '''
+        ol = OptionList()
         
-        ol = optionList()
-        ol.add(o1)
-        ol.add(o2)
-        ol.add(o3)
+        d = 'Stream edition expressions'
+        h = ('Stream edition expressions are strings that tell the sed plugin'
+             ' which transformations to apply to the HTTP requests and'
+             ' responses. The sed plugin uses regular expressions, some'
+             ' examples:\n'
+             '\n'
+             '    - qh/User/NotLuser/\n'
+             '      This will make sed search in the the re[q]uest [h]eader'
+             ' for the string User and replace it with NotLuser.\n'
+             '\n'
+             '    - sb/[fF]orm/form\n'
+             '      This will make sed search in the re[s]ponse [b]ody for'\
+             ' the strings form or Form and replace it with form.\n'
+             '\n'
+             'Multiple expressions can be specified separated by commas.')
+        o = opt_factory('expressions', self._expressions, d, 'list', help=h)
+        ol.add(o)
+        
+        d = 'Fix the content length header after mangling'
+        o = opt_factory('fix_content_len', self._user_option_fix_content_len,
+                        d, 'boolean')
+        ol.add(o)
+        
         return ol
-  
-    def getPluginDeps( self ):
+
+    def get_long_desc(self):
         '''
-        @return: A list with the names of the plugins that should be run before the
-        current one.
-        '''
-        return []
-    
-    def getPriority( self ):
-        '''
-        This function is called when sorting mangle plugins.
-        Each mangle plugin should implement this.
-        
-        @return: An integer specifying the priority. 100 is run first, 0 last.
-        '''        
-        return self._priority
-        
-    def getLongDesc( self ):
-        '''
-        @return: A DETAILED description of the plugin functions and features.
+        :return: A DETAILED description of the plugin functions and features.
         '''
         return '''
         This plugin is a stream editor for web requests and responses.
-        
-        Three configurable parameters exist:
-            - priority
+
+        Two configurable parameters exist:
             - expressions
-            - fixContentLen
+            - fix_content_len
+
+        Stream edition expressions are strings that tell the sed plugin which
+        transformations to apply to the HTTP requests and responses. The sed
+        plugin uses regular expressions, some examples:
         
-        Stream edition expressions are strings that tell the sed plugin what to change. Sed plugin
-        uses regular expressions, some examples:
             - qh/User/NotLuser/
-                This will make sed search in the the re[q]uest [h]eader for the string User and
-                replace it with NotLuser.
-                
+            This will make sed search in the the re[q]uest [h]eader for the
+            string User and replace it with NotLuser.
+            
             - sb/[fF]orm/form
-                This will make sed search in the re[s]ponse [b]ody for the strings form or Form
-                and replace it with form. 
+            This will make sed search in the re[s]ponse [b]ody for the strings
+            form or Form and replace it with form.
         
         Multiple expressions can be specified separated by commas.
         '''

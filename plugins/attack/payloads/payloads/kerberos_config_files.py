@@ -1,13 +1,13 @@
 import re
-from plugins.attack.payloads.base_payload import base_payload
-from core.ui.consoleUi.tables import table
+from plugins.attack.payloads.base_payload import Payload
+from core.ui.console.tables import table
 
 
-class kerberos_config_files(base_payload):
+class kerberos_config_files(Payload):
     '''
     This payload shows Kerberos configuration files
     '''
-    def api_read(self, parameters):
+    def api_read(self):
         result = {}
         files = []
 
@@ -18,24 +18,23 @@ class kerberos_config_files(base_payload):
         for file in files:
             content = self.shell.read(file)
             if content:
-                result[ file ] = content
-                
+                result[file] = content
+
         return result
-        
-    def run_read(self, parameters):
-        api_result = self.api_read( parameters )
-        
+
+    def run_read(self):
+        api_result = self.api_read()
+
         if not api_result:
             return 'Kerberos config files not found.'
         else:
             rows = []
-            rows.append( ['Kerberos file', 'Read access'] ) 
-            rows.append( [] )
+            rows.append(['Kerberos file', 'Read access'])
+            rows.append([])
             for filename in api_result:
-                rows.append( [filename, 'Yes' ] )
-                rows.append( [] )
-                              
-            result_table = table( rows[:-1] )
-            result_table.draw( 80 )                    
-            return rows
+                rows.append([filename, 'Yes'])
+                rows.append([])
 
+            result_table = table(rows[:-1])
+            result_table.draw(80)
+            return rows

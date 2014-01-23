@@ -5,7 +5,7 @@ python_export.py
 
 Copyright 2009 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,47 +21,46 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-from core.data.parsers.httpRequestParser import httpRequestParser
-import re
+from core.data.parsers.HTTPRequestParser import HTTPRequestParser
 
 
-def python_escape_string( str_in ):
+def python_escape_string(str_in):
     str_out = str_in.replace('"', '\\"')
     return str_out
 
 
-def python_export( request_string ):
+def python_export(request_string):
     '''
-    @parameter request_string: The string of the request to export
-    @return: A urllib2 based python script that will perform the same HTTP request.
+    :param request_string: The string of the request to export
+    :return: A urllib2 based python script that will perform the same HTTP request.
     '''
     # get the header and the body
     splitted_request = request_string.split('\n\n')
     header = splitted_request[0]
     body = '\n\n'.join(splitted_request[1:])
-    
-    http_request = httpRequestParser( header, body)
-    
+
+    http_request = HTTPRequestParser(header, body)
+
     # Now I do the real magic...
     res = 'import urllib2\n\n'
-    
-    res += 'url = "' + python_escape_string(http_request.getURI().url_string) + '"\n'
-    
-    if http_request.getData() != '\n' and http_request.getData() is not None:
-        escaped_data = python_escape_string(str(http_request.getData()) )
+
+    res += 'url = "' + python_escape_string(http_request.get_uri()
+                                            .url_string) + '"\n'
+
+    if http_request.get_data() != '\n' and http_request.get_data() is not None:
+        escaped_data = python_escape_string(str(http_request.get_data()))
         res += 'data = "' + escaped_data + '"\n'
     else:
         res += 'data = None\n'
-        
-    res += 'headers = { \n'
-    headers = http_request.getHeaders()
-    for header_name in headers:
-        header_value = python_escape_string(headers[header_name])
-        header_name = python_escape_string(header_name)        
-        res += '\t"' + header_name + '" : "' + header_value + '",\n'
-        
-    res = res [:-2]
+
+    res += 'headers = {\n'
+    headers = http_request.get_headers()
+    for header_name, header_value in headers.iteritems():
+        header_value = python_escape_string(header_value)
+        header_name = python_escape_string(header_name)
+        res += '    "' + header_name + '" : "' + header_value + '",\n'
+
+    res = res[:-2]
     res += '\n}\n'
 
     res += '''

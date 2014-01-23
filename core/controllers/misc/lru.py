@@ -3,7 +3,7 @@ LRU.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -22,20 +22,23 @@ from __future__ import with_statement
 
 import threading
 
+
 class Node(object):
     __slots__ = ['prev', 'next', 'me']
+
     def __init__(self, prev, me):
         self.prev = prev
         self.me = me
         self.next = None
 
-class LRU:
+
+class LRU(object):
     """
     Implementation of a length-limited O(1) LRU queue.
     Built for and used by PyPE:
     http://pype.sourceforge.net
     Copyright 2003 Josiah Carlson.
-    
+
     These is a list of the modifications that I (Andres Riancho) introduced to the code:
         - Thread safety
 
@@ -44,7 +47,7 @@ class LRU:
     >>> lru_test['2'] = 1
     >>> lru_test['3'] = 1
     >>> lru_test['4'] = 1
-    
+
     # Adding one more, the '1' should go away
     >>> lru_test['5'] = 1
     >>> '1' in lru_test
@@ -60,16 +63,16 @@ class LRU:
         self.last = None
         for key, value in pairs:
             self[key] = value
-            
+
     def __contains__(self, obj):
         return obj in self.d
-        
+
     def __getitem__(self, obj):
         with self.lock:
             item = self.d[obj].me
             self[item[0]] = item[1]
             return item[1]
-        
+
     def __setitem__(self, obj, val):
         with self.lock:
             if obj in self.d:
@@ -92,7 +95,7 @@ class LRU:
                 item.next = None
                 del self.d[item.me[0]]
                 del item
-        
+
     def __delitem__(self, obj):
         with self.lock:
             nobj = self.d[obj]
@@ -105,7 +108,7 @@ class LRU:
             else:
                 self.last = nobj.prev
             del self.d[obj]
-    
+
     '''
     @w3af note: I think that the following methods are never used in the framework.
     '''
@@ -115,27 +118,26 @@ class LRU:
             cur2 = cur.next
             yield cur.me[1]
             cur = cur2
-    
+
     def iteritems(self):
         cur = self.first
         while cur is not None:
             cur2 = cur.next
             yield cur.me
             cur = cur2
-    
+
     def iterkeys(self):
         return iter(self.d)
-    
+
     def itervalues(self):
         for i, j in self.iteritems():
             yield j
-    
+
     def keys(self):
         return self.d.keys()
-        
+
     def __len__(self):
         return len(self.d)
-        
+
     def values(self):
         return [i.me[1] for i in self.d.values()]
-

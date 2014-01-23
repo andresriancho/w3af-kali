@@ -3,7 +3,7 @@ AESSocket.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -28,24 +28,24 @@ raise Exception(msg)
 
 
 # If I wan't to continue to develop AESSocket, I should re-install pyrijndael.
-from extlib.pyrijndael.pyRijndael import DecryptData
-from extlib.pyrijndael.pyRijndael import EncryptData
+from pyrijndael.pyRijndael import DecryptData
+from pyrijndael.pyRijndael import EncryptData
 
 def makeAESSocket( key , sock ):
     '''
-    @parameter key: A string that will be the key for AES algorithm
-    @parameter sock: python socket
-    @return: a socket that will encrypt / decrypt all data that it sends and receives
+    :param key: A string that will be the key for AES algorithm
+    :param sock: python socket
+    :return: a socket that will encrypt / decrypt all data that it sends and receives
     '''
     sock._original_recv = sock.recv
     sock._original_send = sock.send
     sock._key = key
-    
+
     def aes_recv( self, length ):
         crypt_data = self._original_recv( length )
         data = DecryptData( self._key, crypt_data )
         return data
-        
+
     def aes_send( self, data ):
         crypt_data = EncryptData( self._key, data )
         sentBytes = self._original_send( crypt_data )
@@ -54,9 +54,9 @@ def makeAESSocket( key , sock ):
         else:
             # Just to say "not all data was transfered"
             return len(data) - 1
-    
+
     sock.recv = aes_recv
     sock.send = aes_send
-    
+
     return sock
 """

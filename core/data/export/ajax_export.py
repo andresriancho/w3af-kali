@@ -5,7 +5,7 @@ ajax_export.py
 
 Copyright 2009 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -22,31 +22,31 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
 
-from core.data.parsers.httpRequestParser import httpRequestParser
+from core.data.parsers.HTTPRequestParser import HTTPRequestParser
 
 
-def ajax_escape_string( str_in ):
+def ajax_escape_string(str_in):
     str_out = str_in.replace('"', '\\"')
     return str_out
 
 
-def ajax_export( request_string ):
+def ajax_export(request_string):
     '''
-    @parameter request_string: The string of the request to export
-    @return: A javascript that will perform the same HTTP request.
+    :param request_string: The string of the request to export
+    :return: A javascript that will perform the same HTTP request.
     '''
     # get the header and the body
     splitted_request = request_string.split('\n\n')
     header = splitted_request[0]
     body = '\n\n'.join(splitted_request[1:])
-    
-    http_request = httpRequestParser( header, body)
-    
+
+    http_request = HTTPRequestParser(header, body)
+
     # Now I do the real magic...
     # This is the header, to include the AJAX stuff:
     res = '''/* Init AJAX stuff */
-    
-var xmlhttp=false;
+
+var xmlhttp = false;
 /*@cc_on @*/
 /*@if (@_jscript_version >= 5)
 // JScript gives us Conditional compilation, we can cope with old IE versions.
@@ -62,53 +62,59 @@ try {
 }
 @end @*/
 
-if (!xmlhttp && typeof XMLHttpRequest!='undefined') {
+if (!xmlhttp && typeof XMLHttpRequest != 'undefined') {
     try {
         xmlhttp = new XMLHttpRequest();
     } catch (e) {
-        xmlhttp=false;
+        xmlhttp = false;
     }
 }
 if (!xmlhttp && window.createRequest) {
     try {
         xmlhttp = window.createRequest();
     } catch (e) {
-        xmlhttp=false;
+        xmlhttp = false;
     }
 }
 /* Finished AJAX initialization */
 
-/* Create the request */
+/* Create the request, please remember the same-origin policy, which might
+affect how and if this request is sent by the browser */
 '''
-    
+
     # Set the method and the path
-    res += 'xmlhttp.open("' + http_request.getMethod() + '", "'
-    res +=  ajax_escape_string( http_request.getURI().url_string ) + '",true);\n'
+    res += 'xmlhttp.open("' + http_request.get_method() + '", "'
+    res += ajax_escape_string(
+        http_request.get_uri().url_string) + '", true);\n'
 
     # For debugging
     res += '''
 /* Debugging code, this should be removed for real life XSS exploits */
-xmlhttp.onreadystatechange=function() {
-    if (xmlhttp.readyState==4) {
-        alert(xmlhttp.responseText)
+xmlhttp.onreadystatechange = function() {
+    if (xmlhttp.readyState == 4 ) {
+        alert(xmlhttp.responseText);
     }
 }
 
 
-/* Add headers to the request and send it */
+/* Add headers to the request and send it, please note taht custom headers
+might be removed by the browser and/or generate an exception that will
+make the request fail */
 '''
 
     # Now I add the headers:
-    headers = http_request.getHeaders()
-    for header_name in headers:
-        res += 'xmlhttp.setRequestHeader("' + ajax_escape_string(header_name) + '", "'
-        res += ajax_escape_string(headers[header_name]) + '");\n'
-        
+    headers = http_request.get_headers()
+    for header_name, header_value in headers.iteritems():
+        res += 'xmlhttp.setRequestHeaders("' + ajax_escape_string(
+            header_name) + '", "'
+        res += ajax_escape_string(header_value) + '");\n'
+
     # And finally the post data (if any)
-    if http_request.getData() and http_request.getData() != '\n':
-        res += 'var post_data = (<r><![CDATA[' + str(http_request.getData()) + ']]></r>).toString();\n'
+    if http_request.get_data() and http_request.get_data() != '\n':
+        res += 'var post_data = (<r><![CDATA[' + str(
+            http_request.get_data()) + ']]></r>).toString();\n'
         res += 'xmlhttp.send(post_data);\n'
     else:
         res += 'xmlhttp.send(null);\n'
-    
+
     return res

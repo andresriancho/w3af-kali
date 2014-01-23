@@ -2,15 +2,15 @@
 
 plugins
 audit sqli
-discovery hmap
+infrastructure hmap
 
-output console, textFile
+output console, text_file
 
 output config console
 set verbose False
 back
 
-output config textFile
+output config text_file
 set verbose True
 back
 
@@ -22,7 +22,7 @@ back
 
 start
 
-assert len( kb.kb.getData('sqli', 'sqli') ) == 1
-assert 'Apache' in kb.kb.getData( 'hmap','serverString')
+
+
 
 exit

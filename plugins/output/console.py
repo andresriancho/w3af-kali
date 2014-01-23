@@ -3,7 +3,7 @@ console.py
 
 Copyright 2006 Andres Riancho
 
-This file is part of w3af, w3af.sourceforge.net .
+This file is part of w3af, http://w3af.org/ .
 
 w3af is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,21 +19,15 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 '''
-
-
-from core.controllers.basePlugin.baseOutputPlugin import baseOutputPlugin
-
-# options
-from core.data.options.option import option
-from core.data.options.optionList import optionList
-
-# severity constants for vuln messages
-import core.data.constants.severity as severity
-from core.controllers.w3afException import w3afMustStopByKnownReasonExc
-
-from errno import ENOSPC
 import string
 import sys
+
+from errno import ENOSPC
+
+from core.controllers.plugins.output_plugin import OutputPlugin
+from core.controllers.exceptions import w3afMustStopByKnownReasonExc
+from core.data.options.opt_factory import opt_factory
+from core.data.options.option_list import OptionList
 
 
 def catch_ioerror(meth):
@@ -46,126 +40,87 @@ def catch_ioerror(meth):
         except IOError as (errno, strerror):
             if errno == ENOSPC:
                 msg = 'No space left on device'
-                raise w3afMustStopByKnownReasonExc( msg )
+                raise w3afMustStopByKnownReasonExc(msg)
 
     return wrapper
 
-class console(baseOutputPlugin):
+
+class console(OutputPlugin):
     '''
     Print messages to the console.
-    
-    @author: Andres Riancho ( andres.riancho@gmail.com )
+
+    :author: Andres Riancho (andres.riancho@gmail.com)
     '''
-    
+
     def __init__(self):
-        baseOutputPlugin.__init__(self)
+        OutputPlugin.__init__(self)
+
+        # User configured setting
         self.verbose = False
 
     def _make_printable(self, a_string):
-        a_string = str( a_string )
+        a_string = str(a_string)
+        a_string = a_string.replace('\n', '\n\r')
         return ''.join(ch for ch in a_string if ch in string.printable)
 
+    def _print_to_stdout(self, message, newline):
+        to_print = self._make_printable(message)
+        if newline:
+            to_print += '\r\n'
+        sys.stdout.write(to_print)
+        sys.stdout.flush()
+
     @catch_ioerror
-    def debug(self, message, newLine = True ):
+    def debug(self, message, new_line=True):
         '''
-        This method is called from the output object. The output object was called from a plugin
-        or from the framework. This method should take an action for debug messages.
+        This method is called from the output object. The output object was
+        called from a plugin or from the framework. This method should take
+        an action for debug messages.
         '''
         if self.verbose:
-            to_print = self._make_printable( message )
-            if newLine == True:
-                to_print += '\r\n'
-            sys.stdout.write( to_print )
-            sys.stdout.flush()
+            self._print_to_stdout(message, new_line)
 
     @catch_ioerror
-    def information(self, message , newLine = True ):
+    def _generic(self, message, new_line=True, severity=None):
         '''
-        This method is called from the output object. The output object was called from a plugin
-        or from the framework. This method should take an action for informational messages.
-        ''' 
-        to_print = self._make_printable( message )
-        if newLine == True:
-            to_print += '\r\n'
-        sys.stdout.write( to_print )
-        sys.stdout.flush()
+        This method is called from the output object. The output object was
+        called from a plugin or from the framework. This method should take
+        an action for all messages except from debug ones.
+        '''
+        self._print_to_stdout(message, new_line)
 
-    @catch_ioerror
-    def error(self, message , newLine = True ):
-        '''
-        This method is called from the output object. The output object was called from a plugin
-        or from the framework. This method should take an action for error messages.
-        '''     
-        to_print = self._make_printable( message )
-        if newLine == True:
-            to_print += '\r\n'
-        sys.stderr.write( to_print )
-        sys.stdout.flush()
+    error = console = vulnerability = information = _generic
 
-    @catch_ioerror
-    def vulnerability(self, message , newLine=True, severity=severity.MEDIUM ):
+    def get_long_desc(self):
         '''
-        This method is called from the output object. The output object was called from a plugin
-        or from the framework. This method should take an action when a vulnerability is found.
-        '''
-        to_print = self._make_printable( message )
-        if newLine == True:
-            to_print += '\r\n'
-        sys.stdout.write( to_print )
-        sys.stdout.flush()
-    
-    @catch_ioerror
-    def console( self, message, newLine = True ):
-        '''
-        This method is used by the w3af console to print messages to the outside.
-        '''
-        to_print = self._make_printable( message )
-        if newLine == True:
-            to_print += '\r\n'
-        sys.stdout.write( to_print )
-        sys.stdout.flush()
-
-    def logHttp( self, request, response):
-        pass
-    
-    def logEnabledPlugins(self,  enabledPluginsDict,  pluginOptionsDict):
-        '''
-        This method is called from the output managerobject. 
-        This method should take an action for the enabled plugins 
-        and their configuration.
-        '''
-        pass
-
-    def getLongDesc( self ):
-        '''
-        @return: A DETAILED description of the plugin functions and features.
+        :return: A DETAILED description of the plugin functions and features.
         '''
         return '''
         This plugin writes the framework messages to the console.
-        
+
         One configurable parameter exists:
             - verbose
         '''
 
-    def setOptions( self, OptionList ):
+    def set_options(self, option_list):
         '''
-        Sets the Options given on the OptionList to self. The options are the result of a user
-        entering some data on a window that was constructed using the XML Options that was
-        retrieved from the plugin using getOptions()
-        
-        This method MUST be implemented on every plugin. 
-        
-        @return: No value is returned.
-        ''' 
-        self.verbose = OptionList['verbose'].getValue()
+        Sets the Options given on the OptionList to self. The options are the
+        result of a user entering some data on a window that was constructed
+        using the XML Options that was retrieved from the plugin using get_options()
 
-    def getOptions( self ):
+        This method MUST be implemented on every plugin.
+
+        :return: No value is returned.
         '''
-        @return: A list of option objects for this plugin.
+        self.verbose = option_list['verbose'].get_value()
+
+    def get_options(self):
         '''
-        d1 = 'Enable if verbose output is needed'
-        o1 = option('verbose', self.verbose, d1, 'boolean')
-        
-        ol = optionList()
-        ol.add(o1)
+        :return: A list of option objects for this plugin.
+        '''
+        ol = OptionList()
+        d = 'Enables verbose output for the console'
+        o = opt_factory('verbose', self.verbose, d, 'boolean')
+        ol.add(o)
+
         return ol
