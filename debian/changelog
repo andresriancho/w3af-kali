@@ -7,6 +7,9 @@ w3af (1.5-0kali1) UNRELEASED; urgency=medium
     - dependecies-a-la-debian.patch
     - disable-pybloom.patch
     - remove_pybloomfiltermmap_import.patch
+  * Add new dependencies: python-bloomfiltermmap, python-phply, python-xdot,
+    python-ntlm, python-guess-language, python-nltk, python-esmre,
+    python-pygithub, msgpack-python, python-cluster.
 
  -- Raphaël Hertzog <hertzog@debian.org>  Mon, 03 Feb 2014 14:44:10 +0100
 
