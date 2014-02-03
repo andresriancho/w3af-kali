@@ -9,7 +9,9 @@ w3af (1.5-0kali1) UNRELEASED; urgency=medium
     - remove_pybloomfiltermmap_import.patch
   * Add new dependencies: python-bloomfiltermmap, python-phply, python-xdot,
     python-ntlm, python-guess-language, python-nltk, python-esmre,
-    python-pygithub, msgpack-python, python-cluster.
+    python-pygithub, msgpack-python, python-cluster, python-cluster,
+    python-lxml, python-pdfminer, python-git, python-scapy, python-clamd,
+    python-concurrent.futures.
   * Adjust rules files to cope with new file layout.
   * Update list of documentation files.
 
