@@ -20,15 +20,14 @@ install: build
 
 	cp debian/desktop debian/w3af/usr/share/applications/w3af.desktop
 	cp debian/w3af.xpm debian/w3af/usr/share/pixmaps/
-	cp -r core locales plugins profiles extlib debian/w3af-console/usr/share/w3af/
+	cp -r core locales plugins profiles debian/w3af-console/usr/share/w3af/
 	cp w3af_console debian/w3af-console/usr/share/w3af/
 	cp w3af_gui debian/w3af/usr/share/w3af/
 	chmod +x debian/w3af-console/usr/share/w3af/w3af_console debian/w3af/usr/share/w3af/w3af_gui
 	cp debian/w3af.sh debian/w3af-console/usr/bin/w3af
 	cp debian/w3af_console.sh debian/w3af-console/usr/bin/w3af_console
 	cp debian/w3af_gui.sh debian/w3af/usr/bin/w3af_gui
-	mv debian/w3af-console/usr/share/w3af/core/ui/gtkUi debian/w3af/usr/share/w3af/core/ui/gtkUi
-	mv debian/w3af-console/usr/share/w3af/extlib/xdot debian/w3af/usr/share/w3af/extlib/
+	mv debian/w3af-console/usr/share/w3af/core/ui/gui debian/w3af/usr/share/w3af/core/ui/gui
 
 build-arch: build
 build-indep: build

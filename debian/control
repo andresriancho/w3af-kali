@@ -29,7 +29,7 @@ Description: framework to find and exploit web application vulnerabilities
 Package: w3af-console
 Architecture: all
 XB-Python-Version: ${python:Versions}
-Depends: ${python:Depends}, ${misc:Depends}, python-simplejson, python-beautifulsoup, python-soappy, python-pypdf, python-openssl, python-pysqlite2, python-svn, python-chardet, python-bloomfiltermmap, python-phply, python-xdot, python-ntlm, python-guess-language, python-nltk, python-esmre, python-pygithub, msgpack-python, python-cluster
+Depends: ${python:Depends}, ${misc:Depends}, python-simplejson, python-beautifulsoup, python-soappy, python-pypdf, python-openssl, python-pysqlite2, python-svn, python-chardet, python-bloomfiltermmap, python-phply, python-ntlm, python-guess-language, python-nltk, python-esmre, python-pygithub, msgpack-python, python-cluster
 Conflicts: python-json
 Description: framework to find and exploit web application vulnerabilities (CLI only)
  w3af is a Web Application Attack and Audit Framework which aims

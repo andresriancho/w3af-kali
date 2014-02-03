@@ -10,6 +10,7 @@ w3af (1.5-0kali1) UNRELEASED; urgency=medium
   * Add new dependencies: python-bloomfiltermmap, python-phply, python-xdot,
     python-ntlm, python-guess-language, python-nltk, python-esmre,
     python-pygithub, msgpack-python, python-cluster.
+  * Adjust rules files to cope with new file layout.
 
  -- Raphaël Hertzog <hertzog@debian.org>  Mon, 03 Feb 2014 14:44:10 +0100
 
