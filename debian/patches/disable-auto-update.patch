@@ -1,22 +1,6 @@
---- a/core/controllers/auto_update/auto_update.py
-+++ b/core/controllers/auto_update/auto_update.py
-@@ -824,11 +824,11 @@
-     FREQ_WEEKLY = 'W' # [W]eekly
-     FREQ_MONTHLY = 'M' # [M]onthly
-     # DEFAULT VALUES
--    DEFAULTS = {'auto-update': 'true', 'frequency': 'D',
-+    DEFAULTS = {'auto-update': 'false', 'frequency': 'D',
-                 'last-update': 'None', 'last-rev': 0}
- 
-     def __init__(self):
--        
-+
-         self._start_cfg_file = os.path.join(get_home_dir(), 'startup.conf')
-         self._start_section = 'STARTUP_CONFIG'
-         self._config = ConfigParser.ConfigParser()
 --- a/w3af_console
 +++ b/w3af_console
-@@ -47,17 +47,6 @@
+@@ -52,14 +52,6 @@ Options:
      -s <script_file> or --script=<script_file>
          Run <script_file> script.
  
@@ -28,33 +12,30 @@
 -        An update check will be made when starting. This option takes 
 -        precedence over the 'auto-update' setting in 'startup.conf' file.
 -     
--    -r <rev number> or --revision <rev number>
--    	Force to update to <rev number>.
--    
      -p <profile> or --profile=<profile>
          Run with the selected <profile>
      
-@@ -72,8 +61,8 @@
+@@ -77,8 +69,8 @@ def usage():
  
  def main():
      try:
--        long_options = ['script=', 'help', 'version', 'test-all', 'no-update',
--                        'force-update', 'profile=', 'revision=', 'profile-run']
-+        long_options = ['script=', 'help', 'version', 'test-all',
-+                        'profile=', 'profile-run']
-         opts, args = getopt.getopt(sys.argv[1:], "ehvts:nfpP:r:", long_options)
+-        long_options = ['script=', 'help', 'version', 'no-update',
+-                        'force-update', 'profile=', 'commit=', 'profile-run']
++        long_options = ['script=', 'help', 'version',
++                        'profile=', 'commit=', 'profile-run']
+         opts, _ = getopt.getopt(sys.argv[1:], "ehvs:nfp:P:", long_options)
      except getopt.GetoptError, e:
          # print help information and exit:
-@@ -82,7 +71,7 @@
-     scriptFile = None
-     forceProfile = None
+@@ -87,7 +79,7 @@ def main():
+     script_file = None
+     force_profile = None
      profile = None
 -    doupdate = None
 +    doupdate = False
-     rev = 0 # HEAD revision
      
      for o, a in opts:
-@@ -110,21 +99,6 @@
+         if o == "-e":
+@@ -110,10 +102,6 @@ def main():
          if o in ('-v', '--version'):
              print get_w3af_version()
              return 0
@@ -62,23 +43,12 @@
 -            doupdate = True
 -        elif o in ('-n', '--no-update'):
 -            doupdate = False
--        if o in ('-r', '--revision'):
--        	doupdate = True
--        	a = a.upper()
--        	if a in ('HEAD', 'PREV'):
--        		rev = 0 if (a == 'HEAD') else -1
--        	else:
--	        	try:
--	        		rev = int(a)
--	        	except ValueError:
--	        		om.out.error("Invalid value for revision number. Expected int.")
--	        		return -3
      
-     # console
-     from core.ui.consoleUi.consoleUi import consoleUi
+     commands_to_run = []
+     if script_file is not None:
 --- a/w3af_gui
 +++ b/w3af_gui
-@@ -38,14 +38,6 @@
+@@ -45,14 +45,6 @@ Options:
      -h or --help
          Display this help message.
  
@@ -93,13 +63,13 @@
      -p <profile> or --profile=<profile>
          Run with the selected <profile>
  
-@@ -57,14 +49,14 @@
+@@ -64,14 +56,14 @@ def usage():
  
  def main():
      try:
 -        long_options = ['help', 'no-update', 'force-update', 'profile=']
 +        long_options = ['help', 'profile=']
-         opts, args = getopt.getopt(sys.argv[1:], "ehnfp:", long_options)
+         opts, _ = getopt.getopt(sys.argv[1:], "ehnfp:", long_options)
      except getopt.GetoptError:
          # print help information and exit:
          usage()
@@ -110,7 +80,7 @@
      for o, a in opts:
          if o in ( "-e"  ):
              # easter egg
-@@ -78,11 +70,6 @@
+@@ -84,11 +76,6 @@ def main():
          if o == "-h":
              usage()
              return 0
