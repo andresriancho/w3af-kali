@@ -1,8 +1,9 @@
-w3af (1.1svn5547-1kali4) UNRELEASED; urgency=medium
+w3af (1.5-0kali1) UNRELEASED; urgency=medium
 
+  * New upstream release.
   * Update watch file.
 
- -- Raphaël Hertzog <hertzog@debian.org>  Thu, 23 Jan 2014 17:21:35 +0100
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 03 Feb 2014 14:44:10 +0100
 
 w3af (1.1svn5547-1kali3) kali; urgency=low
 
