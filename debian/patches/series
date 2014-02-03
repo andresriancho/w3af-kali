@@ -1,3 +1,4 @@
+disable-os-package-check.patch
 01-debian-as-distribution.patch
 03-webshell.pl-is-not-script.patch
 disable-auto-update.patch

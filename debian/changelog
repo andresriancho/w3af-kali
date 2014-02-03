@@ -14,6 +14,9 @@ w3af (1.5-0kali1) UNRELEASED; urgency=medium
     python-concurrent.futures.
   * Adjust rules files to cope with new file layout.
   * Update list of documentation files.
+  * Add new patch disable-os-package-check.patch to silence w3af about
+    missing Debian packages that are only required if you install stuff
+    via pip (which we don't since we have everything packaged).
 
  -- Raphaël Hertzog <hertzog@debian.org>  Mon, 03 Feb 2014 14:44:10 +0100
 
