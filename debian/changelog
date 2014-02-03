@@ -11,7 +11,7 @@ w3af (1.5-0kali1) UNRELEASED; urgency=medium
     python-ntlm, python-guess-language, python-nltk, python-esmre,
     python-pygithub, msgpack-python, python-cluster, python-cluster,
     python-lxml, python-pdfminer, python-git, python-scapy, python-clamd,
-    python-concurrent.futures.
+    python-concurrent.futures, python-six.
   * Adjust rules files to cope with new file layout.
   * Update list of documentation files.
   * Add new patch disable-os-package-check.patch to silence w3af about
