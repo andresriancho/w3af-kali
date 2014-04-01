@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: Luciano Bello <luciano@debian.org>
 Build-Depends: debhelper (>= 9), python-support
 Standards-Version: 3.9.3
-Homepage: http://w3af.sourceforge.net/
+Homepage: http://w3af.org/
 XS-Python-Version: all
 
 Package: w3af
