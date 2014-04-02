@@ -51,3 +51,4 @@ django-moth
 
 # Ignore sphinx builds
 doc/sphinx/_build/
+.pc
