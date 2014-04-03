@@ -1,3 +1,9 @@
+w3af (1.6.0.1-0kali2) kali; urgency=medium
+
+  * Merge lost changes from 1.5-0kali2.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Thu, 03 Apr 2014 15:38:11 +0200
+
 w3af (1.6.0.1-0kali1) kali; urgency=low
 
   * Upsteam import
