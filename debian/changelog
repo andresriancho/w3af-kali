@@ -1,3 +1,11 @@
+w3af (1.6.0.1-0kali1) kali; urgency=low
+
+  * Upsteam import
+  * Fix package for w3af 1.6 path changes
+  * Include python-halberd dependency.
+
+ -- Mati Aharoni <muts@kali.org>  Tue, 01 Apr 2014 17:02:38 -0400
+
 w3af (1.5-0kali2) kali; urgency=medium
 
   * Enable proper byte-compilation of /usr/share/w3af in all packages.

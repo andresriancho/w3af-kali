@@ -1,0 +1,17 @@
+From: Luciano Bello <luciano@debian.org>
+Subject: Indicates that the version cames from a Debian Package
+
+--- a/w3af/core/controllers/misc/get_w3af_version.py
++++ b/w3af/core/controllers/misc/get_w3af_version.py
+@@ -48,9 +48,5 @@ def get_w3af_version():
+     
+     return ('w3af - Web Application Attack and Audit Framework\n'
+             'Version: %s\n'
+-            'Revision: %s%s\n'
+-            'Branch: %s\n'
+-            'Local changes: %s\n'
+-            'Author: Andres Riancho and the w3af team.') % (vnumber, commit,
+-                                                            cdate, branch,
+-                                                            dirty)
++            'Distribution: Kali Linux\n'
++            'Author: Andres Riancho and the w3af team.') % (vnumber)

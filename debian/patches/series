@@ -1,4 +1,3 @@
 disable-os-package-check.patch
-01-debian-as-distribution.patch
-03-webshell.pl-is-not-script.patch
+01-kali-as-distribution.patch
 disable-auto-update.patch

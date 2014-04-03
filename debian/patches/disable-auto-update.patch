@@ -1,6 +1,6 @@
 --- a/w3af_console
 +++ b/w3af_console
-@@ -52,14 +52,6 @@ Options:
+@@ -35,14 +35,6 @@ Options:
      -s <script_file> or --script=<script_file>
          Run <script_file> script.
  
@@ -15,18 +15,18 @@
      -p <profile> or --profile=<profile>
          Run with the selected <profile>
      
-@@ -77,8 +69,8 @@ def usage():
+@@ -106,8 +98,8 @@ def _generate_run_commands(script_file, profile, force_profile):
  
  def main():
      try:
 -        long_options = ['script=', 'help', 'version', 'no-update',
 -                        'force-update', 'profile=', 'commit=', 'profile-run']
 +        long_options = ['script=', 'help', 'version',
-+                        'profile=', 'commit=', 'profile-run']
++                        'profile=', 'profile-run']
          opts, _ = getopt.getopt(sys.argv[1:], "ehvs:nfp:P:", long_options)
-     except getopt.GetoptError, e:
-         # print help information and exit:
-@@ -87,7 +79,7 @@ def main():
+     except getopt.GetoptError:
+         # Print help information and exit
+@@ -117,7 +109,7 @@ def main():
      script_file = None
      force_profile = None
      profile = None
@@ -35,20 +35,22 @@
      
      for o, a in opts:
          if o == "-e":
-@@ -110,10 +102,6 @@ def main():
+@@ -140,10 +132,6 @@ def main():
          if o in ('-v', '--version'):
-             print get_w3af_version()
+             print(get_w3af_version())
              return 0
 -        if o in ('-f', '--force-update'):
 -            doupdate = True
 -        elif o in ('-n', '--no-update'):
 -            doupdate = False
      
-     commands_to_run = []
-     if script_file is not None:
+     commands_to_run = _generate_run_commands(script_file, profile, force_profile)
+     console = ConsoleUI(commands=commands_to_run, do_upd=doupdate)
+diff --git a/w3af_gui b/w3af_gui
+index 365c4bf..dae9ef6 100755
 --- a/w3af_gui
 +++ b/w3af_gui
-@@ -45,14 +45,6 @@ Options:
+@@ -27,14 +27,6 @@ Options:
      -h or --help
          Display this help message.
  
@@ -63,7 +65,7 @@
      -p <profile> or --profile=<profile>
          Run with the selected <profile>
  
-@@ -64,14 +56,14 @@ def usage():
+@@ -58,7 +50,7 @@ def usage():
  
  def main():
      try:
@@ -72,16 +74,17 @@
          opts, _ = getopt.getopt(sys.argv[1:], "ehnfp:", long_options)
      except getopt.GetoptError:
          # print help information and exit:
-         usage()
+@@ -66,7 +58,7 @@ def main():
          return -3
+     
      profile = None
 -    doupdate = None
 +    doupdate = False
+     
      for o, a in opts:
          if o in ( "-e"  ):
-             # easter egg
-@@ -84,11 +76,6 @@ def main():
-         if o == "-h":
+@@ -80,11 +72,6 @@ def main():
+         if o in ('-h', '--help'):
              usage()
              return 0
 -        if o in ('-f', '--force-update'):

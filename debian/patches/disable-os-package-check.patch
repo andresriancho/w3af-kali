@@ -1,25 +1,21 @@
---- a/core/controllers/dependency_check/platforms/linux.py
-+++ b/core/controllers/dependency_check/platforms/linux.py
-@@ -28,11 +28,10 @@ SYSTEM_NAME = 'Debian'
+--- a/w3af/core/controllers/dependency_check/platforms/linux.py
++++ b/w3af/core/controllers/dependency_check/platforms/linux.py
+@@ -26,13 +26,12 @@ SYSTEM_NAME = 'Debian'
  PKG_MANAGER_CMD = 'sudo apt-get install'
  
  SYSTEM_PACKAGES = {
 -                   'PIP': ['python-pip'],
 -                   'C_BUILD': ['python2.7-dev', 'python-setuptools',
 -                               'build-essential', 'libsqlite3-dev'],
+-                   'SSL_DEV': ['libssl-dev',],
 -                   'GIT': ['git'],
--                   'XML': ['libxml2-dev', 'libxslt1-dev']
+-                   'XML': ['libxml2-dev', 'libxslt1-dev'],
+-                   'YAML': ['libyaml-dev']
 +                   'PIP': [],
 +                   'C_BUILD': [],
++                   'SSL_DEV': [],
 +                   'GIT': [],
-+                   'XML': []
++                   'XML': [],
++                   'YAML': []
                    }
  PIP_CMD = 'pip'
- 
-@@ -80,4 +79,4 @@ def os_package_is_installed(package_name
-             return None
- 
- def after_hook():
--    pass
-\ No newline at end of file
-+    pass
