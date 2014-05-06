@@ -1,6 +1,6 @@
 --- a/w3af_console
 +++ b/w3af_console
-@@ -35,14 +35,6 @@ Options:
+@@ -34,14 +34,6 @@ Options:
      -s <script_file> or --script=<script_file>
          Run <script_file> script.
  
@@ -15,7 +15,7 @@
      -p <profile> or --profile=<profile>
          Run with the selected <profile>
      
-@@ -106,8 +98,8 @@ def _generate_run_commands(script_file, profile, force_profile):
+@@ -110,8 +102,8 @@ def _generate_run_commands(script_file,
  
  def main():
      try:
@@ -26,7 +26,7 @@
          opts, _ = getopt.getopt(sys.argv[1:], "ehvs:nfp:P:", long_options)
      except getopt.GetoptError:
          # Print help information and exit
-@@ -117,7 +109,7 @@ def main():
+@@ -121,7 +113,7 @@ def main():
      script_file = None
      force_profile = None
      profile = None
@@ -35,7 +35,7 @@
      
      for o, a in opts:
          if o == "-e":
-@@ -140,10 +132,6 @@ def main():
+@@ -144,10 +136,6 @@ def main():
          if o in ('-v', '--version'):
              print(get_w3af_version())
              return 0
@@ -46,8 +46,6 @@
      
      commands_to_run = _generate_run_commands(script_file, profile, force_profile)
      console = ConsoleUI(commands=commands_to_run, do_upd=doupdate)
-diff --git a/w3af_gui b/w3af_gui
-index 365c4bf..dae9ef6 100755
 --- a/w3af_gui
 +++ b/w3af_gui
 @@ -27,14 +27,6 @@ Options:
@@ -65,7 +63,7 @@ index 365c4bf..dae9ef6 100755
      -p <profile> or --profile=<profile>
          Run with the selected <profile>
  
-@@ -58,7 +50,7 @@ def usage():
+@@ -61,7 +53,7 @@ def usage():
  
  def main():
      try:
@@ -74,7 +72,7 @@ index 365c4bf..dae9ef6 100755
          opts, _ = getopt.getopt(sys.argv[1:], "ehnfp:", long_options)
      except getopt.GetoptError:
          # print help information and exit:
-@@ -66,7 +58,7 @@ def main():
+@@ -69,7 +61,7 @@ def main():
          return -3
      
      profile = None
@@ -82,8 +80,8 @@ index 365c4bf..dae9ef6 100755
 +    doupdate = False
      
      for o, a in opts:
-         if o in ( "-e"  ):
-@@ -80,11 +72,6 @@ def main():
+         if o in ("-e"):
+@@ -83,11 +75,6 @@ def main():
          if o in ('-h', '--help'):
              usage()
              return 0
