@@ -1,3 +1,9 @@
+w3af (1.6.0.2-0kali2) kali; urgency=low
+
+  * Added python-ply as a dependency
+
+ -- Devon Kearns <dookie@kali.org>  Thu, 08 May 2014 08:55:05 -0600
+
 w3af (1.6.0.2-0kali1) kali; urgency=low
 
   * Imported new upstream release
