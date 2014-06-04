@@ -1,0 +1,21 @@
+--- a/w3af/core/controllers/dependency_check/platforms/linux.py
++++ b/w3af/core/controllers/dependency_check/platforms/linux.py
+@@ -26,13 +26,12 @@ SYSTEM_NAME = 'Debian'
+ PKG_MANAGER_CMD = 'sudo apt-get install'
+ 
+ SYSTEM_PACKAGES = {
+-                   'PIP': ['python-pip'],
+-                   'C_BUILD': ['python2.7-dev', 'python-setuptools',
+-                               'build-essential', 'libsqlite3-dev'],
+-                   'SSL_DEV': ['libssl-dev',],
+-                   'GIT': ['git'],
+-                   'XML': ['libxml2-dev', 'libxslt1-dev'],
+-                   'YAML': ['libyaml-dev']
++                   'PIP': [],
++                   'C_BUILD': [],
++                   'SSL_DEV': [],
++                   'GIT': [],
++                   'XML': [],
++                   'YAML': []
+                   }
+ PIP_CMD = 'pip'

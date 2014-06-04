@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "configure" ] && dpkg --compare-versions "$2" lt-nl 1.6.0.1-0kali2; then
+    # Drop unmanaged .pyc files
+    find /usr/share/w3af -name '*.pyc' -delete
+    # Drop empty directories now
+    find /usr/share/w3af -depth -type d -print0 | xargs -0 rmdir --ignore-fail-on-non-empty
+fi
+
+#DEBHELPER#

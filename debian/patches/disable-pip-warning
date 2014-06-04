@@ -1,0 +1,14 @@
+Commented out the warning message about pip not being installed on the system
+--- a/w3af/core/controllers/dependency_check/dependency_check.py
++++ b/w3af/core/controllers/dependency_check/dependency_check.py
+@@ -29,8 +29,8 @@ try:
+     # We do this in order to check for really old versions of pip
+     pip.get_installed_distributions()
+ except ImportError:
+-    print('We recommend you install pip before continuing.')
+-    print('http://www.pip-installer.org/en/latest/installing.html')
++#    print('We recommend you install pip before continuing.')
++#    print('http://www.pip-installer.org/en/latest/installing.html')
+     HAS_PIP = False
+ except AttributeError:
+     print('A very old version of pip was detected. We recommend you update your'
