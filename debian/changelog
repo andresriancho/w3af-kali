@@ -1,3 +1,9 @@
+w3af (1.6.0.2-0kali3) kali; urgency=low
+
+  * Fix dependency checks
+
+ -- Mati Aharoni <muts@kali.org>  Wed, 04 Jun 2014 10:15:34 -0400
+
 w3af (1.6.0.2-0kali2) kali; urgency=low
 
   * Added python-ply as a dependency
