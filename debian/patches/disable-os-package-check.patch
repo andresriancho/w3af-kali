@@ -1,21 +1,26 @@
---- a/w3af/core/controllers/dependency_check/platforms/linux.py
-+++ b/w3af/core/controllers/dependency_check/platforms/linux.py
-@@ -26,13 +26,12 @@ SYSTEM_NAME = 'Debian'
- PKG_MANAGER_CMD = 'sudo apt-get install'
+Index: w3af/w3af_console
+===================================================================
+--- w3af.orig/w3af_console	2014-06-04 10:15:21.801703934 -0400
++++ w3af/w3af_console	2014-06-04 10:16:57.757703297 -0400
+@@ -10,7 +10,7 @@
  
- SYSTEM_PACKAGES = {
--                   'PIP': ['python-pip'],
--                   'C_BUILD': ['python2.7-dev', 'python-setuptools',
--                               'build-essential', 'libsqlite3-dev'],
--                   'SSL_DEV': ['libssl-dev',],
--                   'GIT': ['git'],
--                   'XML': ['libxml2-dev', 'libxslt1-dev'],
--                   'YAML': ['libyaml-dev']
-+                   'PIP': [],
-+                   'C_BUILD': [],
-+                   'SSL_DEV': [],
-+                   'GIT': [],
-+                   'XML': [],
-+                   'YAML': []
-                   }
- PIP_CMD = 'pip'
+ # Check if I have all needed dependencies
+ from w3af.core.controllers.dependency_check.dependency_check import dependency_check
+-dependency_check()
++#dependency_check()
+ 
+ from w3af.core.ui.console.console_ui import ConsoleUI
+ from w3af.core.controllers.misc.get_w3af_version import get_w3af_version
+Index: w3af/w3af_gui
+===================================================================
+--- w3af.orig/w3af_gui	2014-06-04 10:15:21.801703934 -0400
++++ w3af/w3af_gui	2014-06-04 10:17:22.785703131 -0400
+@@ -10,7 +10,7 @@
+ # Perform the GTK UI dependency check, this will verify that the current system
+ # has all the modules required to run w3af (including the core dependencies)
+ from w3af.core.ui.gui.dependency_check.dependency_check import dependency_check
+-dependency_check()
++#dependency_check()
+ 
+ import w3af.core.controllers.output_manager as om
+ 

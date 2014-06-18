@@ -11,4 +11,4 @@ Commented out the warning message about pip not being installed on the system
 +#    print('http://www.pip-installer.org/en/latest/installing.html')
      HAS_PIP = False
  except AttributeError:
-     print('A very old version of pip was detected. We recommend you update your'
+     print('A very old version of pip was detected. We recommend a pip update'
