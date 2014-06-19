@@ -51,4 +51,19 @@ django-moth
 
 # Ignore sphinx builds
 doc/sphinx/_build/
+
+# Ignore debian builds
 .pc
+debian/files
+debian/w3af-console.debhelper.log
+debian/w3af-console.postinst.debhelper
+debian/w3af-console.prerm.debhelper
+debian/w3af-console.substvars
+debian/w3af-console/
+debian/w3af.debhelper.log
+debian/w3af.postinst.debhelper
+debian/w3af.postrm.debhelper
+debian/w3af.prerm.debhelper
+debian/w3af.substvars
+debian/w3af/
+
