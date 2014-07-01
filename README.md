@@ -31,10 +31,13 @@ Please note that the second command will change depending on the version tag.
 
 ```bash
 cd w3af-kali/
-# Add the new release changelog, pointing to the right version so dpkg-buildpackage can find the tgz
+
+# Add the new release changelog entry, pointing to the right version so dpkg-buildpackage can find the tgz
+dch -v 1.6.0.3-0kali1 -D kali
 editor debian/changelog
+
 dpkg-checkbuilddeps
-dpkg-buildpackage
+git-buildpackage
 ```
 
 ## Testing the .deb files
