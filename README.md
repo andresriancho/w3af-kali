@@ -69,3 +69,7 @@ git remote add kali-upstream git://git.kali.org/packages/w3af.git
 git fetch -v kali-upstream
 git merge kali-upstream/master
 ```
+
+## Resources
+
+ * http://pkg.kali.org/pkg/w3af
