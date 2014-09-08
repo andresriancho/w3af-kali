@@ -5,7 +5,15 @@ Building a new `Kali` package for `w3af` requires these steps to be completed:
 
 ### Install the required tools
 ```bash
-sudo apt-get install devscripts git-buildpackage
+sudo apt-get install devscripts git-buildpackage debhelper
+```
+
+### Get this repository
+```bash
+git clone git@github.com:andresriancho/w3af-kali.git
+git checkout upstream
+git checkout pristine-tar
+git checkout master
 ```
 
 ### Get the latest from Kali repositories
@@ -24,7 +32,7 @@ git merge kali-upstream/master
 When the code being packaged needs to be updated you'll have to tag it in the `w3af` repository and then:
 
 ```bash
-# Tag the new release
+# Tag the new release in the w3af repository
 cd w3af/
 git tag 1.6.0.5
 git push origin --tags
@@ -43,8 +51,7 @@ Please note that the second and last commands will change depending on the versi
 cd w3af-kali/
 
 # Add the new release changelog entry, pointing to the right version so dpkg-buildpackage can find the tgz
-dch -v 1.6.0.3-0kali1 -D kali
-editor debian/changelog
+dch -v 1.6.0.5-0kali1 -D kali
 
 dpkg-checkbuilddeps
 git-buildpackage
