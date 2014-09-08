@@ -50,7 +50,8 @@ Please note that the second and last commands will change depending on the versi
 ```bash
 cd w3af-kali/
 
-# Add the new release changelog entry, pointing to the right version so dpkg-buildpackage can find the tgz
+# Add the new release changelog entry, pointing to the right version
+# so dpkg-buildpackage can find the tgz
 dch -v 1.6.0.5-0kali1 -D kali
 
 dpkg-checkbuilddeps
