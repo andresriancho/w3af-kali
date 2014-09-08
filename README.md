@@ -1,8 +1,12 @@
 This repository contains all files required to build the `w3af` package for [Kali](http://www.kali.org/).
 
 ## Building a new package
-
 Building a new `Kali` package for `w3af` requires these steps to be completed:
+
+### Install the required tools
+```bash
+sudo apt-get install devscripts git-buildpackage
+```
 
 ### Get the latest from Kali repositories
 
@@ -20,12 +24,18 @@ git merge kali-upstream/master
 When the code being packaged needs to be updated you'll have to tag it in the `w3af` repository and then:
 
 ```bash
+# Tag the new release
+cd w3af/
+git tag 1.6.0.5
+git push origin --tags
+
+# And now in w3af-kali
 cd w3af-kali/
 # This downloads the updated tagged version from your git repo
 uscan --force-download --verbose
-git-import-orig ../w3af_1.6.0.3.orig.tar.gz
+git-import-orig ../w3af_1.6.0.5.orig.tar.gz
 ```
-Please note that the second command will change depending on the version tag.
+Please note that the second and last commands will change depending on the version tag.
 
 ### Build the package
 
