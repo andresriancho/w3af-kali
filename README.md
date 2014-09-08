@@ -21,7 +21,7 @@ When the code being packaged needs to be updated you'll have to tag it in the `w
 
 ```bash
 cd w3af-kali/
-# This downloads the updated tagged versoin from your git repo
+# This downloads the updated tagged version from your git repo
 uscan --force-download --verbose
 git-import-orig ../w3af_1.6.0.3.orig.tar.gz
 ```
