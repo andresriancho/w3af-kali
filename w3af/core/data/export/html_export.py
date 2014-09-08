@@ -23,7 +23,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 import cgi
 
-from w3af.core.data.parsers.HTTPRequestParser import HTTPRequestParser
+from w3af.core.data.parsers.http_request_parser import http_request_parser
 
 
 def html_export(request_string):
@@ -34,7 +34,7 @@ def html_export(request_string):
     request_lines = request_string.split('\n\n')
     header = request_lines[0]
     body = '\n\n'.join(request_lines[1:])
-    http_request = HTTPRequestParser(header, body)
+    http_request = http_request_parser(header, body)
     res = """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
     <html>
     <head>
@@ -45,15 +45,18 @@ def html_export(request_string):
     res += '<form action="' + cgi.escape(http_request.get_uri()
                                          .url_string, True)
     res += '" method="' + cgi.escape(http_request.get_method(), True) + '">\n'
+
     if http_request.get_data() and http_request.get_data() != '\n':
-        post_data = http_request.get_dc()
-        for param_name in post_data:
-            for value in post_data[param_name]:
-                res += '<label>' + cgi.escape(param_name) + '</label>\n'
-                res += '<input type="text" name="' + \
-                    cgi.escape(param_name.strip(), True)
-                res += '" value="' + cgi.escape(value, True) + '">\n'
+        post_data = http_request.get_raw_data()
+
+        for token in post_data.iter_tokens():
+            res += '<label>' + cgi.escape(token.get_name()) + '</label>\n'
+            res += '<input type="text" name="' + \
+                cgi.escape(token.get_name().strip(), True)
+            res += '" value="' + cgi.escape(token.get_value(), True) + '">\n'
+
     res += '<input type="submit">\n'
     res += '</form>\n'
     res += """</body>\n</html>"""
+
     return res

@@ -20,8 +20,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
 from w3af.core.data.kb.vuln_templates.base_template import BaseTemplate
-from w3af.core.data.fuzzer.mutants.mutant import Mutant
-from w3af.core.data.request.fuzzable_request import FuzzableRequest
 
 
 class SQLiTemplate(BaseTemplate):
@@ -32,38 +30,13 @@ class SQLiTemplate(BaseTemplate):
         super(SQLiTemplate, self).__init__()
         
         self.name = self.get_vulnerability_name()
-        
-    def create_vuln(self):
-        v = self.create_base_vuln()
 
-        url = self.url
-        if self.method.upper() == 'GET':
-            url.querystring = self.data
-
-        # User configured
-        v.set_method(self.method)
-        v.set_name(self.name)
-        v.set_var(self.vulnerable_parameter)
-        v.set_url(url)
-        v.set_dc(self.data)
-
-        freq = FuzzableRequest(url, method=self.method, dc=self.data)
-
-        mutant = Mutant(freq)
-        mutant.set_var(self.vulnerable_parameter)
-        mutant.set_dc(self.data)
-        mutant.set_original_value(self.data[self.vulnerable_parameter][0])
-        
-        v.set_mutant(mutant)
-
-        return v
-        
     def get_kb_location(self):
         """
-        :return: A tuple with the location where the vulnerability will be saved,
-                 example return value would be: ('eval', 'eval')
+        :return: A tuple with the location where the vulnerability will be
+                 saved, example return value would be: ('eval', 'eval')
         """
-        return ('sqli', 'sqli')
+        return 'sqli', 'sqli'
 
     def get_vulnerability_name(self):
         """

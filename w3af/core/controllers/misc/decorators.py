@@ -20,12 +20,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 import math
 import time
+import threading
 import collections
 import functools
 
 from functools import wraps
 
-from w3af.core.controllers.misc.lru import LRU
+import w3af.core.controllers.output_manager as om
+from darts.lib.utils.lru import SynchronizedLRUDict
 
 
 def runonce(exc_class=Exception):
@@ -48,19 +50,19 @@ def runonce(exc_class=Exception):
     return runonce_meth
 
 
-def retry(tries, delay=1, backoff=2, exc_class=None, err_msg=''):
+def retry(tries, delay=1, backoff=2, exc_class=None, err_msg='', log_msg=None):
     """
     Retries a function or method if an exception was raised.
 
     :param tries: Number of attempts. Must be >= 1.
-    :param delay: Initial delay before retrying. Must be nonnegative.
+    :param delay: Initial delay before retrying. Must be non negative.
     :param backoff: Indicates how much the delay should lengthen after
-        each failure. Must greater than 1.
+                    each failure. Must greater than 1.
     :param exc_class: Exception class to use if all attempts have been
-        exhausted.
+                      exhausted.
     :param err_msg: Error message to use when an instance of `exc_class`
-        is raised. If no value is passed the string representation of the
-        current exception is used.
+                    is raised. If no value is passed the string representation
+                    of the current exception is used.
     """
 
     if backoff <= 1:
@@ -71,7 +73,7 @@ def retry(tries, delay=1, backoff=2, exc_class=None, err_msg=''):
         raise ValueError("'tries' must be 1 or greater.")
 
     if delay < 0:
-        raise ValueError("'delay' must be nonnegative.")
+        raise ValueError("'delay' must be non negative.")
 
     def deco_retry(f):
         
@@ -94,6 +96,10 @@ def retry(tries, delay=1, backoff=2, exc_class=None, err_msg=''):
                 mtries -= 1
                 time.sleep(mdelay)
                 mdelay *= backoff
+
+                if log_msg is not None:
+                    om.out.debug(log_msg)
+
         return f_retry
     
     return deco_retry
@@ -125,19 +131,20 @@ class memoized(object):
     """
     def __init__(self, func, lru_size=100):
         self.func = func
-        self.cache = LRU(lru_size)
+        self.cache = SynchronizedLRUDict(lru_size)
 
-    def __call__(self, *args):
-        if not isinstance(args, collections.Hashable):
+    def __call__(self, *args, **kwargs):
+        if not isinstance(args, collections.Hashable) or\
+        not isinstance(tuple(kwargs.items()), collections.Hashable):
             # uncacheable. a list, for instance.
             # better to not cache than blow up.
-            return self.func(*args)
+            return self.func(*args, **kwargs)
 
-        if args in self.cache:
-            return self.cache[args]
-        else:
-            value = self.func(*args)
-            self.cache[args] = value
+        try:
+            return self.cache[(args, tuple(kwargs.items()))]
+        except KeyError:
+            value = self.func(*args, **kwargs)
+            self.cache[(args, tuple(kwargs.items()))] = value
             return value
 
     def __repr__(self):
@@ -151,3 +158,33 @@ class memoized(object):
         Support instance methods.
         """
         return functools.partial(self.__call__, obj)
+
+
+def rate_limited(max_per_second):
+    """
+    Decorator that make functions not be called faster than
+    """
+    lock = threading.Lock()
+    min_interval = 1.0 / float(max_per_second)
+
+    def decorate(func):
+        last_time_called = [0.0]
+
+        @wraps(func)
+        def rate_limited_function(*args, **kwargs):
+            lock.acquire()
+            elapsed = time.clock() - last_time_called[0]
+            left_to_wait = min_interval - elapsed
+
+            if left_to_wait > 0:
+                time.sleep(left_to_wait)
+
+            lock.release()
+
+            ret = func(*args, **kwargs)
+            last_time_called[0] = time.clock()
+            return ret
+
+        return rate_limited_function
+
+    return decorate

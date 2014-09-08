@@ -20,7 +20,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
 from w3af.core.data.fuzzer.mutants.mutant import Mutant
-from w3af.core.data.request.HTTPQsRequest import HTTPQSRequest
 
 
 class QSMutant(Mutant):
@@ -30,22 +29,14 @@ class QSMutant(Mutant):
     def __init__(self, freq):
         Mutant.__init__(self, freq)
 
-    def get_mutant_type(self):
-        return 'query string'
+    def set_dc(self, data_container):
+        self._freq.get_uri().querystring = data_container
 
-    def print_mod_value(self):
-        return 'The sent URI was ' + self.get_uri() + ' .'
+    def get_dc(self):
+        return self._freq.get_uri().querystring
 
     @staticmethod
-    def create_mutants(freq, mutant_str_list, fuzzable_param_list,
-                       append, fuzzer_config):
-        """
-        This is a very important method which is called in order to create
-        mutants. Usually called from fuzzer.py module.
-        """
-        if not isinstance(freq, HTTPQSRequest):
-            return []
+    def get_mutant_type():
+        return 'query string'
 
-        return Mutant._create_mutants_worker(freq, QSMutant, mutant_str_list,
-                                             fuzzable_param_list,
-                                             append, fuzzer_config)
+

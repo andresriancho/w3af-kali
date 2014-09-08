@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 import cPickle
 
+from w3af.core.data.misc.cpickle_dumps import cpickle_dumps
 from w3af.core.data.fuzzer.utils import rand_alpha
 from w3af.core.data.db.dbms import get_default_temp_db_instance
 
@@ -38,7 +39,7 @@ class DiskDict(object):
     def __init__(self):
         self.db = get_default_temp_db_instance()
 
-        self.table_name = rand_alpha(30)
+        self.table_name = 'disk_dict_' + rand_alpha(30)
 
         # Create table
         # DO NOT add the AUTOINCREMENT flag to the table creation since that
@@ -79,21 +80,23 @@ class DiskDict(object):
         # have to scan through all the table/index, it just stops on the
         # first match.
         query = 'SELECT count(*) FROM %s WHERE key=? limit 1' % self.table_name
-        r = self.db.select_one(query, (cPickle.dumps(key),))
+        r = self.db.select_one(query, (cpickle_dumps(key),))
         return bool(r[0])
     
     def __setitem__(self, key, value):
         # Test if it is already in the DB:
         if key in self:
             query = 'UPDATE %s SET value = ? WHERE key=?' % self.table_name
-            self.db.execute(query, (cPickle.dumps(value), cPickle.dumps(key)))
+            self.db.execute(query, (cpickle_dumps(value),
+                                    cpickle_dumps(key)))
         else:
             query = "INSERT INTO %s VALUES (NULL, ?, ?)" % self.table_name
-            self.db.execute(query, (cPickle.dumps(key), cPickle.dumps(value)))
+            self.db.execute(query, (cpickle_dumps(key),
+                                    cpickle_dumps(value)))
 
     def __getitem__(self, key):
         query = 'SELECT value FROM %s WHERE key=? limit 1' % self.table_name
-        r = self.db.select(query, (cPickle.dumps(key),))
+        r = self.db.select(query, (cpickle_dumps(key),))
         
         if not r:
             raise KeyError('%s not in DiskDict.' % key)

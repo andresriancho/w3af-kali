@@ -20,13 +20,16 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
 import threading
+import copy
 
 from w3af.core.data.db.disk_dict import DiskDict
+
+DEFAULT_MAX_VARIANTS = 5
 
 
 class VariantDB(object):
 
-    def __init__(self, max_variants=5):
+    def __init__(self, max_variants=DEFAULT_MAX_VARIANTS):
         self._disk_dict = DiskDict()
         self._db_lock = threading.RLock()
         self.max_variants = max_variants
@@ -50,6 +53,20 @@ class VariantDB(object):
             else:
                 self._disk_dict[clean_reference] = 1
 
+    def need_more_variants(self, reference):
+        """
+        :return: True if there are not enough variants associated with
+        this reference in the DB.
+        """
+        clean_reference = self._clean_reference(reference)
+
+        # I believe this is atomic enough...
+        count = self._disk_dict.get(clean_reference, 0)
+        if count >= self.max_variants:
+            return False
+        else:
+            return True
+
     def _clean_reference(self, reference):
         """
         This method is VERY dependent on the are_variants method from
@@ -65,29 +82,16 @@ class VariantDB(object):
         if reference.has_query_string():
 
             res += '?'
-            qs = reference.querystring.copy()
+            qs = copy.deepcopy(reference.querystring)
 
-            for key in qs:
-                value_list = qs[key]
-                for i, value in enumerate(value_list):
-                    if value.isdigit():
-                        qs[key][i] = 'number'
-                    else:
-                        qs[key][i] = 'string'
+            for key, value, path, setter in qs.iter_setters():
+
+                if value.isdigit():
+                    setter('number')
+                else:
+                    setter('string')
 
             res += str(qs)
 
         return res
 
-    def need_more_variants(self, reference):
-        """
-        :return: True if there are not enough variants associated with
-        this reference in the DB.
-        """
-        clean_reference = self._clean_reference(reference)
-        # I believe this is atomic enough...
-        count = self._disk_dict.get(clean_reference, 0)
-        if count >= self.max_variants:
-            return False
-        else:
-            return True

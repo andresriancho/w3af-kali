@@ -39,10 +39,15 @@ def get_webshells(extension, force_extension=False):
     This method returns a webshell content to be used in exploits, based on
     the extension, or based on the x-powered-by header.
 
-    Plugins calling this function, should depend on "infrastructure.server_header"
-    if they want to use the complete power of this function.
+    Plugins calling this function, should depend on
+    "infrastructure.server_header" if they want to use the complete power of
+    this function.
     """
     return _get_file_list('webshell', extension, force_extension)
+
+
+def cmd_replace(shellcode_content, _command):
+    return shellcode_content.replace(CMD_TO_RUN_CONSTANT, _command)
 
 
 def get_shell_code(extension, command, force_extension=False):
@@ -66,9 +71,6 @@ def get_shell_code(extension, command, force_extension=False):
     """
     result = []
     shellcodes = _get_file_list('code', extension, force_extension)
-
-    def cmd_replace(shellcode_content, _command):
-        return shellcode_content.replace(CMD_TO_RUN_CONSTANT, _command)
 
     for file_content, real_extension in shellcodes:
         custom_replacer = functools.partial(cmd_replace, file_content)

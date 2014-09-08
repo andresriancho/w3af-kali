@@ -1,5 +1,5 @@
 """
-plugins.py
+plugin.py
 
 Copyright 2006 Andres Riancho
 
@@ -29,7 +29,7 @@ import w3af.core.controllers.output_manager as om
 from w3af.core.data.options.option_list import OptionList
 from w3af.core.controllers.configurable import Configurable
 from w3af.core.controllers.threads.threadpool import return_args
-from w3af.core.controllers.exceptions import ScanMustStopOnUrlError
+from w3af.core.controllers.exceptions import HTTPRequestException
 from w3af.core.controllers.misc.decorators import memoized
 
 
@@ -64,7 +64,7 @@ class Plugin(Configurable):
         """
         self.worker_pool = worker_pool
 
-    def set_url_opener(self, urlOpener):
+    def set_url_opener(self, url_opener):
         """
         This method should not be overwritten by any plugin (but you are free
         to do it, for example a good idea is to rewrite this method to change
@@ -78,13 +78,14 @@ class Plugin(Configurable):
 
         :return: No value is returned.
         """
-        self._uri_opener = UrlOpenerProxy(urlOpener, self)
+        self._uri_opener = UrlOpenerProxy(url_opener, self)
 
     def set_options(self, options_list):
         """
         Sets the Options given on the OptionList to self. The options are the
         result of a user entering some data on a window that was constructed
-        using the options that were retrieved from the plugin using get_options()
+        using the options that were retrieved from the plugin using
+        get_options()
 
         This method must be implemented in every plugin that wishes to have user
         configurable options.
@@ -154,7 +155,7 @@ class Plugin(Configurable):
     def end(self):
         """
         This method is called by w3afCore to let the plugin know that it wont
-        be used anymore. This is helpfull to do some final tests, free some
+        be used anymore. This is helpful to do some final tests, free some
         structures, etc.
         """
         pass
@@ -166,21 +167,22 @@ class Plugin(Configurable):
     def get_name(self):
         return self.__class__.__name__
 
-    def handle_url_error(self, url_error):
+    def handle_url_error(self, http_exception):
         """
         Handle UrlError exceptions raised when requests are made.
         Subclasses should redefine this method for a more refined
         behavior and must respect the return value format.
 
-        :param url_error: ScanMustStopOnUrlError exception instance
-        :return: (stopbubbling, result). The 1st is a boolean value
+        :param http_exception: HTTPRequestException exception instance
+        :return: (stop_bubbling, result). The 1st is a boolean value
             that indicates the caller if the original error should
             stop bubbling or not. The 2nd is the result to be
             returned by the caller. Note that only makes sense
-            when `stopbubbling` is True.
+            when `stop_bubbling` is True.
         """
-        om.out.error('There was an error while requesting "%s". Reason: %s' %
-                     (url_error.req.get_full_url(), url_error.msg))
+        msg = 'The %s plugin got an error while requesting "%s". Reason: "%s"'
+        args = (self.get_name(), http_exception.get_url(), http_exception)
+        om.out.error(msg % args)
         return False, None
 
     def _send_mutants_in_threads(self, func, iterable, callback, **kwds):
@@ -217,12 +219,19 @@ class UrlOpenerProxy(object):
         def meth(*args, **kwargs):
             try:
                 return attr(*args, **kwargs)
-            except ScanMustStopOnUrlError, w3aferr:
-                stopbubbling, result = \
-                    self._plugin_inst.handle_url_error(w3aferr)
-                if not stopbubbling:
+            except HTTPRequestException, hre:
+                #
+                # We get here when **one** HTTP request fails. When more than
+                # one exception fails the URL opener will raise a different
+                # type of exception (not a subclass of HTTPRequestException)
+                # and that one will bubble up to w3afCore/strategy/etc.
+                #
+                stop_bubbling, result = self._plugin_inst.handle_url_error(hre)
+
+                if not stop_bubbling:
                     exc_info = sys.exc_info()
                     raise exc_info[0], exc_info[1], exc_info[2]
+
                 return result
 
         attr = getattr(self._url_opener, name)

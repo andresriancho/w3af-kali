@@ -30,6 +30,7 @@ from w3af.core.data.fuzzer.mutants.headers_mutant import HeadersMutant
 from w3af.core.data.fuzzer.mutants.json_mutant import JSONMutant
 from w3af.core.data.fuzzer.mutants.cookie_mutant import CookieMutant
 from w3af.core.data.fuzzer.mutants.filecontent_mutant import FileContentMutant
+from w3af.core.data.fuzzer.mutants.xmlrpc_mutant import XmlRpcMutant
 
 
 def create_mutants(freq, mutant_str_list, append=False,
@@ -44,23 +45,29 @@ def create_mutants(freq, mutant_str_list, append=False,
     :return: A Mutant object List.
     """
     result = []
-    fuzzer_config = _get_fuzzer_config(freq)
+    fuzzer_config = _get_fuzzer_config()
 
     mutant_tuple = (QSMutant, PostDataMutant, FileNameMutant, URLPartsMutant,
-                    HeadersMutant, JSONMutant, CookieMutant, FileContentMutant)
+                    HeadersMutant, JSONMutant, CookieMutant, FileContentMutant,
+                    XmlRpcMutant)
 
     for mutant_kls in mutant_tuple:
         new_mutants = mutant_kls.create_mutants(freq, mutant_str_list,
                                                 fuzzable_param_list, append,
                                                 fuzzer_config)
-
-        
-        mutant_name = mutant_kls.get_mutant_class()
-        om.out.debug('%s created %s new mutants for "%s".' % (mutant_name,
-                                                              len(new_mutants),
-                                                              freq))
-        
         result.extend(new_mutants)
+
+    msg = 'Created %s mutants for "%s" (%s)'
+
+    count_data = {}
+    for mutant in result:
+        if mutant.get_mutant_type() in count_data:
+            count_data[mutant.get_mutant_type()] += 1
+        else:
+            count_data[mutant.get_mutant_type()] = 1
+
+    count_summary = ', '.join(['%s: %s' % (i, j) for i, j in count_data.items()])
+    om.out.debug(msg % (len(result), freq, count_summary))
 
     #
     # Improvement to reduce false positives with a double check:
@@ -81,7 +88,7 @@ def create_mutants(freq, mutant_str_list, append=False,
     if orig_resp is not None:
 
         headers = orig_resp.get_headers()
-        etag = headers.get('ETag', None)
+        etag, etag_header_name = headers.iget('ETag', None)
 
         for m in result:
             m.set_original_response_body(orig_resp.get_body())
@@ -94,7 +101,7 @@ def create_mutants(freq, mutant_str_list, append=False,
     return result
 
 
-def _get_fuzzer_config(freq):
+def _get_fuzzer_config():
     """
     :return: This function verifies the configuration, and creates a map of
              things that can be fuzzed.

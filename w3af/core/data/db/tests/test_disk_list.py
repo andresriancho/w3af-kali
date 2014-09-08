@@ -29,7 +29,7 @@ from nose.plugins.attrib import attr
 from w3af.core.controllers.misc.temp_dir import create_temp_dir
 from w3af.core.data.db.disk_list import DiskList
 from w3af.core.data.parsers.url import URL
-from w3af.core.data.request.HTTPQsRequest import HTTPQSRequest
+from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.data.dc.headers import Headers
 from w3af.core.data.db.dbms import get_default_temp_db_instance
 
@@ -104,15 +104,15 @@ class TestDiskList(unittest.TestCase):
         dl = DiskList()
 
         uri = URL('http://w3af.org/?id=2')
-        qsr1 = HTTPQSRequest(uri, method='GET', headers=Headers(
+        qsr1 = FuzzableRequest(uri, method='GET', headers=Headers(
             [('Referer', 'http://w3af.org/')]))
 
         uri = URL('http://w3af.org/?id=3')
-        qsr2 = HTTPQSRequest(uri, method='OPTIONS', headers=Headers(
+        qsr2 = FuzzableRequest(uri, method='OPTIONS', headers=Headers(
             [('Referer', 'http://w3af.org/')]))
 
         uri = URL('http://w3af.org/?id=7')
-        qsr3 = HTTPQSRequest(uri, method='FOO', headers=Headers(
+        qsr3 = FuzzableRequest(uri, method='FOO', headers=Headers(
             [('Referer', 'http://w3af.org/')]))
 
         dl.append(qsr1)
@@ -129,7 +129,7 @@ class TestDiskList(unittest.TestCase):
         for i in xrange(0, 100):
             _ = dl.append(i)
 
-        self.assertEqual(len(dl) == 100, True)
+        self.assertEqual(len(dl), 100)
 
     def test_pickle(self):
         dl = DiskList()
@@ -142,9 +142,9 @@ class TestDiskList(unittest.TestCase):
         for i in dl:
             values.append(i)
 
-        self.assertEqual(values[0] == 'a', True)
-        self.assertEqual(values[1] == 1, True)
-        self.assertEqual(values[2] == [3, 2, 1], True)
+        self.assertEqual(values[0], 'a')
+        self.assertEqual(values[1], 1)
+        self.assertEqual(values[2], [3, 2, 1])
 
     def test_getitem(self):
         dl = DiskList()
@@ -153,9 +153,9 @@ class TestDiskList(unittest.TestCase):
         dl.append(1)
         dl.append([3, 2, 1])
 
-        self.assertEqual(dl[0] == 'a', True)
-        self.assertEqual(dl[1] == 1, True)
-        self.assertEqual(dl[2] == [3, 2, 1], True)
+        self.assertEqual(dl[0], 'a')
+        self.assertEqual(dl[1], 1)
+        self.assertEqual(dl[2], [3, 2, 1])
         self.assertRaises(IndexError, dl.__getitem__, 3)
         
     def test_getitem_negative(self):
@@ -323,4 +323,3 @@ class TestDiskList(unittest.TestCase):
         self.assertIn('1', dl_copy)
         self.assertNotIn('2', dl_copy)
         self.assertNotIn('3', dl_copy)
-        

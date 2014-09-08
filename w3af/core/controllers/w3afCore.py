@@ -45,9 +45,12 @@ from w3af.core.controllers.misc.dns_cache import enable_dns_cache
 from w3af.core.controllers.misc.number_generator import consecutive_number_generator
 from w3af.core.controllers.misc.homeDir import (create_home_dir,
                                                 verify_dir_has_perm, HOME_DIR)
-from w3af.core.controllers.misc.temp_dir import (create_temp_dir, remove_temp_dir,
+from w3af.core.controllers.misc.temp_dir import (create_temp_dir,
+                                                 remove_temp_dir,
                                                  TEMP_DIR)
-from w3af.core.controllers.exceptions import (BaseFrameworkException, ScanMustStopException,
+from w3af.core.controllers.exceptions import (BaseFrameworkException,
+                                              HTTPRequestException,
+                                              ScanMustStopException,
                                               ScanMustStopByUnknownReasonExc,
                                               ScanMustStopByUserRequest)
 
@@ -190,6 +193,11 @@ class w3afCore(object):
             raise
         except threading.ThreadError:
             handle_threading_error(self.status.scans_completed)
+        except HTTPRequestException, hre:
+            # TODO: These exceptions should never reach this level
+            #       adding the exception handler to raise them and fix any
+            #       instances where it happens.
+            raise
         except ScanMustStopByUserRequest, sbur:
             # I don't have to do anything here, since the user is the one that
             # requested the scanner to stop. From here the code continues at the
@@ -198,9 +206,10 @@ class w3afCore(object):
             om.out.information('%s' % sbur)
         except ScanMustStopByUnknownReasonExc:
             #
-            # TODO: Jan 31, 2011. Temporary workaround. Make w3af crash on
-            # purpose so we can find out the *really* unknown error
-            # conditions.
+            # If the extended_urllib module raises this type of exception we'll
+            # just re-raise. This leads to the exception_handler catching the
+            # exception, and if we're lucky users reporting it to our issue
+            # tracker
             #
             raise
         except ScanMustStopException, wmse:
@@ -337,7 +346,7 @@ class w3afCore(object):
             
         else:
             msg = 'The core failed to stop in %s seconds, forcing exit.'
-            msg = msg % wait_max
+            msg %= wait_max
         
         om.out.debug(msg)
     
@@ -427,7 +436,13 @@ class w3afCore(object):
         from the core during the exploitation phase. In other words, which
         internal objects do I need alive after a scan?
         """
-        pass
+        # We disable raising the exception, so we do this only once and don't
+        # affect other parts of the tool such as the exploitation or manual HTTP
+        # request sending from the GUI
+        #
+        # https://github.com/andresriancho/w3af/issues/2704
+        # https://github.com/andresriancho/w3af/issues/2711
+        self.uri_opener.clear()
 
     def _home_directory(self):
         """

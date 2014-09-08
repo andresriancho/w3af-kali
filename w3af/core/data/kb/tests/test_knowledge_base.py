@@ -34,6 +34,21 @@ from w3af.core.data.kb.info import Info
 from w3af.core.data.dc.query_string import QueryString
 from w3af.core.data.db.dbms import get_default_persistent_db_instance
 from w3af.core.data.url.extended_urllib import ExtendedUrllib
+from w3af.core.data.fuzzer.mutants.querystring_mutant import QSMutant
+from w3af.core.data.request.fuzzable_request import FuzzableRequest
+from w3af.core.controllers.w3afCore import w3afCore
+
+from w3af.plugins.attack.payloads.shell_handler import get_shell_code
+from w3af.plugins.attack.sqlmap import SQLMapShell
+from w3af.plugins.attack.db.sqlmap_wrapper import Target, SQLMapWrapper
+from w3af.plugins.attack.dav import DAVShell
+from w3af.plugins.attack.eval import EvalShell
+from w3af.plugins.attack.file_upload import FileUploadShell
+from w3af.plugins.attack.local_file_reader import FileReaderShell
+from w3af.plugins.attack.rfi import RFIShell
+from w3af.plugins.attack.xpath import XPathReader, IsErrorResponse
+from w3af.plugins.attack.os_commanding import (OSCommandingShell,
+                                               BasicExploitStrategy)
 
 
 class TestKnowledgeBase(unittest.TestCase):
@@ -89,13 +104,13 @@ class TestKnowledgeBase(unittest.TestCase):
     def test_append_uniq_var_default(self):
         i1 = MockInfo()
         i1.set_uri(URL('http://moth/abc.html?id=1'))
-        i1.set_dc(QueryString([('id', '1')]))
-        i1.set_var('id')
+        i1.set_dc(QueryString([('id', ['1'])]))
+        i1.set_token(('id', 0))
 
         i2 = MockInfo()
         i2.set_uri(URL('http://moth/abc.html?id=3'))
-        i2.set_dc(QueryString([('id', '3')]))
-        i2.set_var('id')
+        i2.set_dc(QueryString([('id', ['3'])]))
+        i2.set_token(('id', 0))
 
         kb.append_uniq('a', 'b', i1)
         kb.append_uniq('a', 'b', i2)
@@ -104,13 +119,13 @@ class TestKnowledgeBase(unittest.TestCase):
     def test_append_uniq_var_specific(self):
         i1 = MockInfo()
         i1.set_uri(URL('http://moth/abc.html?id=1'))
-        i1.set_dc(QueryString([('id', '1')]))
-        i1.set_var('id')
+        i1.set_dc(QueryString([('id', ['1'])]))
+        i1.set_token(('id', 0))
 
         i2 = MockInfo()
         i2.set_uri(URL('http://moth/abc.html?id=3'))
-        i2.set_dc(QueryString([('id', '3')]))
-        i2.set_var('id')
+        i2.set_dc(QueryString([('id', ['3'])]))
+        i2.set_token(('id', 0))
 
         kb.append_uniq('a', 'b', i1, filter_by='VAR')
         kb.append_uniq('a', 'b', i2, filter_by='VAR')
@@ -118,12 +133,14 @@ class TestKnowledgeBase(unittest.TestCase):
 
     def test_append_uniq_var_bug_10Dec2012(self):
         i1 = MockInfo()
-        i1.set_uri(URL('http://moth/abc.html'))
-        i1.set_var('id')
+        i1.set_uri(URL('http://moth/abc.html?id=1'))
+        i1.set_dc(QueryString([('id', ['1'])]))
+        i1.set_token(('id', 0))
 
         i2 = MockInfo()
-        i2.set_uri(URL('http://moth/abc.html'))
-        i2.set_var('id')
+        i2.set_uri(URL('http://moth/abc.html?id=1'))
+        i2.set_dc(QueryString([('id', ['1'])]))
+        i2.set_token(('id', 0))
 
         kb.append_uniq('a', 'b', i1)
         kb.append_uniq('a', 'b', i2)
@@ -132,13 +149,13 @@ class TestKnowledgeBase(unittest.TestCase):
     def test_append_uniq_var_not_uniq(self):
         i1 = MockInfo()
         i1.set_uri(URL('http://moth/abc.html?id=1'))
-        i1.set_dc(QueryString([('id', '1')]))
-        i1.set_var('id')
+        i1.set_dc(QueryString([('id', ['1'])]))
+        i1.set_token(('id', 0))
 
         i2 = MockInfo()
         i2.set_uri(URL('http://moth/def.html?id=3'))
-        i2.set_dc(QueryString([('id', '3')]))
-        i2.set_var('id')
+        i2.set_dc(QueryString([('id', ['3'])]))
+        i2.set_token(('id', 0))
 
         kb.append_uniq('a', 'b', i1)
         kb.append_uniq('a', 'b', i2)
@@ -147,13 +164,13 @@ class TestKnowledgeBase(unittest.TestCase):
     def test_append_uniq_url_uniq(self):
         i1 = MockInfo()
         i1.set_uri(URL('http://moth/abc.html?id=1'))
-        i1.set_dc(QueryString([('id', '1')]))
-        i1.set_var('id')
+        i1.set_dc(QueryString([('id', ['1'])]))
+        i1.set_token(('id', 0))
 
         i2 = MockInfo()
         i2.set_uri(URL('http://moth/abc.html?id=3'))
-        i2.set_dc(QueryString([('id', '3')]))
-        i2.set_var('id')
+        i2.set_dc(QueryString([('id', ['3'])]))
+        i2.set_token(('id', 0))
 
         kb.append_uniq('a', 'b', i1, filter_by='URL')
         kb.append_uniq('a', 'b', i2, filter_by='URL')
@@ -162,13 +179,13 @@ class TestKnowledgeBase(unittest.TestCase):
     def test_append_uniq_url_different(self):
         i1 = MockInfo()
         i1.set_uri(URL('http://moth/abc.html?id=1'))
-        i1.set_dc(QueryString([('id', '1')]))
-        i1.set_var('id')
+        i1.set_dc(QueryString([('id', ['1'])]))
+        i1.set_token(('id', 0))
 
         i2 = MockInfo()
         i2.set_uri(URL('http://moth/def.html?id=3'))
-        i2.set_dc(QueryString([('id', '3')]))
-        i2.set_var('id')
+        i2.set_dc(QueryString([('id', ['3'])]))
+        i2.set_token(('id', 0))
 
         kb.append_uniq('a', 'b', i1, filter_by='URL')
         kb.append_uniq('a', 'b', i2, filter_by='URL')
@@ -224,7 +241,11 @@ class TestKnowledgeBase(unittest.TestCase):
         kb.raw_write('a', 'b', 'abc')
         kb.raw_write('a', 'b', 'def')
         self.assertEqual(kb.raw_read('a', 'b'), 'def')
-    
+
+    def test_raw_write_dict(self):
+        kb.raw_write('a', 'b', {})
+        self.assertEqual(kb.raw_read('a', 'b'), {})
+
     def test_drop_table(self):
         kb = DBKnowledgeBase()
         table_name = kb.table_name
@@ -421,3 +442,209 @@ class TestKnowledgeBase(unittest.TestCase):
         
         self.assertEqual(observer_1.call_count, 1)
         self.assertEqual(observer_2.call_count, 1)
+
+    def test_kb_list_shells_empty(self):
+        self.assertEqual(kb.get_all_shells(), [])
+
+    def test_kb_list_shells_sqlmap_2181(self):
+        """
+        Also very related with test_pickleable_shells
+        :see: https://github.com/andresriancho/w3af/issues/2181
+        """
+        w3af_core = w3afCore()
+        target = Target(URL('http://w3af.org/'))
+        sqlmap_wrapper = SQLMapWrapper(target, w3af_core.uri_opener)
+
+        sqlmap_shell = SQLMapShell(MockVuln(), w3af_core.uri_opener,
+                                   w3af_core.worker_pool, sqlmap_wrapper)
+        kb.append('a', 'b', sqlmap_shell)
+
+        shells = kb.get_all_shells(w3af_core=w3af_core)
+        self.assertEqual(len(shells), 1)
+        unpickled_shell = shells[0]
+
+        self.assertEqual(sqlmap_shell, unpickled_shell)
+        self.assertIs(unpickled_shell._uri_opener, w3af_core.uri_opener)
+        self.assertIs(unpickled_shell.worker_pool, w3af_core.worker_pool)
+        self.assertIs(unpickled_shell.sqlmap.proxy._uri_opener,
+                      w3af_core.uri_opener)
+
+        w3af_core.quit()
+
+    def test_kb_list_shells_dav_2181(self):
+        """
+        :see: https://github.com/andresriancho/w3af/issues/2181
+        """
+        w3af_core = w3afCore()
+        exploit_url = URL('http://w3af.org/')
+
+        shell = DAVShell(MockVuln(), w3af_core.uri_opener,
+                         w3af_core.worker_pool, exploit_url)
+        kb.append('a', 'b', shell)
+
+        shells = kb.get_all_shells(w3af_core=w3af_core)
+        self.assertEqual(len(shells), 1)
+        unpickled_shell = shells[0]
+
+        self.assertEqual(shell, unpickled_shell)
+        self.assertIs(unpickled_shell._uri_opener, w3af_core.uri_opener)
+        self.assertIs(unpickled_shell.worker_pool, w3af_core.worker_pool)
+        self.assertEqual(unpickled_shell.exploit_url, shell.exploit_url)
+
+        w3af_core.quit()
+
+    def test_kb_list_shells_eval_2181(self):
+        """
+        :see: https://github.com/andresriancho/w3af/issues/2181
+        """
+        w3af_core = w3afCore()
+
+        shellcodes = get_shell_code('php', 'ls')
+        shellcode_generator = shellcodes[0][2]
+
+        shell = EvalShell(MockVuln(), w3af_core.uri_opener,
+                          w3af_core.worker_pool, shellcode_generator)
+        kb.append('a', 'b', shell)
+
+        shells = kb.get_all_shells(w3af_core=w3af_core)
+        self.assertEqual(len(shells), 1)
+        unpickled_shell = shells[0]
+
+        self.assertEqual(shell, unpickled_shell)
+        self.assertIs(unpickled_shell._uri_opener, w3af_core.uri_opener)
+        self.assertIs(unpickled_shell.worker_pool, w3af_core.worker_pool)
+        self.assertEqual(unpickled_shell.shellcode_generator.args,
+                         shell.shellcode_generator.args)
+
+        w3af_core.quit()
+
+    def test_kb_list_shells_file_upload_2181(self):
+        """
+        :see: https://github.com/andresriancho/w3af/issues/2181
+        """
+        w3af_core = w3afCore()
+        exploit_url = URL('http://w3af.org/')
+
+        shell = FileUploadShell(MockVuln(), w3af_core.uri_opener,
+                                w3af_core.worker_pool, exploit_url)
+        kb.append('a', 'b', shell)
+
+        shells = kb.get_all_shells(w3af_core=w3af_core)
+        self.assertEqual(len(shells), 1)
+        unpickled_shell = shells[0]
+
+        self.assertEqual(shell, unpickled_shell)
+        self.assertIs(unpickled_shell._uri_opener, w3af_core.uri_opener)
+        self.assertIs(unpickled_shell.worker_pool, w3af_core.worker_pool)
+        self.assertEqual(unpickled_shell._exploit_url, shell._exploit_url)
+
+        w3af_core.quit()
+
+    def test_kb_list_shells_file_read_2181(self):
+        """
+        :see: https://github.com/andresriancho/w3af/issues/2181
+        """
+        w3af_core = w3afCore()
+        header_len, footer_len = 1, 1
+
+        vuln = MockVuln()
+
+        shell = FileReaderShell(vuln, w3af_core.uri_opener,
+                                w3af_core.worker_pool, header_len, footer_len)
+        kb.append('a', 'b', shell)
+
+        shells = kb.get_all_shells(w3af_core=w3af_core)
+        self.assertEqual(len(shells), 1)
+        unpickled_shell = shells[0]
+
+        self.assertEqual(shell, unpickled_shell)
+        self.assertIs(unpickled_shell._uri_opener, w3af_core.uri_opener)
+        self.assertIs(unpickled_shell.worker_pool, w3af_core.worker_pool)
+        self.assertEqual(unpickled_shell._header_length, shell._header_length)
+        self.assertEqual(unpickled_shell._footer_length, shell._footer_length)
+
+        w3af_core.quit()
+
+    def test_kb_list_shells_os_commanding_2181(self):
+        """
+        :see: https://github.com/andresriancho/w3af/issues/2181
+        """
+        w3af_core = w3afCore()
+
+        vuln = MockVuln()
+        vuln['separator'] = '&'
+        vuln['os'] = 'linux'
+        strategy = BasicExploitStrategy(vuln)
+        shell = OSCommandingShell(strategy, w3af_core.uri_opener,
+                                  w3af_core.worker_pool)
+        kb.append('a', 'b', shell)
+
+        shells = kb.get_all_shells(w3af_core=w3af_core)
+        self.assertEqual(len(shells), 1)
+        unpickled_shell = shells[0]
+
+        self.assertEqual(shell, unpickled_shell)
+        self.assertIs(unpickled_shell._uri_opener, w3af_core.uri_opener)
+        self.assertIs(unpickled_shell.worker_pool, w3af_core.worker_pool)
+        self.assertEqual(unpickled_shell.strategy.vuln, vuln)
+
+        w3af_core.quit()
+
+    def test_kb_list_shells_rfi_2181(self):
+        """
+        :see: https://github.com/andresriancho/w3af/issues/2181
+        """
+        w3af_core = w3afCore()
+
+        vuln = MockVuln()
+        url = URL('http://moth/?a=1')
+        freq = FuzzableRequest(url)
+        exploit_mutant = QSMutant.create_mutants(freq, [''], [], False, {})[0]
+
+        shell = RFIShell(vuln, w3af_core.uri_opener, w3af_core.worker_pool,
+                         exploit_mutant)
+        kb.append('a', 'b', shell)
+
+        shells = kb.get_all_shells(w3af_core=w3af_core)
+        self.assertEqual(len(shells), 1)
+        unpickled_shell = shells[0]
+
+        self.assertEqual(shell, unpickled_shell)
+        self.assertIs(unpickled_shell._uri_opener, w3af_core.uri_opener)
+        self.assertIs(unpickled_shell.worker_pool, w3af_core.worker_pool)
+        self.assertEqual(unpickled_shell._exploit_mutant, exploit_mutant)
+
+        w3af_core.quit()
+
+    def test_kb_list_shells_xpath_2181(self):
+        """
+        :see: https://github.com/andresriancho/w3af/issues/2181
+        """
+        w3af_core = w3afCore()
+        vuln = MockVuln()
+
+        str_delim = '&'
+        true_cond = ''
+        use_difflib = False
+        is_error_response = IsErrorResponse(vuln, w3af_core.uri_opener,
+                                            use_difflib)
+
+        shell = XPathReader(vuln, w3af_core.uri_opener,
+                            w3af_core.worker_pool, str_delim, true_cond,
+                            is_error_response)
+        kb.append('a', 'b', shell)
+
+        shells = kb.get_all_shells(w3af_core=w3af_core)
+        self.assertEqual(len(shells), 1)
+        unpickled_shell = shells[0]
+
+        self.assertEqual(shell, unpickled_shell)
+        self.assertIs(unpickled_shell._uri_opener, w3af_core.uri_opener)
+        self.assertIs(unpickled_shell.worker_pool, w3af_core.worker_pool)
+        self.assertEqual(unpickled_shell.STR_DELIM, shell.STR_DELIM)
+        self.assertEqual(unpickled_shell.TRUE_COND, shell.TRUE_COND)
+        self.assertEqual(unpickled_shell.is_error_resp.use_difflib, use_difflib)
+        self.assertEqual(unpickled_shell.is_error_resp.url_opener,
+                         w3af_core.uri_opener)
+
+        w3af_core.quit()

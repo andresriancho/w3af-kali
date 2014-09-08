@@ -23,6 +23,7 @@ import copy
 import urllib2
 
 from w3af.core.data.dc.headers import Headers
+from w3af.core.data.dc.utils.token import DataToken
 from w3af.core.data.parsers.url import URL
 from w3af.core.data.request.request_mixin import RequestMixIn
 
@@ -32,16 +33,13 @@ class HTTPRequest(RequestMixIn, urllib2.Request):
     def __init__(self, url, data=None, headers=Headers(),
                  origin_req_host=None, unverifiable=False,
                  cookies=True, cache=False, method=None,
-                 ignore_errors=False):
+                 ignore_errors=False, retries=None):
         """
         This is a simple wrapper around a urllib2 request object which helps
         with some common tasks like serialization, cache, etc.
 
-        :param method: None means "choose the method in the default way":
-                            if self.has_data():
-                                return "POST"
-                            else:
-                                return "GET"
+        :param method: None means choose the default (POST if data is not None)
+        :param data: The post_data as a string
         """
         #
         # Save some information for later access in an easier way
@@ -50,11 +48,15 @@ class HTTPRequest(RequestMixIn, urllib2.Request):
         self.cookies = cookies
         self.get_from_cache = cache
         self.ignore_errors = ignore_errors
+        self.retries_left = retries
 
         self.method = method
         if self.method is None:
             self.method = 'POST' if data else 'GET'
-        
+
+        if isinstance(headers, Headers):
+            headers.tokens_to_value()
+            
         headers = dict(headers)
 
         # Call the base class constructor
@@ -67,7 +69,20 @@ class HTTPRequest(RequestMixIn, urllib2.Request):
                self.get_uri() == other.get_uri() and\
                self.get_headers() == other.get_headers() and\
                self.get_data() == other.get_data()
-    
+
+    def add_header(self, key, val):
+        """
+        Override mostly to avoid having header values of DataToken type
+
+        :param key: The header name as a string
+        :param val: The header value (a string of a DataToken)
+        :return: None
+        """
+        if isinstance(val, DataToken):
+            val = val.get_value()
+
+        self.headers[key.capitalize()] = val
+
     def get_method(self):
         return self.method
 
@@ -86,13 +101,30 @@ class HTTPRequest(RequestMixIn, urllib2.Request):
         serializable_dict = {}
         sdict = serializable_dict
         
-        sdict['method'], sdict['uri'] = self.get_method(), self.get_uri().url_string
-        sdict['headers'], sdict['data'] = dict(self.get_headers()), self.get_data()
+        sdict['method'] = self.get_method()
+        sdict['uri'] = self.get_uri().url_string
+        sdict['headers'] = dict(self.get_headers())
+        sdict['data'] = self.get_data()
         sdict['cookies'] = self.cookies
         sdict['cache'] = self.get_from_cache
             
         return serializable_dict
-    
+
+    @classmethod
+    def from_fuzzable_request(cls, fuzzable_request):
+        """
+        :param fuzzable_request: The FuzzableRequest
+        :return: An instance of HTTPRequest with all the information contained
+                 in the FuzzableRequest passed as parameter
+        """
+        host = fuzzable_request.get_url().get_domain()
+        data = fuzzable_request.get_data()
+        headers = fuzzable_request.get_headers()
+        headers.tokens_to_value()
+
+        return cls(fuzzable_request.get_uri(), data=data, headers=headers,
+                   origin_req_host=host)
+
     @classmethod    
     def from_dict(cls, unserialized_dict):
         """

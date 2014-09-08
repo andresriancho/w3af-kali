@@ -26,17 +26,15 @@ import threading
 from w3af.core.ui.gui import reqResViewer, helpers, entries
 from w3af.core.ui.gui.tools.helpers import ThreadedURLImpact
 
-from w3af.core.controllers.exceptions import (BaseFrameworkException, ScanMustStopException,
-                                              ScanMustStopOnUrlError,
-                                              ScanMustStopByKnownReasonExc,
+from w3af.core.controllers.exceptions import (BaseFrameworkException,
+                                              ScanMustStopException,
+                                              HTTPRequestException,
                                               ProxyException)
 
 MANUAL_REQUEST_EXAMPLE = """\
-GET http://localhost/script.php HTTP/1.0
-Host: www.some_host.com
-User-Agent: w3af.org
-Pragma: no-cache
-Content-Type: application/x-www-form-urlencoded
+GET http://w3af.org/ HTTP/1.1
+Host: w3af.org
+User-Agent: Firefox
 """
 
 
@@ -65,7 +63,8 @@ class ManualRequests(entries.RememberingWindow):
         self._fix_content_len_cb.show()
         
         # request-response viewer
-        self.reqresp = reqResViewer.reqResViewer(w3af, [self.send_but.set_sensitive],
+        self.reqresp = reqResViewer.reqResViewer(w3af,
+                                                 [self.send_but.set_sensitive],
                                                  withManual=False,
                                                  editableRequest=True)
         self.reqresp.response.set_sensitive(False)
@@ -78,8 +77,8 @@ class ManualRequests(entries.RememberingWindow):
         if initial_request is None:
             self.reqresp.request.show_raw(MANUAL_REQUEST_EXAMPLE, '')
         else:
-            (initialUp, initialDn) = initial_request
-            self.reqresp.request.show_raw(initialUp, initialDn)
+            initial_up, initial_dn = initial_request
+            self.reqresp.request.show_raw(initial_up, initial_dn)
 
         # Show all!
         self.show()
@@ -87,9 +86,9 @@ class ManualRequests(entries.RememberingWindow):
     def _send(self, widg):
         """Actually sends the manual requests.
 
-        :param widget: who sent the signal.
+        :param widg: who sent the signal.
         """
-        (tsup, tlow) = self.reqresp.request.get_both_texts()
+        tsup, tlow = self.reqresp.request.get_both_texts()
 
         busy = gtk.gdk.Window(self.window, gtk.gdk.screen_width(),
                               gtk.gdk.screen_height(), gtk.gdk.WINDOW_CHILD,
@@ -120,31 +119,30 @@ class ManualRequests(entries.RememberingWindow):
                 self.reqresp.nb.next_page()
                 
             elif hasattr(impact, 'exception'):
-                e_kls = impact.exception.__class__
-                if e_kls in (BaseFrameworkException, ScanMustStopException,
-                             ScanMustStopOnUrlError,
-                             ScanMustStopByKnownReasonExc,
-                             ProxyException):
-                    msg = "Stopped sending requests because of the following"\
-                          " unexpected error:\n\n%s" % str(impact.exception)
-                          
-                else:
+                known_exceptions = (BaseFrameworkException,
+                                    ScanMustStopException,
+                                    HTTPRequestException,
+                                    ProxyException)
+                if not isinstance(impact.exception, known_exceptions):
                     raise impact.exception
-                
-                self.reqresp.response.clear_panes()
-                self.reqresp.response.set_sensitive(False)
-                gtk.gdk.threads_enter()
-                helpers.FriendlyExceptionDlg(msg)
-                gtk.gdk.threads_leave()
-                
+                else:
+                    msg = "Stopped sending requests because of the following"\
+                          " unexpected error:\n\n%s"
+
+                    self.reqresp.response.clear_panes()
+                    self.reqresp.response.set_sensitive(False)
+                    gtk.gdk.threads_enter()
+                    helpers.FriendlyExceptionDlg(msg % impact.exception)
+                    gtk.gdk.threads_leave()
+
             else:
                 # This is a very strange case, because impact.ok == False
                 # but impact.exception does not exist!
                 self.reqresp.response.clear_panes()
                 self.reqresp.response.set_sensitive(False)
                 gtk.gdk.threads_enter()
-                helpers.FriendlyExceptionDlg(
-                    'Errors occurred while sending the HTTP request.')
+                helpers.FriendlyExceptionDlg('Errors occurred while sending'
+                                             ' the HTTP request.')
                 gtk.gdk.threads_leave()
 
             return False

@@ -49,6 +49,7 @@ STATUS_LINE = 'HTTP/1.1 %s %s' + CRLF
 CHARSET_EXTRACT_RE = re.compile('charset=\s*?([\w-]+)')
 CHARSET_META_RE = re.compile('<meta.*?content=".*?charset=\s*?([\w-]+)".*?>')
 ANY_TAG_MATCH = re.compile('(<.*?>)')
+DEFAULT_WAIT_TIME = 0.2
 
 
 class HTTPResponse(object):
@@ -60,7 +61,8 @@ class HTTPResponse(object):
     DOC_TYPE_OTHER = 'DOC_TYPE_OTHER'
 
     def __init__(self, code, read, headers, geturl, original_url,
-                 msg='OK', _id=None, time=0.2, alias=None, charset=None):
+                 msg='OK', _id=None, time=DEFAULT_WAIT_TIME, alias=None,
+                 charset=None):
         """
         :param code: HTTP code
         :param read: HTTP body text; typically a string
@@ -76,16 +78,16 @@ class HTTPResponse(object):
         :param charset: Response's encoding; obligatory when `read` is unicode
         """
         if not isinstance(geturl, URL):
-            raise TypeError('Invalid type %s for HTTPResponse ctor param geturl.'
-                            % type(geturl))
+            msg = 'Invalid type %s for HTTPResponse ctor param geturl.'
+            raise TypeError(msg % type(geturl))
 
         if not isinstance(original_url, URL):
-            raise TypeError('Invalid type %s for HTTPResponse ctor param original_url.'
-                            % type(original_url))
+            msg = 'Invalid type %s for HTTPResponse ctor param original_url.'
+            raise TypeError(msg % type(original_url))
 
         if not isinstance(headers, Headers):
-            raise TypeError('Invalid type %s for HTTPResponse ctor param headers.'
-                            % type(headers))
+            msg = 'Invalid type %s for HTTPResponse ctor param headers.'
+            raise TypeError(msg % type(headers))
         
         if not isinstance(read, basestring):
             raise TypeError('Invalid type %s for HTTPResponse ctor param read.'
@@ -145,6 +147,10 @@ class HTTPResponse(object):
         else:
             url_inst = original_url = URL(resp.geturl())
 
+        httplib_time = DEFAULT_WAIT_TIME
+        if hasattr(httplibresp, 'get_wait_time'):
+            # This is defined in the keep alive http response object
+            httplib_time = httplibresp.get_wait_time()
 
         if isinstance(resp, urllib2.HTTPError):
             # This is possible because in errors.py I do:
@@ -155,14 +161,14 @@ class HTTPResponse(object):
             charset = getattr(resp, 'encoding', None)
         
         return cls(code, body, hdrs, url_inst, original_url,
-                   msg, charset=charset)
+                   msg, charset=charset, time=httplib_time)
 
     @classmethod    
     def from_dict(cls, unserialized_dict):
         """
         * msgpack is MUCH faster than cPickle,
         * msgpack can't serialize python objects,
-        * I have to create a dict representation of HTTPResponse to serialize it,
+        * I have to create a dict representation of HTTPResponse to serialize it
         * and a from_dict to have the object back
         
         :param unserialized_dict: A dict just as returned by to_dict()
@@ -262,14 +268,25 @@ class HTTPResponse(object):
         """
         :return: A clear text representation of the HTTP response body.
         """
-        # Calculate the clear text body
         dom = self.get_dom()
-        if dom is not None:
-            clear_text_body = ''.join(dom.itertext())
-        else:
-            clear_text_body = ANY_TAG_MATCH.sub('', self.get_body())
-            
-        return clear_text_body
+
+        if dom is None:
+            # Well, we don't have a DOM for this response, so lets apply regex
+            return ANY_TAG_MATCH.sub('', self.get_body())
+
+        # DOM was calculated, lets do some magic
+        try:
+            return ''.join(dom.itertext())
+        except UnicodeDecodeError, ude:
+            msg = 'UnicodeDecodeError found while iterating the DOM. Original'\
+                  ' exception was: "%s". The response charset is: "%s", the'\
+                  ' content-type: "%s" and the body snippet is: "%r".'
+
+            body = self._raw_body if self._raw_body is not None else self._body
+            body_snippet = body[ude.start-2:ude.end+2]
+
+            args = (ude, self.charset, self.content_type, body_snippet)
+            raise Exception(msg % args)
 
     def set_dom(self, dom_inst):
         """
@@ -306,13 +323,23 @@ class HTTPResponse(object):
         :return: The DOM, or None if the HTML normalization failed.
         """
         if self._dom is None:
+
+            if self.doc_type == HTTPResponse.DOC_TYPE_IMAGE:
+                # Don't waste CPU time trying to create a DOM out of an image
+                return None
+
+            if not self.body:
+                # Can't create a DOM for an empty response
+                return None
+
             try:
                 parser = etree.HTMLParser(recover=True)
                 self._dom = etree.fromstring(self.body, parser)
             except Exception, e:
                 msg = 'The HTTP body for "%s" could NOT be parsed by lxml.'\
-                      ' The exception was: "%s".'
-                om.out.debug(msg % (self.get_url(), e))
+                      ' The %s was: "%s".'
+                om.out.debug(msg % (self.get_url(), e.__class__.__name__, e))
+
         return self._dom
 
     def get_charset(self):
@@ -634,9 +661,26 @@ class HTTPResponse(object):
             Header1: Value1
             Header2: Value2
         """
-        dump_head = "%s%s" % (self.get_status_line(), self.dump_headers())
+        # Adding some extreme exception logging to be able to better debug
+        # https://github.com/andresriancho/w3af/issues/3661
+        status_line = self.get_status_line()
+        dumped_headers = self.dump_headers()
+
+        try:
+            dump_head = "%s%s" % (status_line, dumped_headers)
+        except UnicodeDecodeError, ude:
+            msg = 'UnicodeDecodeError found at dump_response_head(). Original'\
+                  ' exception was: "%s". The response charset is: "%s", the'\
+                  ' content-type: "%s", the status_line is "%r" and the' \
+                  ' dumped_headers are: "%r".'
+
+            args = (ude, self.charset, self.content_type, status_line,
+                    dumped_headers)
+            raise Exception(msg % args)
+
         if type(dump_head) is unicode:
             dump_head = dump_head.encode(self.charset)
+
         return dump_head
 
     def dump(self):

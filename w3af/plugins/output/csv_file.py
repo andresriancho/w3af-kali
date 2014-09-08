@@ -43,18 +43,19 @@ class csv_file(OutputPlugin):
         OutputPlugin.__init__(self)
         self.output_file = '~/output-w3af.csv'
 
-    def do_nothing(self, *args, **kwds):
+    def do_nothing(self, *args, **kwargs):
         pass
 
     debug = log_http = vulnerability = do_nothing
-    information = error = console = debug = log_enabled_plugins = do_nothing
+    information = error = console = log_enabled_plugins = do_nothing
 
     def end(self):
         """
-        Exports the vulnerabilities and informations to the user configured file.
+        Exports the vulnerabilities and information to the user configured
+        file.
         """
         all_vulns = kb.kb.get_all_vulns()
-        all_infos = kb.kb.get_all_infos()
+        all_info = kb.kb.get_all_infos()
 
         self.output_file = os.path.expanduser(self.output_file)
 
@@ -69,30 +70,28 @@ class csv_file(OutputPlugin):
             csv_writer = csv.writer(output_handler, delimiter=',',
                                     quotechar='|', quoting=csv.QUOTE_MINIMAL)
         except Exception, e:
-            msg = 'An exception was raised while trying to open the '
-            msg += ' CSV writer. Exception: "%s"'
+            msg = 'An exception was raised while trying to open the '\
+                  ' CSV writer. Exception: "%s"'
             om.out.error(msg % e)
             output_handler.close()
             return
 
-        for data in itertools.chain(all_vulns, all_infos):
+        for info in itertools.chain(all_vulns, all_info):
             try:
-                row = [
-                    data.get_name(),
-                    data.get_method(),
-                    data.get_uri(),
-                    data.get_var(),
-                    data.get_dc(),
-                    data.get_id(),
-                    data.get_desc()
-                ]
+                row = [info.get_name(),
+                       info.get_method(),
+                       info.get_uri(),
+                       info.get_token_name(),
+                       info.get_mutant().get_data(),
+                       info.get_id(),
+                       info.get_desc()]
                 csv_writer.writerow(row)
             except Exception, e:
-                msg = 'An exception was raised while trying to write the '
-                msg += ' vulnerabilities to the output file. Exception: "%s"'
-                msg = msg % e
-                om.out.error(msg)
+                msg = 'An exception was raised while trying to write the '\
+                      ' vulnerabilities to the output file. Exception: "%s"'
+                om.out.error(msg % e)
                 output_handler.close()
+                print e
                 return
 
         output_handler.close()
@@ -102,7 +101,7 @@ class csv_file(OutputPlugin):
         :return: A DETAILED description of the plugin functions and features.
         """
         return """
-        This plugin exports all identified vulnerabilities and informations
+        This plugin exports all identified vulnerabilities and information
         to the given CSV file.
 
         One configurable parameter exists:
@@ -113,7 +112,8 @@ class csv_file(OutputPlugin):
         """
         Sets the Options given on the OptionList to self. The options are the
         result of a user entering some data on a window that was constructed
-        using the XML Options that was retrieved from the plugin using get_options()
+        using the XML Options that was retrieved from the plugin using
+        get_options()
 
         :return: No value is returned.
         """
@@ -125,7 +125,7 @@ class csv_file(OutputPlugin):
         """
         ol = OptionList()
 
-        d = 'The name of the output file where the vulnerabilities will be saved'
+        d = 'The name of the output file where the vulnerabilities are be saved'
         o = opt_factory('output_file', self.output_file, d, OUTPUT_FILE)
         ol.add(o)
 

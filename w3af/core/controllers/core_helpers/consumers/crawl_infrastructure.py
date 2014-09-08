@@ -233,8 +233,11 @@ class crawl_infrastructure(BaseConsumer):
         # Sort URLs
         tmp_url_list = list(set(kb.kb.get_all_known_urls()))
 
+        all_known_fuzzable_requests = kb.kb.get_all_known_fuzzable_requests()
+
         msg = 'Found %s URLs and %s different injections points.'
-        msg = msg % (len(tmp_url_list), len(kb.kb.get_all_known_fuzzable_requests()))
+        msg = msg % (len(tmp_url_list),
+                     len(all_known_fuzzable_requests))
         om.out.information(msg)
 
         # print the URLs
@@ -247,7 +250,7 @@ class crawl_infrastructure(BaseConsumer):
         # Now I simply print the list that I have after the filter.
         om.out.information('The list of fuzzable requests is:')
         
-        tmp_fr = ['- %s' % fr for fr in kb.kb.get_all_known_fuzzable_requests()]
+        tmp_fr = [u'- %s' % unicode(fr) for fr in all_known_fuzzable_requests]
         tmp_fr.sort()
         map(om.out.information, tmp_fr)
 
@@ -304,7 +307,7 @@ class crawl_infrastructure(BaseConsumer):
         
         # No need to care about fragments
         # (http://a.com/foo.php#frag). Remove them
-        fuzzable_request.set_uri(fr_uri.remove_fragment())
+        fr_uri.remove_fragment()
 
         # Is the "new" fuzzable request domain in the configured targets?
         if fr_uri.base_url() not in base_urls_cf:
@@ -325,15 +328,15 @@ class crawl_infrastructure(BaseConsumer):
         #       - http://host.tld/?id=3739282
         #       - http://host.tld/?id=3739212
         #
-        #   I don't want to have all these different fuzzable requests. The reason is that
-        #   audit plugins will try to send the payload to each parameter, thus generating
-        #   the following requests:
+        # I don't want to have all these different fuzzable requests. The
+        # reason is that audit plugins will try to send the payload to each
+        # parameter, thus generating the following requests:
         #       - http://host.tld/?id=payload1
         #       - http://host.tld/?id=payload1
         #       - http://host.tld/?id=payload1
         #       - http://host.tld/?id=payload1
         #
-        #   w3af has a cache, but its still a waste of time to send those requests.
+        # w3af has a cache, but its still a waste of time to send those requests.
         #
         #   Now lets analyze this with more than one parameter. Spidered URIs:
         #       - http://host.tld/?id=3739286&action=create

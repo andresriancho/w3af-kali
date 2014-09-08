@@ -19,7 +19,7 @@ NOSETESTS = 'nosetests'
 NOSE_PARAMS = '--with-yanc --with-doctest --doctest-tests --with-xunit'\
               ' -v --xunit-file=%%s --with-id --id-file=%s' % ID_FILE
 # One test can't run for more than this amount of seconds
-NOSE_TIMEOUT = 360
+NOSE_TIMEOUT = 60 * 8
 
 # Parameters used to collect the list of tests
 NOSE_COLLECT_PARAMS = '--with-id --collect-only --with-doctest'\
@@ -33,12 +33,31 @@ NOSE_XUNIT_EXT = 'xml'
 NOSE_RUN_SELECTOR = 'not ci_fails and not fails'
 NOSE_IGNORE_SELECTOR = 'ci_fails or fails'
 
-NOISE = [# Related with xvfb not having the randr extension
+NOISE = [
+         # Related with xvfb not having the randr extension
          'Xlib:  extension "RANDR" missing on display ":99".',
+
          # Related with scapy, we're not root, tcpdump is not available
-         'WARNING: Failed to execute tcpdump. Check it is installed and in the PATH',
+         'WARNING: Failed to execute tcpdump. Check it is installed and in'
+         ' the PATH',
+
          # Warnings/log messages related with phply
          'Generating LALR tables',
          'WARNING: 2 shift/reduce conflicts',
+
          # Googled: only a warning related with the CV library
-         'libdc1394 error: Failed to initialize libdc1394']
+         'libdc1394 error: Failed to initialize libdc1394',
+
+         # Strange error with gtk3 vs gtk2?
+         '/home/ubuntu/virtualenvs/venv-2.7.3/local/lib/python2.7/site-'
+         'packages/logilab/astng/raw_building.py:167: Warning: Attempt '
+         'to add property GtkSettings::gtk-label-select-on-focus after '
+         'class was initialised',
+
+         '/home/ubuntu/virtualenvs/venv-2.7.3/local/lib/python2.7/site-'
+         'packages/logilab/astng/raw_building.py:167: Warning: Attempt '
+         'to add property GtkSettings::gtk-menu-popup-delay after class'
+         ' was initialised',
+
+         # Same as above
+         '  basenames, member.__doc__)']

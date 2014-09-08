@@ -20,8 +20,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 from nose.plugins.attrib import attr
 
+from w3af.core.data.kb.config import cf
+
 from w3af.core.controllers.ci.moth import get_moth_http
 from w3af.core.controllers.ci.wavsep import get_wavsep_http
+from w3af.core.controllers.ci.php_moth import get_php_moth_http
 from w3af.plugins.tests.helper import PluginTest, PluginConfig
 
 import w3af.core.data.constants.severity as severity
@@ -46,11 +49,8 @@ class TestXSS(PluginTest):
                         'xss',
                          ('persistent_xss', True, PluginConfig.BOOL)),
                 ),
-                'crawl': (
-                    PluginConfig(
-                        'web_spider',
-                        ('only_forward', True, PluginConfig.BOOL)),
-                )
+                'crawl': (PluginConfig('web_spider',
+                          ('only_forward', True, PluginConfig.BOOL)),)
             },
         },
 
@@ -75,7 +75,7 @@ class TestXSS(PluginTest):
             - Vulnerable parameter
             - All parameters that were sent
         """
-        kb_data = [(str(m.get_url()), m.get_var(), tuple(sorted(m.get_dc().keys())))
+        kb_data = [(str(m.get_url()), m.get_token_name(), tuple(sorted(m.get_dc().keys())))
                    for m in (xv.get_mutant() for xv in xss_vulns)]
         return kb_data
 
@@ -146,6 +146,47 @@ class TestXSS(PluginTest):
         
         self.assertEquals(0, len(xss_vulns), xss_vulns)
 
+    def scan_file_upload_fuzz_files(self):
+        cfg = self._run_configs['cfg']
+        target_path = get_php_moth_http('/audit/file_upload/echo_content/')
+        self._scan(target_path, cfg['plugins'])
+
+    def test_user_configured_find_in_file_upload_content(self):
+        """
+        Do not send file content mutants unless the user configures it.
+        https://github.com/andresriancho/w3af/issues/3149
+        """
+        # Set the value to False (True is the default)
+        cf.save('fuzz_form_files', False)
+
+        try:
+            self.scan_file_upload_fuzz_files()
+        finally:
+            # Restore the default
+            cf.save('fuzz_form_files', True)
+
+        xss_vulns = self.kb.get('xss', 'xss')
+        self.assertEqual(len(xss_vulns), 0, xss_vulns)
+
+    def test_find_in_file_upload_content(self):
+        """
+        Find XSS in the content of an uploaded file
+        https://github.com/andresriancho/w3af/issues/3149
+        """
+        self.scan_file_upload_fuzz_files()
+        target_path = get_php_moth_http('/audit/file_upload/echo_content/')
+
+        xss_vulns = self.kb.get('xss', 'xss')
+        kb_data = self.normalize_kb_data(xss_vulns)
+
+        EXPECTED = [('txt_uploader.php', 'txt_file', ['txt_file']), ]
+        expected_data = self.normalize_expected_data(target_path, EXPECTED)
+
+        self.assertEquals(
+            set(expected_data),
+            set(kb_data),
+        )
+
     def test_found_xss(self):
         cfg = self._run_configs['cfg']
         self._scan(self.XSS_PATH, cfg['plugins'])
@@ -156,6 +197,14 @@ class TestXSS(PluginTest):
         expected = [
             # Trivial
             ('simple_xss.py', 'text', ['text']),
+
+            # Form with GET method
+            # https://github.com/andresriancho/w3af/issues/3149
+            ('simple_xss_GET_form.py', 'text', ['text']),
+
+            # Form with multipart enctype
+            # https://github.com/andresriancho/w3af/issues/3149
+            ('xss_multipart_form.py', 'text', ['text']),
 
             # Simple filters
             ('script_insensitive_blacklist_xss.py', 'text', ['text']),

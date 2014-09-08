@@ -19,14 +19,13 @@ You should have received a copy of the GNU General Public License
 along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
-import string
-
 from w3af.core.data.constants.encodings import UTF8
-from w3af.core.data.dc.data_container import DataContainer
+from w3af.core.data.dc.generic.nr_kv_container import NonRepeatKeyValueContainer
 from w3af.core.data.misc.encoding import smart_unicode
+from w3af.core.data.dc.utils.token import DataToken
 
 
-class Headers(DataContainer):
+class Headers(NonRepeatKeyValueContainer):
     """
     This class represents the set of HTTP request headers.
 
@@ -35,6 +34,9 @@ class Headers(DataContainer):
     def __init__(self, init_val=(), encoding=UTF8):
         cleaned_vals = self.clean_values(init_val)
         super(Headers, self).__init__(cleaned_vals, encoding)
+
+    def get_type(self):
+        return 'Headers'
 
     @classmethod
     def from_string(cls, headers_str):
@@ -58,9 +60,15 @@ class Headers(DataContainer):
             res.append((name, value))
         
         return cls(res)
- 
+
+    def to_dict(self):
+        """
+        :return: A dictionary with lower-case key-headers and un-modified values
+        """
+        return dict([(k.lower(), v) for k, v in self.iteritems()])
+
     def clean_values(self, init_val):
-        if isinstance(init_val, DataContainer)\
+        if isinstance(init_val, NonRepeatKeyValueContainer)\
         or isinstance(init_val, dict):
             return init_val
 
@@ -68,7 +76,7 @@ class Headers(DataContainer):
 
         # Cleanup whatever came from the wire into a unicode string
         for key, value in init_val:
-            # I can do this key, value thing because the headers do NOT
+            # I can do this (key, value) thing because the headers do NOT
             # have multiple header values like query strings and post-data
             if isinstance(value, basestring):
                 value = smart_unicode(value)
@@ -76,7 +84,20 @@ class Headers(DataContainer):
             cleaned_vals.append((smart_unicode(key), value))
         
         return cleaned_vals
-    
+
+    def tokens_to_value(self):
+        """
+        Sometimes we need to serialize the headers into a more simple form,
+        a dict for example, in order to send it to msgpack. Since DataTokens
+        are "complex" classes which msgpack knows nothing about, we need to
+        replace any of those instances with their value.
+
+        :return: None. We're modifying self.
+        """
+        for key, val, path, setter in self.iter_setters():
+            if isinstance(val, DataToken):
+                setter(val.get_value())
+
     def iget(self, header_name, default=None):
         """
         :param header_name: The name of the header we want the value for
@@ -90,26 +111,26 @@ class Headers(DataContainer):
 
         return default, None
 
-    def clone_with_list_values(self):
-        clone = Headers()
-        for key, value in self.iteritems():
-            clone[key] = [value, ]
-        return clone
+    def idel(self, header_name):
+        """
+        :raises: KeyError when the header_name is not found in self.
+        """
+        _, sensitive_header_name = self.iget(header_name)
+        del self[sensitive_header_name]
 
     def __setitem__(self, k, v):
         if isinstance(k, basestring):
-            if not isinstance(k, unicode):
-                k = k.encode(self.encoding, 'replace')
+            k = smart_unicode(k, encoding=self.encoding)
         else:
             raise ValueError('Header name must be a string.')
 
         if isinstance(v, basestring):
-            if not isinstance(k, unicode):
-                v = v.encode(self.encoding, 'replace')
-        #
-        # Had to remove this for clone_with_list_values
-        #else:
-        #    raise ValueError('Header value must be a string.')
+            v = smart_unicode(v, encoding=self.encoding)
+        elif isinstance(v, DataToken):
+            encoded_str = smart_unicode(v.get_value(), encoding=self.encoding)
+            v.set_value(encoded_str)
+        else:
+            raise ValueError('Header value must be a string.')
 
         super(Headers, self).__setitem__(k, v)
 

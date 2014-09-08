@@ -50,7 +50,7 @@ RE_COMPILE_TYPE = type(re.compile(''))
 class PluginTest(unittest.TestCase):
     """
     Remember that nosetests can't find test generators in unittest.TestCase,
-    see http://stackoverflow.com/questions/6689537/nose-test-generators-inside-class ,
+    http://stackoverflow.com/questions/6689537/nose-test-generators-inside-class
     """
     MOCK_RESPONSES = []
     runconfig = {}
@@ -94,6 +94,64 @@ class PluginTest(unittest.TestCase):
         if self.MOCK_RESPONSES:
             httpretty.disable()
 
+    def assertAllVulnNamesEqual(self, vuln_name, vulns):
+        for vuln in vulns:
+            self.assertEqual(vuln.get_name(), vuln_name)
+
+    def assertExpectedVulnsFound(self, expected, found_vulns):
+        found_tokens = [(v.get_url().get_file_name(),
+                         v.get_token_name()) for v in found_vulns]
+
+        self.assertEquals(
+            set(found_tokens),
+            set(expected)
+        )
+
+    def tokenize_kb_vulns(self):
+        all_info = self.kb.get_all_infos()
+        info_tokens = set()
+
+        for info in all_info:
+
+            url = None if info.get_url() is None else info.get_url().get_path()
+            token_name = None if info.get_token() is None else info.get_token_name()
+
+            info_tokens.add((info.get_name(), url, token_name))
+
+        return info_tokens
+
+    def assertMostExpectedVulnsFound(self, expected, percentage=0.85):
+        """
+        Assert that at least :percentage: of the expected vulnerabilities were
+        found during the current scan.
+        """
+        len_exp_found = len(expected.intersection(self.tokenize_kb_vulns()))
+        found_perc = float(len_exp_found) / len(expected)
+        self.assertGreater(found_perc, percentage)
+
+    def assertAllExpectedVulnsFound(self, expected):
+        self.assertEqual(expected, self.tokenize_kb_vulns())
+
+    def assertAllURLsFound(self, expected):
+        frs = self.kb.get_all_known_fuzzable_requests()
+
+        found = []
+
+        for fr in frs:
+            uri = fr.get_uri()
+            path = uri.get_path()
+            qs = str(uri.get_querystring())
+
+            if qs:
+                data = path + '?' + qs
+            else:
+                data = path
+
+            found.append(data)
+
+        self.assertEquals(set(found),
+                          set(expected))
+
     def request_callback(self, method, uri, headers):
         status = 404
         body = 'Not found'
@@ -132,7 +190,7 @@ class PluginTest(unittest.TestCase):
                 response = urllib2.urlopen(target.url_string)
                 response.read()
             except urllib2.URLError, e:
-                if hasattr(e, 'code') and e.code in (404, 401):
+                if hasattr(e, 'code') and e.code in (404, 403, 401):
                     continue
                 
                 self.assertTrue(False, msg)
@@ -171,6 +229,10 @@ class PluginTest(unittest.TestCase):
                                               ptype)
 
             for pcfg in plugincfgs:
+
+                if pcfg.name == 'all':
+                    continue
+
                 plugin_instance = self.w3afcore.plugins.get_plugin_inst(ptype,
                                                                         pcfg.name)
                 default_option_list = plugin_instance.get_options()
@@ -184,7 +246,9 @@ class PluginTest(unittest.TestCase):
                                                          unit_test_options)
 
         # Enable text output plugin for debugging
-        if debug: self._configure_debug()
+        environ_debug = os.environ.get('DEBUG', '0') == '1'
+        if debug or environ_debug:
+            self._configure_debug()
 
         # Verify env and start the scan
         self.w3afcore.plugins.init_plugins()
