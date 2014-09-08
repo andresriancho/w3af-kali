@@ -2,7 +2,7 @@
 +++ b/w3af_console
 @@ -34,14 +34,6 @@ Options:
      -s <script_file> or --script=<script_file>
-         Run <script_file> script.
+         Run <script_file> script
  
 -    -n or --no-update
 -        No update check will be made when starting. This option takes 
