@@ -47,7 +47,6 @@ class ComboOption(BaseOption):
         self._value = default_value[0]
         self._default_value = default_value[0]
         self._combo_options = default_value
-
         self._name = name
         self._desc = desc
         self._help = _help

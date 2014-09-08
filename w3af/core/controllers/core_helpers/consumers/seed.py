@@ -26,11 +26,10 @@ from multiprocessing.dummy import Queue, Process
 import w3af.core.controllers.output_manager as om
 import w3af.core.data.kb.knowledge_base as kb
 
-from w3af.core.controllers.exceptions import (ScanMustStopException,
-                                         ScanMustStopOnUrlError)
+from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.controllers.core_helpers.consumers.constants import POISON_PILL
-from w3af.core.controllers.exceptions import BaseFrameworkException
-from w3af.core.data.request.factory import create_fuzzable_requests
+from w3af.core.controllers.exceptions import (ScanMustStopException,
+                                              HTTPRequestException)
 
 
 class seed(Process):
@@ -83,24 +82,25 @@ class seed(Process):
                 #    in a list and use them as our bootstrap URLs
                 #
                 response = self._w3af_core.uri_opener.GET(url, cache=True)
-            except (ScanMustStopOnUrlError, BaseFrameworkException, ScanMustStopException), w3:
-                om.out.error('The target URL: %s is unreachable.' % url)
-                om.out.error('Error description: %s' % w3)
+            except ScanMustStopException, w3:
+                om.out.error('The target server is unreachable. Stopping.')
+                raise w3
+            except HTTPRequestException, hre:
+                msg = 'The target URL: "%s" is unreachable. Exception: "%s".'
+                om.out.error(msg % (url, hre))
             except Exception, e:
-                om.out.error('The target URL: %s is unreachable '
-                             'because of an unhandled exception.' % url)
-                om.out.error('Error description: "%s". See debug '
-                             'output for more information.' % e)
-                om.out.error('Traceback for this error: %s' %
-                             traceback.format_exc())
+                msg = 'The target URL: "%s" is unreachable because of an' \
+                      ' unhandled exception. Error description: "%s". See' \
+                      ' debug output for more information.\n' \
+                      'Traceback for this error:\n%s'
+                om.out.error(msg % (url, e, traceback.format_exc()))
             else:
-                all_fuzzable_requests = create_fuzzable_requests(response)
-                filtered_seeds = filter(in_scope, all_fuzzable_requests)
+                _seed = FuzzableRequest(response.get_uri())
 
-                for seed in filtered_seeds:
-                    self._out_queue.put((None, None, seed))
+                if in_scope(_seed):
+                    self._out_queue.put((None, None, _seed))
 
                     # Update the set that lives in the KB
-                    kb.kb.add_fuzzable_request(seed)
+                    kb.kb.add_fuzzable_request(_seed)
 
         self._out_queue.put(POISON_PILL)

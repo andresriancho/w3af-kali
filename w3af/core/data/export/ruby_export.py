@@ -21,7 +21,7 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
-from w3af.core.data.parsers.HTTPRequestParser import HTTPRequestParser
+from w3af.core.data.parsers.http_request_parser import http_request_parser
 
 
 def ruby_escape_string(str_in):
@@ -32,14 +32,15 @@ def ruby_escape_string(str_in):
 def ruby_export(request_string):
     """
     :param request_string: The string of the request to export
-    :return: A net/http based ruby script that will perform the same HTTP request.
+    :return: A net/http based ruby script that will perform the same HTTP
+             request.
     """
     # get the header and the body
     splitted_request = request_string.split('\n\n')
     header = splitted_request[0]
     body = '\n\n'.join(splitted_request[1:])
 
-    http_request = HTTPRequestParser(header, body)
+    http_request = http_request_parser(header, body)
 
     # Now I do the real magic...
     res = 'require \'net/https\'\n\n'
@@ -47,7 +48,7 @@ def ruby_export(request_string):
     res += 'url = URI.parse("' + ruby_escape_string(
         http_request.get_uri().url_string) + '")\n'
 
-    if http_request.get_data() != '\n' and http_request.get_data() is not None:
+    if http_request.get_data() != '\n' and http_request.get_data():
         escaped_data = ruby_escape_string(str(http_request.get_data()))
         res += 'data = "' + escaped_data + '"\n'
     else:

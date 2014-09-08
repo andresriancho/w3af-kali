@@ -22,9 +22,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import unittest
 
 from w3af.core.data.parsers.url import URL
-from w3af.core.data.request.HTTPQsRequest import HTTPQSRequest
+from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.data.fuzzer.mutants.filename_mutant import FileNameMutant
-from w3af.core.data.dc.data_container import DataContainer
+from w3af.core.data.fuzzer.mutants.urlparts_mutant import URLPartsContainer
 
 
 class TestFileNameMutant(unittest.TestCase):
@@ -34,22 +34,14 @@ class TestFileNameMutant(unittest.TestCase):
         self.payloads = ['abc', 'def']
 
     def test_basics(self):
-        divided_path = DataContainer()
-        divided_path['start'] = ''
-        divided_path['modified_part'] = 'ping!'
-        divided_path['end'] = '.htm'
+        parts = URLPartsContainer('', 'ping!', '.htm')
 
-        freq = HTTPQSRequest(URL('http://www.w3af.com/foo/bar.htm'))
+        freq = FuzzableRequest(URL('http://www.w3af.com/foo/bar.htm'))
         m = FileNameMutant(freq)
-        m.set_mutant_dc(divided_path)
-        m.set_var('modified_part')
+        m.set_dc(parts)
+
         self.assertEqual(m.get_url().url_string,
                          u'http://www.w3af.com/foo/ping%21.htm')
-
-        expected_mod_value = 'The sent url filename is: "ping!.htm".'
-        generated_mod_value = m.print_mod_value()
-
-        self.assertEqual(generated_mod_value, expected_mod_value)
 
         expected_found_at = '"http://www.w3af.com/foo/ping%21.htm", using HTTP'\
                             ' method GET. The modified parameter was the URL'\
@@ -60,26 +52,26 @@ class TestFileNameMutant(unittest.TestCase):
 
     def test_config_false(self):
         fuzzer_config = {'fuzz_url_filenames': False}
-        freq = HTTPQSRequest(URL('http://www.w3af.com/foo/bar'))
+        freq = FuzzableRequest(URL('http://www.w3af.com/foo/bar'))
 
-        generated_mutants = FileNameMutant.create_mutants(
-            freq, self.payloads, [],
-            False, fuzzer_config)
+        generated_mutants = FileNameMutant.create_mutants(freq, self.payloads,
+                                                          [], False,
+                                                          fuzzer_config)
 
         self.assertEqual(len(generated_mutants), 0, generated_mutants)
 
     def test_config_true(self):
         fuzzer_config = {'fuzz_url_filenames': True}
-        freq = HTTPQSRequest(URL('http://www.w3af.com/foo/bar'))
+        freq = FuzzableRequest(URL('http://www.w3af.com/foo/bar'))
 
-        generated_mutants = FileNameMutant.create_mutants(
-            freq, self.payloads, [],
-            False, fuzzer_config)
+        generated_mutants = FileNameMutant.create_mutants(freq, self.payloads,
+                                                          [], False,
+                                                          fuzzer_config)
 
         self.assertNotEqual(len(generated_mutants), 0, generated_mutants)
 
     def test_valid_results(self):
-        freq = HTTPQSRequest(URL('http://www.w3af.com/foo/bar.htm'))
+        freq = FuzzableRequest(URL('http://www.w3af.com/foo/bar.htm'))
 
         generated_mutants = FileNameMutant.create_mutants(freq, self.payloads,
                                                           [], False,
@@ -104,7 +96,7 @@ class TestFileNameMutant(unittest.TestCase):
         the same, the number of generated mutants was 4.
         """
         payloads = ['ls - la', 'http://127.0.0.1:8015/test/']
-        freq = HTTPQSRequest(URL('http://www.w3af.com/bar.htm'))
+        freq = FuzzableRequest(URL('http://www.w3af.com/bar.htm'))
 
         generated_mutants = FileNameMutant.create_mutants(freq, payloads, [],
                                                           False,
@@ -118,5 +110,5 @@ class TestFileNameMutant(unittest.TestCase):
                          'http://www.w3af.com/bar.http%3A//127.0.0.1%3A8015/test/']
 
         generated_urls = [m.get_url().url_string for m in generated_mutants]
-
+        
         self.assertEqual(set(expected_urls), set(generated_urls))

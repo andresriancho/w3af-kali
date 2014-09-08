@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
 import inspect
+import copy
 import threading
 
 import w3af.core.data.kb.knowledge_base as kb
@@ -47,8 +48,13 @@ class AuditPlugin(Plugin):
         self._audit_return_vulns_lock = threading.RLock()
         self._newly_found_vulns = []
 
-    @retry(3)
     def get_original_response(self, fuzzable_request):
+
+        data_container = fuzzable_request.get_raw_data()
+        if hasattr(data_container, 'smart_fill'):
+            fuzzable_request = copy.deepcopy(fuzzable_request)
+            data_container.smart_fill()
+
         return self._uri_opener.send_mutant(fuzzable_request, grep=False,
                                             cache=False)
 
@@ -123,7 +129,8 @@ class AuditPlugin(Plugin):
         In other words, if one plugins modified the fuzzable request object
         INSIDE that plugin, I don't want the next plugin to suffer from that.
         """
-        return self.audit(fuzzable_request.copy(), orig_resp)
+        fuzzable_request = copy.deepcopy(fuzzable_request)
+        return self.audit(fuzzable_request, orig_resp)
 
     def audit(self, freq, orig_resp):
         """
@@ -140,12 +147,12 @@ class AuditPlugin(Plugin):
     def _has_bug(self, fuzz_req, varname='', pname='', kb_varname=''):
         return not self._has_no_bug(fuzz_req, varname, pname, kb_varname)
 
-    def _has_no_bug(self, fuzz_req, varname='', pname='', kb_varname=''):
+    def _has_no_bug(self, mutant, varname='', pname='', kb_varname=''):
         """
         Test if the current combination of `fuzz_req`, `varname` hasn't
         already been reported to the knowledge base.
 
-        :param fuzz_req: A FuzzableRequest like object.
+        :param mutant: A Mutant sub-class.
         :param varname: Typically the name of the injection parameter.
         :param pname: The name of the plugin that presumably reported
             the vulnerability. Defaults to self.name.
@@ -153,20 +160,18 @@ class AuditPlugin(Plugin):
             the vulnerability was saved. Defaults to self.name.
         """
         with self._plugin_lock:
-            if not varname:
-                if hasattr(fuzz_req, 'get_var'):
-                    varname = fuzz_req.get_var()
-                else:
-                    raise ValueError("Invalid arg 'varname': %s" % varname)
-
             pname = pname or self.get_name()
             kb_varname = kb_varname or pname
+
+            if not varname:
+                varname = mutant.get_token_name()
+
             vulns = kb.kb.get(pname, kb_varname)
 
             for vuln in vulns:
-                if vuln.get_var() == varname and\
-                fuzz_req.get_dc().keys() == vuln.get_dc().keys() and\
-                are_variants(vuln.get_uri(), fuzz_req.get_uri()):
+                if vuln.get_token_name() == varname and\
+                mutant.get_dc().keys() == vuln.get_dc().keys() and\
+                are_variants(vuln.get_uri(), mutant.get_uri()):
                     return False
                 
             return True

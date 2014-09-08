@@ -24,8 +24,8 @@ import urllib
 import chardet
 
 # Custom error handling schemes registration
-ESCAPED_CHAR = "slash_escape_char"
-PERCENT_ENCODE = "percent_encode"
+ESCAPED_CHAR = 'slash_escape_char'
+PERCENT_ENCODE = 'percent_encode'
 HTML_ENCODE = 'html_encode_char'
 
 
@@ -37,7 +37,7 @@ def _return_html_encoded(encodingexc):
     en = encodingexc.end
     hex_encoded = "".join(hex(ord(c))[2:] for c in encodingexc.object[st:en])
 
-    return (unicode('&#x' + hex_encoded), en)
+    return unicode('&#x' + hex_encoded), en
 
 
 def _return_escaped_char(encodingexc):
@@ -48,7 +48,7 @@ def _return_escaped_char(encodingexc):
     en = encodingexc.end
 
     slash_x_XX = repr(encodingexc.object[st:en])[1:-1]
-    return (unicode(slash_x_XX), en)
+    return unicode(slash_x_XX), en
 
 
 def _percent_encode(encodingexc):
@@ -70,7 +70,7 @@ codecs.register_error(HTML_ENCODE, _return_html_encoded)
 
 def smart_unicode(s, encoding='utf8', errors='strict', on_error_guess=True):
     """
-    Return the unicode representation of 's'. Decodes bytestrings using
+    Return the unicode representation of 's'. Decodes byte-strings using
     the 'encoding' codec.
     """
     if isinstance(s, unicode):
@@ -82,16 +82,34 @@ def smart_unicode(s, encoding='utf8', errors='strict', on_error_guess=True):
         except UnicodeDecodeError:
             if not on_error_guess:
                 raise
+
             guessed_encoding = chardet.detect(s)['encoding']
-            try:
-                s = s.decode(guessed_encoding, errors)
-            except UnicodeDecodeError:
+
+            if guessed_encoding is None:
+                # Chardet failed to guess the encoding! This is really broken
                 s = s.decode(encoding, 'ignore')
+            else:
+                try:
+                    s = s.decode(guessed_encoding, errors)
+                except UnicodeDecodeError:
+                    s = s.decode(encoding, 'ignore')
     else:
         if hasattr(s, '__unicode__'):
-            s = unicode(s)
+            try:
+                # Read the pyar thread "__unicode__ deberia tomar los mismos
+                # parametros que unicode() ?" to better understand why I can't
+                # pass encoding and errors parameters here:
+                s = unicode(s)
+            except UnicodeDecodeError:
+                # And why I'm doing it here:
+                s = str(s)
+                s = smart_unicode(s, encoding=encoding, errors=errors,
+                                  on_error_guess=on_error_guess)
         else:
-            s = unicode(str(s), encoding, errors)
+            s = str(s)
+            s = smart_unicode(s, encoding=encoding, errors=errors,
+                              on_error_guess=on_error_guess)
+
     return s
 
 

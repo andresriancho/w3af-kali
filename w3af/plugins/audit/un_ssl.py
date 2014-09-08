@@ -19,15 +19,16 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
-import w3af.core.controllers.output_manager as om
+import copy
 
+import w3af.core.controllers.output_manager as om
 import w3af.core.data.constants.severity as severity
 
+from w3af.core.data.kb.vuln import Vuln
 from w3af.core.controllers.plugins.audit_plugin import AuditPlugin
 from w3af.core.controllers.misc.fuzzy_string_cmp import relative_distance_boolean
-from w3af.core.controllers.exceptions import (BaseFrameworkException,
-                                              ScanMustStopException)
-from w3af.core.data.kb.vuln import Vuln
+from w3af.core.controllers.exceptions import (ScanMustStopException,
+                                              HTTPRequestException)
 
 
 class un_ssl(AuditPlugin):
@@ -60,11 +61,11 @@ class un_ssl(AuditPlugin):
             secure_uri = initial_uri.copy()
 
             insecure_uri.set_protocol('http')
-            insecure_fr = freq.copy()
+            insecure_fr = copy.deepcopy(freq)
             insecure_fr.set_url(insecure_uri)
 
             secure_uri.set_protocol('https')
-            secure_fr = freq.copy()
+            secure_fr = copy.deepcopy(freq)
             secure_fr.set_url(secure_uri)
 
             # Make sure that we ignore errors during this test
@@ -74,7 +75,7 @@ class un_ssl(AuditPlugin):
             try:
                 insecure_response = send_mutant(insecure_fr, **kwargs)
                 secure_response = send_mutant(secure_fr,  **kwargs)
-            except (BaseFrameworkException, ScanMustStopException):
+            except (HTTPRequestException, ScanMustStopException):
                 # No vulnerability to report since one of these threw an error
                 # (because there is nothing listening on that port). It makes
                 # no sense to keep running since we already got an error

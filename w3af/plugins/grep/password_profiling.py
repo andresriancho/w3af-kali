@@ -40,6 +40,8 @@ class password_profiling(GrepPlugin):
     COMMON_WORDS['unknown'] = COMMON_WORDS['en']
 
     BANNED_WORDS = {'forbidden', 'browsing', 'index'}
+    BANNED_STATUS = {500, 401, 403, 404}
+    ALLOWED_METHODS = {'POST', 'GET'}
 
     def __init__(self):
         GrepPlugin.__init__(self)
@@ -66,23 +68,25 @@ class password_profiling(GrepPlugin):
             return
 
         # I added the 404 code here to avoid doing some is_404 lookups
-        if response.get_code() not in {500, 401, 403, 404} \
-        and not is_404(response) and request.get_method() in {'POST', 'GET'}:
+        if response.get_code() not in self.BANNED_STATUS \
+        and not is_404(response) \
+        and request.get_method() in self.ALLOWED_METHODS:
+
+            old_data = kb.kb.raw_read(self.get_name(), self.get_name())
+            if not isinstance(old_data, dict):
+                return
 
             # Run the plugins
             data = self._run_plugins(response)
 
             with self._plugin_lock:
-                old_data = kb.kb.raw_read('password_profiling',
-                                          'password_profiling')
-
                 new_data = self.merge_maps(old_data, data, request,
                                            self.captured_lang)
 
                 new_data = self._trim_data(new_data)
 
                 # save the updated map
-                kb.kb.raw_write(self, 'password_profiling', new_data)
+                kb.kb.raw_write(self, self.get_name(), new_data)
 
     def got_lang(self):
         """
@@ -98,7 +102,7 @@ class password_profiling(GrepPlugin):
                 return False
             else:
                 self.captured_lang = captured_lang
-                kb.kb.raw_write(self, 'password_profiling', {})
+                kb.kb.raw_write(self.get_name(), self.get_name(), {})
                 self._need_init = False
                 return True
         
@@ -106,33 +110,38 @@ class password_profiling(GrepPlugin):
     
     def _trim_data(self, data):
         """
-        If the dict grows a lot, I want to trim it. Basically, if
-        it grows to a length of more than 2000 keys, I'll trim it
-        to 1000 keys.
+        If the dict grows a lot, I want to trim it. Basically, if it grows to a
+        length of more than 2000 keys, I'll trim it to 1000 keys.
         """
-        if len(data) > 2000:
-            def sortfunc(x_obj, y_obj):
-                return cmp(y_obj[1], x_obj[1])
-            
-            # pylint: disable=E1103
-            items = data.items()
-            items.sort(sortfunc)
+        if len(data) < 2000:
+            return data
 
-            items = items[:1000]
+        # pylint: disable=E1103
+        items = data.items()
+        items.sort(sort_func)
 
-            new_data = {}
-            for key, value in items:
-                new_data[key] = value
+        items = items[:1000]
 
-        else:
-            new_data = data
-    
+        new_data = {}
+        for key, value in items:
+            new_data[key] = value
+
         return new_data
                 
     def merge_maps(self, old_data, data, request, lang):
         """
-        "merge" both maps and update the repetitions
+        "merge" both maps and update the repetitions, the maps contain:
+            * Key:   word
+            * Value: number of repetitions
         """
+        msg = 'The "%s" parameter must be a dict, got "%s" instead.'
+
+        if not isinstance(old_data, dict):
+            raise TypeError(msg % ('old_data', old_data.__class__.__name__))
+
+        if not isinstance(data, dict):
+            raise TypeError(msg % ('data', old_data.__class__.__name__))
+
         if lang not in self.COMMON_WORDS.keys():
             lang = 'unknown'
             
@@ -168,12 +177,12 @@ class password_profiling(GrepPlugin):
 
         res = {}
         for plugin in self._plugins:
-            wordMap = plugin.get_words(response)
-            if wordMap is not None:
-                # If a plugin returned something thats not None, then we are done.
-                # this plugins only return a something different of None of they
-                # found something
-                res = wordMap
+            word_map = plugin.get_words(response)
+            if word_map is not None:
+                # If a plugin returned something that's not None, then we are
+                # done. These plugins only return a something different of None
+                # of they found something
+                res = word_map
                 break
 
         return res
@@ -182,10 +191,7 @@ class password_profiling(GrepPlugin):
         """
         This method is called when the plugin wont be used anymore.
         """
-        def sortfunc(x_obj, y_obj):
-            return cmp(y_obj[1], x_obj[1])
-
-        profiling_data = kb.kb.raw_read('password_profiling', 'password_profiling')
+        profiling_data = kb.kb.raw_read(self.get_name(), self.get_name())
 
         # This fixes a very strange bug where for some reason the kb doesn't
         # have a dict anymore (threading issue most likely) Seen here:
@@ -196,16 +202,16 @@ class password_profiling(GrepPlugin):
             items = profiling_data.items()
             if len(items) != 0:
 
-                items.sort(sortfunc)
+                items.sort(sort_func)
                 om.out.information('Password profiling TOP 100:')
 
                 list_length = len(items)
                 if list_length > 100:
-                    xLen = 100
+                    x_len = 100
                 else:
-                    xLen = list_length
+                    x_len = list_length
 
-                for i in xrange(xLen):
+                for i in xrange(x_len):
                     msg = '- [' + str(i + 1) + '] ' + items[
                         i][0] + ' with ' + str(items[i][1])
                     msg += ' repetitions.'
@@ -226,3 +232,7 @@ class password_profiling(GrepPlugin):
         This plugin creates a list of possible passwords by reading responses
         and counting the most common words.
         """
+
+
+def sort_func(x_obj, y_obj):
+    return cmp(y_obj[1], x_obj[1])

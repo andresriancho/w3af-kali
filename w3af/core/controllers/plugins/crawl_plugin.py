@@ -19,10 +19,12 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
+import copy
+
+from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.controllers.plugins.plugin import Plugin
 from w3af.core.controllers.exceptions import BaseFrameworkException
 from w3af.core.controllers.core_helpers.fingerprint_404 import is_404
-from w3af.core.data.request.factory import create_fuzzable_requests
 
 
 class CrawlPlugin(Plugin):
@@ -43,7 +45,7 @@ class CrawlPlugin(Plugin):
         # I copy the fuzzable request, to avoid cross plugin contamination
         # in other words, if one plugin modified the fuzzable request object
         # INSIDE that plugin, I don't want the next plugin to suffer from that
-        fuzzable_request_copy = fuzzable_request.copy()
+        fuzzable_request_copy = copy.deepcopy(fuzzable_request)
         return self.crawl(fuzzable_request_copy)
 
     def crawl(self, fuzzable_request):
@@ -56,31 +58,34 @@ class CrawlPlugin(Plugin):
         :return: A list with of new fuzzable request objects found by this
                  plugin. Can be empty.
         """
-        raise BaseFrameworkException(
-            'Plugin is not implementing required method crawl')
-
-    def _create_fuzzable_requests(self, HTTPResponse, request=None, add_self=True):
-        return create_fuzzable_requests(HTTPResponse, request, add_self)
+        msg = 'Plugin is not implementing required method crawl'
+        raise BaseFrameworkException(msg)
 
     discover_wrapper = crawl_wrapper
 
     def get_type(self):
         return 'crawl'
     
-    def http_get_and_parse(self, url):
+    def http_get_and_parse(self, url, *args, **kwargs):
         """
-        Perform an HTTP GET to url, extract URLs from the HTTP response and put
-        them into the plugin's output queue.
+        Perform an HTTP GET to url, and if the response is not a 404 then put()
+        a FuzzableRequest with the url in the output queue, so it can be
+        parsed later by web_spider.py (or any other plugin which does parsing)
         
-        :return: The http response that was parsed
+        :return: The http response that was generated as a response to "GET url"
         """
+        fr = FuzzableRequest(url, method='GET')
+
         try:
-            http_response = self._uri_opener.GET(url, cache=True)
+            http_response = self._uri_opener.send_mutant(fr, cache=True)
         except BaseFrameworkException:
             pass
         else:
             if not is_404(http_response):
-                for fr in self._create_fuzzable_requests(http_response):
-                    self.output_queue.put(fr)
+                self.output_queue.put(fr)
+
+                on_success = kwargs.get('on_success', None)
+                if on_success is not None:
+                    on_success(http_response, url, *args)
             
             return http_response

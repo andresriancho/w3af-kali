@@ -199,7 +199,7 @@ class w3af_core_strategy(object):
             finished, consumer_forced_end = route_result
 
     def _route_one_fuzzable_request_batch(self, _input, output, finished,
-                                               consumer_forced_end):
+                                          consumer_forced_end):
         """
         Loop once through all input consumers and route their results.
 
@@ -314,8 +314,7 @@ class w3af_core_strategy(object):
                ' our packets or there is no HTTP daemon listening on that'
                ' port.\n\n'
                'Please verify your target configuration and try again.')
-        
-        
+
         while sent_requests < MAX_ERROR_COUNT * 1.5:
             for url in cf.cf.get('targets'):
                 try:

@@ -1,5 +1,5 @@
 """
-OutputPlugin.py
+output_plugin.py
 
 Copyright 2006 Andres Riancho
 
@@ -102,16 +102,22 @@ class OutputPlugin(Plugin):
         """
         pass
 
-    def log_enabled_plugins(self, enabledPluginsDict, pluginOptionsDict):
+    def log_enabled_plugins(self, enabled_plugins_dict, plugin_options_dict):
         """
-        This method logs to the output plugins the enabled plugins and their configuration.
+        This method logs to the output plugins the enabled plugins and their
+        configuration.
 
-        :param enabledPluginsDict: As returned by w3afCore.get_all_enabled_plugins()
-                   looks similar to:
-                   {'audit':[],'grep':[],'bruteforce':[],'crawl':[],...}
+        :param enabled_plugins_dict: As returned by
+                                     w3afCore.get_all_enabled_plugins() looks
+                                     similar to:
 
-        :param pluginOptionsDict: As defined in the w3afCore, looks similar to:
-                   {'audit':{},'grep':{},'bruteforce':{},'crawl':{},...}
+                                    {'audit':[],'grep':[],'bruteforce':[],
+                                     'crawl':[],...}
+
+        :param plugin_options_dict: As defined in the w3afCore, looks similar to
+
+                                    {'audit':{},'grep':{},'bruteforce':{},
+                                     'crawl':{},...}
         """
         pass
 
@@ -127,8 +133,14 @@ class OutputPlugin(Plugin):
         :param string_to_clean: A string that should be cleaned before using
                                 it in a message object.
         """
-        for char, replace in [('\0', '\\0'), ('\t', '\\t')]:  # ('\n','\\n'),('\r','\\r'),
+        # https://github.com/andresriancho/w3af/issues/3586
+        if string_to_clean is None:
+            return ''
+
+        # Not converting these: ('\n','\\n'),('\r','\\r')
+        for char, replace in [('\0', '\\0'), ('\t', '\\t')]:
             string_to_clean = string_to_clean.replace(char, replace)
+
         return string_to_clean
 
     def get_caller(self, which_stack_item=4):
@@ -139,14 +151,15 @@ class OutputPlugin(Plugin):
             - if no plugin is in the caller stack, i'll return the stack item
               specified by which_stack_item
 
-        Maybe you are asking yourself why which_stack_item == 4, well, this is why:
+        Maybe you are asking yourself why which_stack_item == 4, well, this is
+        why:
             I know that get_caller method will be in the stack
-            I also know that the method that calls get_caller will be in the stack
+            I also know that the method that calls get_caller will be in stack
             I also know that the om.out.XYZ method will be in the stack
             That's 3... so... number 4 is the one that really called me.
 
-        :return: The caller of the om.out.XYZ method; this is used to make output
-                 more readable.
+        :return: The caller of the om.out.XYZ method; this is used to make
+                 output more readable.
 
         >>> bop = OutputPlugin()
         >>> bop.get_caller()

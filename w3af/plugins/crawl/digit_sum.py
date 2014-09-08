@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
 import re
+import copy
 
 from itertools import izip, repeat
 
@@ -31,6 +32,9 @@ from w3af.core.data.bloomfilter.scalable_bloom import ScalableBloomFilter
 from w3af.core.data.options.opt_factory import opt_factory
 from w3af.core.data.options.option_list import OptionList
 from w3af.core.data.dc.headers import Headers
+
+
+DIGIT_REGEX = re.compile(r'(\d+)')
 
 
 class digit_sum(CrawlPlugin):
@@ -51,25 +55,31 @@ class digit_sum(CrawlPlugin):
 
     def crawl(self, fuzzable_request):
         """
-        Searches for new URLs by adding and substracting numbers to the file
+        Searches for new URLs by adding and subtracting numbers to the file
         and the parameters.
 
         :param fuzzable_request: A fuzzable_request instance that contains
                                      (among other things) the URL to test.
         """
-        url = fuzzable_request.get_url()
-        headers = Headers([('Referer', url.url_string)])
+        # If the fuzzable request sends post-data in any way, we don't want to
+        # start fuzzing the URL, it simply doesn't make any sense.
+        if fuzzable_request.get_data() or fuzzable_request.get_method() != 'GET':
+            return
 
-        original_response = self._uri_opener.GET(fuzzable_request.get_uri(),
-                                                 cache=True, headers=headers)
+        url = fuzzable_request.get_url()
+
+        headers = Headers([('Referer', url.url_string)])
+        fuzzable_request.get_headers().update(headers)
+
+        original_response = self._uri_opener.send_mutant(fuzzable_request,
+                                                         cache=True)
 
         if original_response.is_text_or_html() or self._fuzz_images:
 
             fr_generator = self._mangle_digits(fuzzable_request)
             response_repeater = repeat(original_response)
-            header_repeater = repeat(headers)
 
-            args = izip(fr_generator, response_repeater, header_repeater)
+            args = izip(fr_generator, response_repeater)
 
             self.worker_pool.map_multi_args(self._do_request, args)
 
@@ -77,7 +87,7 @@ class digit_sum(CrawlPlugin):
             # Example: index1.html ---> index2.html --!!--> index1.html
             self._already_visited.add(fuzzable_request.get_uri())
 
-    def _do_request(self, fuzzable_request, original_resp, headers):
+    def _do_request(self, fuzzable_request, original_resp):
         """
         Send the request.
 
@@ -85,9 +95,7 @@ class digit_sum(CrawlPlugin):
         :param original_resp: The response for the original request that was
                               sent.
         """
-        response = self._uri_opener.GET(fuzzable_request.get_uri(),
-                                        cache=True,
-                                        headers=headers)
+        response = self._uri_opener.send_mutant(fuzzable_request, cache=True)
 
         add = False
 
@@ -122,8 +130,7 @@ class digit_sum(CrawlPlugin):
                 add = True
 
         if add:
-            for fr in self._create_fuzzable_requests(response):
-                self.output_queue.put(fr)
+            self.output_queue.put(fuzzable_request)
 
     def _mangle_digits(self, fuzzable_request):
         """
@@ -132,11 +139,12 @@ class digit_sum(CrawlPlugin):
         :param fuzzable_request: The original FuzzableRequest
         :return: A generator which returns mangled fuzzable requests
         """
-        # First i'll mangle the digits in the URL file
+        # First i'll mangle the digits in the URL filename
         filename = fuzzable_request.get_url().get_file_name()
         domain_path = fuzzable_request.get_url().get_domain_path()
+
         for fname in self._do_combinations(filename):
-            fr_copy = fuzzable_request.copy()
+            fr_copy = copy.deepcopy(fuzzable_request)
             fr_copy.set_url(domain_path.url_join(fname))
 
             if fr_copy.get_uri() not in self._already_visited:
@@ -145,24 +153,20 @@ class digit_sum(CrawlPlugin):
                 yield fr_copy
 
         # Now i'll mangle the query string variables
-        if fuzzable_request.get_method() == 'GET':
-            for parameter in fuzzable_request.get_dc():
+        data_container = fuzzable_request.get_querystring()
 
-                # to support repeater parameter names...
-                for element_index in xrange(len(fuzzable_request.get_dc()[parameter])):
+        for _, token in data_container.iter_bound_tokens():
+            for modified_value in self._do_combinations(token.get_value()):
 
-                    combinations = self._do_combinations(fuzzable_request.get_dc()
-                                                         [parameter][element_index])
-                    for modified_value in combinations:
+                fr_copy = copy.deepcopy(fuzzable_request)
+                qs = fr_copy.get_querystring()
+                qs_token = qs.set_token(token.get_path())
+                qs_token.set_value(modified_value)
 
-                        fr_copy = fuzzable_request.copy()
-                        new_dc = fr_copy.get_dc()
-                        new_dc[parameter][element_index] = modified_value
-                        fr_copy.set_dc(new_dc)
+                if fr_copy.get_uri() not in self._already_visited:
+                    self._already_visited.add(fr_copy.get_uri())
 
-                        if fr_copy.get_uri() not in self._already_visited:
-                            self._already_visited.add(fr_copy.get_uri())
-                            yield fr_copy
+                    yield fr_copy
 
     def _do_combinations(self, a_string):
         """
@@ -175,17 +179,18 @@ class digit_sum(CrawlPlugin):
 
         """
         res = []
-        splitted = self._find_digits(a_string)
-        if len(splitted) <= 2 * self._max_digit_sections:
-            for i in xrange(len(splitted)):
-                if splitted[i].isdigit():
-                    splitted[i] = str(int(splitted[i]) + 1)
-                    res.append(''.join(splitted))
-                    splitted[i] = str(int(splitted[i]) - 2)
-                    res.append(''.join(splitted))
+        split = self._find_digits(a_string)
+
+        if len(split) <= 2 * self._max_digit_sections:
+            for i in xrange(len(split)):
+                if split[i].isdigit():
+                    split[i] = str(int(split[i]) + 1)
+                    res.append(''.join(split))
+                    split[i] = str(int(split[i]) - 2)
+                    res.append(''.join(split))
 
                     # restore the initial value for next loop
-                    splitted[i] = str(int(splitted[i]) + 1)
+                    split[i] = str(int(split[i]) + 1)
 
         return res
 
@@ -203,7 +208,7 @@ class digit_sum(CrawlPlugin):
         :return: A list of strings.
         """
         # regexes are soooooooooooooo cool !
-        return [x for x in re.split(r'(\d+)', a_string) if x != '']
+        return [x for x in DIGIT_REGEX.split(a_string) if x != '']
 
     def get_options(self):
         """

@@ -22,8 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import os.path
 import socket
 
-from xml.sax import make_parser
-from xml.sax.handler import ContentHandler, ErrorHandler
+import lxml.etree as etree
 
 import w3af.core.controllers.output_manager as om
 import w3af.core.data.kb.knowledge_base as kb
@@ -32,6 +31,8 @@ import w3af.core.data.constants.severity as severity
 from w3af import ROOT_PATH
 from w3af.core.data.parsers.url import URL
 from w3af.core.data.kb.vuln import Vuln
+from w3af.core.data.esmre.esm_multi_in import esm_multi_in
+from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.controllers.plugins.crawl_plugin import CrawlPlugin
 from w3af.core.controllers.exceptions import RunOnce, BaseFrameworkException
 from w3af.core.controllers.misc.decorators import runonce
@@ -60,22 +61,21 @@ class phishtank(CrawlPlugin):
         to_check = self._get_to_check(fuzzable_request.get_url())
 
         # I found some URLs, create fuzzable requests
-        phishtank_matches = self._is_in_phishtank(to_check)
-        for ptm in phishtank_matches:
-            response = self._uri_opener.GET(ptm.url)
-            for fr in self._create_fuzzable_requests(response):
-                self.output_queue.put(fr)
+        pt_handler = self._is_in_phishtank(to_check)
+
+        for ptm in pt_handler.matches:
+            fr = FuzzableRequest(ptm.url)
+            self.output_queue.put(fr)
 
         # Only create the vuln object once
-        if phishtank_matches:
+        if pt_handler.matches:
             desc = 'The URL: "%s" seems to be involved in a phishing scam.' \
                    ' Please see %s for more info.'
-            desc = desc % (ptm.url, ptm.more_info_URL)
-            
-            v = Vuln('Phishing scam', desc, severity.MEDIUM, response.id,
-                     self.get_name())
+            desc = desc % (ptm.url, ptm.more_info_url)
+
+            v = Vuln('Phishing scam', desc, severity.MEDIUM, [], self.get_name())
             v.set_url(ptm.url)
-            
+
             kb.kb.append(self, 'phishtank', v)
             om.out.vulnerability(v.get_desc(), severity=v.get_severity())
 
@@ -122,25 +122,23 @@ class phishtank(CrawlPlugin):
             # <?xml version="1.0" encoding="utf-8"?>
             phishtank_db_fd = file(self.PHISHTANK_DB, 'r')
         except Exception, e:
-            msg = 'Failed to open phishtank database file: "%s", exception: "%s".'
+            msg = 'Failed to open phishtank database: "%s", exception: "%s".'
             raise BaseFrameworkException(msg % (self.PHISHTANK_DB, e))
 
-        parser = make_parser()
         pt_handler = PhishTankHandler(to_check)
-        pt_error_handler = PhishTankErrorHandler()
-        parser.setContentHandler(pt_handler)
-        parser.setErrorHandler(pt_error_handler)
+        parser = etree.HTMLParser(recover=True, target=pt_handler)
+
         om.out.debug('Starting the phishtank XML parsing. ')
 
         try:
-            parser.parse(phishtank_db_fd)
+            etree.parse(phishtank_db_fd, parser)
         except Exception, e:
             msg = 'XML parsing error in phishtank DB, exception: "%s".'
             raise BaseFrameworkException(msg % e)
 
         om.out.debug('Finished XML parsing. ')
 
-        return pt_handler.matches
+        return pt_handler
 
     def get_long_desc(self):
         """
@@ -158,12 +156,12 @@ class PhishTankMatch(object):
     Represents a phishtank match between the site I'm scanning and
     something in the index.xml file.
     """
-    def __init__(self, url, more_info_URL):
+    def __init__(self, url, more_info_url):
         self.url = url
-        self.more_info_URL = more_info_URL
+        self.more_info_url = more_info_url
 
 
-class PhishTankHandler(ContentHandler):
+class PhishTankHandler(object):
     """
     <entry>
         <url><![CDATA[http://cbisis...paypal.support/]]></url>
@@ -185,81 +183,65 @@ class PhishTankHandler(ContentHandler):
     """
     def __init__(self, to_check):
         self._to_check = to_check
-        
-        self.url = ''
-        self.phish_detail_url = ''
+        self._to_check_esm = esm_multi_in(to_check)
+
+        self.url = u''
+        self.phish_detail_url = u''
         
         self.inside_entry = False
         self.inside_URL = False
+        self.url_count = 0
         self.inside_detail = False
         
         self.matches = []
 
-    def startElement(self, name, attrs):
-        if name == 'entry':
+    def start(self, name, attrs):
+        if name == u'entry':
             self.inside_entry = True
-        elif name == 'url':
+
+        elif name == u'url':
             self.inside_URL = True
-            self.url = ''
-        elif name == 'phish_detail_url':
+            self.url = u''
+
+        elif name == u'phish_detail_url':
             self.inside_detail = True
-            self.phish_detail_url = ''
+            self.phish_detail_url = u''
+
         return
 
-    def characters(self, ch):
+    def data(self, ch):
         if self.inside_URL:
             self.url += ch
+
         if self.inside_detail:
             self.phish_detail_url += ch
 
-    def endElement(self, name):
-        if name == 'phish_detail_url':
+    def end(self, name):
+        if name == u'phish_detail_url':
             self.inside_detail = False
-        if name == 'url':
+
+        if name == u'url':
             self.inside_URL = False
-        if name == 'entry':
+            self.url_count += 1
+
+        if name == u'entry':
             self.inside_entry = False
             #
             #    Now I try to match the entry with an element in the
             #    to_check_list
             #
-            for target_host in self._to_check:
-                if target_host in self.url:
-                    phish_url = URL(self.url)
-                    target_host_url = URL(target_host)
+            query_result = self._to_check_esm.query(self.url)
 
-                    if target_host_url.get_domain() == phish_url.get_domain() or \
-                    phish_url.get_domain().endswith('.' + target_host_url.get_domain()):
+            if query_result:
+                phish_url = URL(self.url)
+                target_host_url = URL(query_result[0])
 
-                        phish_detail_url = URL(self.phish_detail_url)
-                        ptm = PhishTankMatch(phish_url,
-                                             phish_detail_url)
-                        self.matches.append(ptm)
+                if target_host_url.get_domain() == phish_url.get_domain() or \
+                phish_url.get_domain().endswith('.' + target_host_url.get_domain()):
 
+                    phish_detail_url = URL(self.phish_detail_url)
+                    ptm = PhishTankMatch(phish_url, phish_detail_url)
+                    self.matches.append(ptm)
 
-class PhishTankErrorHandler(ErrorHandler):
-    """
-    If you create an object that implements this interface, then
-    register the object with your XMLReader, the parser will call the
-    methods in your object to report all warnings and errors. There
-    are three levels of errors available: warnings, (possibly)
-    recoverable errors, and unrecoverable errors. All methods take a
-    SAXParseException as the only parameter."""
-
-    def error(self, exception):
-        """
-        Handle a recoverable error.
-        """
-        pass
-
-    def fatalError(self, exception):
-        """
-        Handle a non-recoverable error.
-        """
-        pass
-
-    def warning(self, exception):
-        """
-        Handle a warning.
-        """
-        pass
+    def close(self):
+        return self.matches

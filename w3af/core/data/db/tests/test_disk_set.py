@@ -25,12 +25,12 @@ from nose.plugins.attrib import attr
 
 from w3af.core.controllers.misc.temp_dir import create_temp_dir
 from w3af.core.data.db.disk_set import DiskSet
-
+from w3af.core.data.parsers.utils.form_params import FormParameters
 from w3af.core.data.parsers.url import URL
-from w3af.core.data.request.HTTPQsRequest import HTTPQSRequest
-from w3af.core.data.request.HTTPPostDataRequest import HTTPPostDataRequest
+from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.data.dc.headers import Headers
 from w3af.core.data.db.dbms import get_default_temp_db_instance
+from w3af.core.data.dc.factory import dc_from_form_params
 
 
 class test_DiskSet(unittest.TestCase):
@@ -63,19 +63,19 @@ class test_DiskSet(unittest.TestCase):
         self.assertFalse(URL('http://w3af.org/?id=4') in ds)
         self.assertTrue(URL('http://w3af.org/?id=2') in ds)
 
-    def test_add_HTTPQSRequest(self):
+    def test_add_QsRequest(self):
         ds = DiskSet()
 
         uri = URL('http://w3af.org/?id=2')
         hdr = Headers([('Referer', 'http://w3af.org/')])
 
-        qsr1 = HTTPQSRequest(uri, method='GET', headers=hdr)
+        qsr1 = FuzzableRequest(uri, method='GET', headers=hdr)
 
         uri = URL('http://w3af.org/?id=3')
-        qsr2 = HTTPQSRequest(uri, method='GET', headers=hdr)
+        qsr2 = FuzzableRequest(uri, method='GET', headers=hdr)
 
         uri = URL('http://w3af.org/?id=7')
-        qsr3 = HTTPQSRequest(uri, method='FOO', headers=hdr)
+        qsr3 = FuzzableRequest(uri, method='FOO', headers=hdr)
 
         ds.add(qsr1)
         ds.add(qsr2)
@@ -90,37 +90,7 @@ class test_DiskSet(unittest.TestCase):
 
         # This forces an internal change in the URL object
         qsr2.get_url().url_string
-        self.assertTrue(qsr2 in ds)
-
-    @attr('smoke')
-    def test_add_HTTPPostDataRequest(self):
-        ds = DiskSet()
-
-        uri = URL('http://w3af.org/?id=2')
-        hdr = Headers([('Referer', 'http://w3af.org/')])
-
-        pdr1 = HTTPPostDataRequest(uri, method='GET', headers=hdr)
-
-        uri = URL('http://w3af.org/?id=3')
-        pdr2 = HTTPPostDataRequest(uri, method='GET', headers=hdr)
-
-        uri = URL('http://w3af.org/?id=7')
-        pdr3 = HTTPPostDataRequest(uri, method='FOO', headers=hdr)
-
-        ds.add(pdr1)
-        ds.add(pdr2)
-        ds.add(pdr2)
-        ds.add(pdr1)
-
-        self.assertEqual(ds[0], pdr1)
-        self.assertEqual(ds[1], pdr2)
-        self.assertFalse(pdr3 in ds)
-        self.assertTrue(pdr2 in ds)
-        self.assertEqual(len(ds), 2)
-
-        # This forces an internal change in the URL object
-        pdr2.get_url().url_string
-        self.assertTrue(pdr2 in ds)
+        self.assertIn(qsr2, ds)
 
     def test_update(self):
         ds = DiskSet()
@@ -181,3 +151,47 @@ class test_DiskSet(unittest.TestCase):
         disk_set.cleanup()
         
         self.assertFalse(db.table_exists(table_name))
+
+    def test_store_fuzzable_request(self):
+        form_params = FormParameters()
+        form_params.add_input([("name", "username"), ("value", "abc")])
+        form_params.add_input([("name", "address"), ("value", "")])
+        form_params.set_action(URL('http://example.com/?id=1'))
+        form_params.set_method('post')
+
+        form = dc_from_form_params(form_params)
+
+        fr = FuzzableRequest.from_form(form)
+
+        ds = DiskSet()
+        ds.add(fr)
+
+        stored_fr = ds[0]
+
+        self.assertEqual(stored_fr, fr)
+        self.assertIsNot(stored_fr, fr)
+
+    def test_store_fuzzable_request_two(self):
+        ds = DiskSet()
+
+        # Add a simple fr, without post-data
+        fr = FuzzableRequest(URL('http://example.com/?id=1'))
+        ds.add(fr)
+
+        # Add a fr with post-data
+        form_params = FormParameters()
+        form_params.add_input([("name", "username"), ("value", "abc")])
+        form_params.add_input([("name", "address"), ("value", "")])
+        form_params.set_action(URL('http://example.com/?id=1'))
+        form_params.set_method('post')
+
+        form = dc_from_form_params(form_params)
+
+        fr = FuzzableRequest.from_form(form)
+        ds.add(fr)
+
+        # Compare
+        stored_fr = ds[1]
+
+        self.assertEqual(stored_fr, fr)
+        self.assertIsNot(stored_fr, fr)

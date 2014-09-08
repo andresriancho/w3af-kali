@@ -17,11 +17,12 @@
 # This file is part of urlgrabber, a high-level cross-protocol url-grabber
 # Copyright 2002-2004 Michael D. Stenner, Ryan Tomayko
 
-# This file was modified (considerably) to be integrated with w3af. Some modifications are:
+# This file was modified (considerably) to be integrated with w3af. Some
+# modifications are:
 #   - Added the size limit for responses
-#   - Raising BaseFrameworkExceptions in some places
-#   - Modified the HTTPResponse object in order to be able to perform multiple reads, and
-#     added a hack for the HEAD method.
+#   - Raising ConnectionPoolException in some places
+#   - Modified the HTTPResponse object in order to be able to perform multiple
+#     reads, and added a hack for the HEAD method.
 
 """An HTTP handler for urllib2 that supports HTTP 1.1 and keepalive.
 
@@ -109,7 +110,6 @@ EXTRA ATTRIBUTES AND METHODS
 
 # $Id: keepalive.py,v 1.16 2006/09/22 00:58:05 mstenner Exp $
 
-from collections import deque
 import urllib2
 import httplib
 import operator
@@ -119,31 +119,21 @@ import urllib
 import sys
 import time
 import ssl
-import copy
 
 import w3af.core.controllers.output_manager as om
 import w3af.core.data.kb.config as cf
 
 from w3af.core.data.constants.response_codes import NO_CONTENT
 from w3af.core.controllers.exceptions import (BaseFrameworkException,
-                                              ScanMustStopByKnownReasonExc)
+                                              HTTPRequestException,
+                                              ConnectionPoolException)
 
 
 HANDLE_ERRORS = 1 if sys.version_info < (2, 4) else 0
 DEBUG = False
 
 # Max connections allowed per host.
-MAXCONNECTIONS = 50
-# If found this number of timeouts in-a-row per target host then we may either:
-#    1) Shrink the pool size (we might be stressing the remote host) and retry;
-#        or:
-#    2) Give up and make w3af stop sending requests for that host.
-# This number should not be greater than (MAXCONNECTIONS / 2)
-IN_A_ROW_TIMEOUTS = 15
-# Constants for responses statuses
-RESP_OK = 0
-RESP_TIMEOUT = 1
-RESP_BAD = 2
+MAX_CONNECTIONS = 50
 
 
 class URLTimeoutError(urllib2.URLError):
@@ -161,7 +151,7 @@ class URLTimeoutError(urllib2.URLError):
             return 'HTTP timeout error.'
 
 
-def closeonerror(read_meth):
+def close_on_error(read_meth):
     """
     Decorator function. When calling decorated `read_meth` if an error occurs
     we'll proceed to invoke `inst`'s close() method.
@@ -189,7 +179,7 @@ class HTTPResponse(httplib.HTTPResponse):
     # so if you THEN do a normal read, you must first take stuff from
     # the buffer.
 
-    # the read method wraps the original to accomodate buffering,
+    # the read method wraps the original to accommodate buffering,
     # although read() never adds to the buffer.
     # Both readline and readlines have been stolen with almost no
     # modification from socket.py
@@ -201,13 +191,14 @@ class HTTPResponse(httplib.HTTPResponse):
         self.code = None
         self._rbuf = ''
         self._rbufsize = 8096
-        self._handler = None  # inserted by the handler later
-        self._host = None   # (same)
-        self._url = None     # (same)
+        self._handler = None     # inserted by the handler later
+        self._host = None        # (same)
+        self._url = None         # (same)
         self._connection = None  # (same)
         self._method = method
         self._multiread = None
         self._encoding = None
+        self._time = None
 
     def geturl(self):
         return self._url
@@ -221,6 +212,12 @@ class HTTPResponse(httplib.HTTPResponse):
         self._encoding = enc
     
     encoding = property(get_encoding, set_encoding)
+
+    def set_wait_time(self, t):
+        self._time = t
+
+    def get_wait_time(self):
+        return self._time
 
     def _raw_read(self, amt=None):
         """
@@ -277,19 +274,22 @@ class HTTPResponse(httplib.HTTPResponse):
         self.close()
 
     def info(self):
+        # pylint: disable=E1101
         return self.headers
+        # pylint: enable=E1101
 
-    @closeonerror
+    @close_on_error
     def read(self, amt=None):
-        # w3af does always read all the content of the response...
-        # and I also need to do multiple reads to this response...
+        # w3af does always read all the content of the response, and I also need
+        # to do multiple reads to this response...
+        #
         # BUGBUG: Is this OK? What if a HEAD method actually returns something?!
         if self._method == 'HEAD':
             # This indicates that we have read all that we needed from the socket
             # and that the socket can be reused!
             #
             # This like fixes the bug with title "GET is much faster than HEAD".
-            #https://sourceforge.net/tracker2/?func=detail&aid=2202532&group_id=170274&atid=853652
+            # https://sourceforge.net/tracker2/?func=detail&aid=2202532&group_id=170274&atid=853652
             self.close()
             return ''
 
@@ -318,18 +318,18 @@ class HTTPResponse(httplib.HTTPResponse):
                 break
             i = new.find('\n')
             if i >= 0:
-                i = i + len(self._rbuf)
+                i += len(self._rbuf)
             self._rbuf = self._rbuf + new
         if i < 0:
             i = len(self._rbuf)
         else:
-            i = i + 1
+            i += 1
         if 0 <= limit < len(self._rbuf):
             i = limit
         data, self._rbuf = self._rbuf[:i], self._rbuf[i:]
         return data
 
-    @closeonerror
+    @close_on_error
     def readlines(self, sizehint=0):
         total = 0
         line_list = []
@@ -351,6 +351,16 @@ class HTTPResponse(httplib.HTTPResponse):
         self._multiread = data
 
 
+def debug(msg):
+    if DEBUG:
+        om.out.debug(msg)
+
+
+def error(msg):
+    if DEBUG:
+        om.out.error(msg)
+
+
 class ConnectionManager(object):
     """
     The connection manager must be able to:
@@ -359,10 +369,13 @@ class ConnectionManager(object):
         * Create/reuse connections when needed.
         * Control the size of the pool.
     """
+    # Used in get_available_connection
+    GET_AVAILABLE_CONNECTION_RETRY_SECS = 0.25
+    GET_AVAILABLE_CONNECTION_RETRY_NUM = 25
 
     def __init__(self):
         self._lock = threading.RLock()
-        self._host_pool_size = MAXCONNECTIONS
+        self._host_pool_size = MAX_CONNECTIONS
         self._hostmap = {}  # map hosts to a list of connections
         self._used_cons = []  # connections being used per host
         self._free_conns = []  # available connections
@@ -381,10 +394,9 @@ class ConnectionManager(object):
         with self._lock:
 
             if host:
-                if host not in self._hostmap:
-                    raise ValueError('Host "%s" not present in pool.' % host)
-                if conn in self._hostmap[host]:
-                    self._hostmap[host].remove(conn)
+                if host in self._hostmap:
+                    if conn in self._hostmap[host]:
+                        self._hostmap[host].remove(conn)
 
             else:
                 # We don't know the host. Need to find it by looping
@@ -406,13 +418,12 @@ class ConnectionManager(object):
             
             # No more conns for 'host', remove it from mapping
             conn_total = self.get_connections_total(host)
-            if host and not conn_total:
+            if host and host in self._hostmap and not conn_total:
                 del self._hostmap[host]
             
-            if DEBUG:
-                msg = 'keepalive: removed one connection, len(self._hostmap' \
-                      '["%s"]): %s' % (host, conn_total)
-                om.out.debug(msg)
+            msg = 'keepalive: removed one connection,' \
+                  ' len(self._hostmap["%s"]): %s'
+            debug(msg % (host, conn_total))
 
     def free_connection(self, conn):
         """
@@ -432,9 +443,7 @@ class ConnectionManager(object):
         """
         with self._lock:
             self.remove_connection(bad_conn, host)
-            if DEBUG:
-                msg = 'keepalive: replacing bad connection with a new one'
-                om.out.debug(msg)
+            debug('keepalive: replacing bad connection with a new one')
             new_conn = conn_factory(host)
             conns = self._hostmap.setdefault(host, [])
             conns.append(new_conn)
@@ -447,15 +456,14 @@ class ConnectionManager(object):
 
         :param host: Host for the connection.
         :param conn_factory: Factory function for connection creation. Receives
-            <host> as parameter.
+                             <host> as parameter.
         """
         with self._lock:
-            retry_count = 10
+            retry_count = self.GET_AVAILABLE_CONNECTION_RETRY_NUM
 
             while retry_count > 0:
-                ret_conn = None
-
-                # First check if we can reuse an existing free conn.
+                # First check if we can reuse an existing free connection from
+                # the connection pool
                 for conn in self._hostmap.setdefault(host, []):
                     try:
                         self._free_conns.remove(conn)
@@ -463,39 +471,42 @@ class ConnectionManager(object):
                         continue
                     else:
                         self._used_cons.append(conn)
-                        ret_conn = conn
-                        break
+                        return conn
 
-                # No?... well, let's try to create a new one.
+                # No? Well, if the connection pool is not full let's try to
+                # create a new one.
                 conn_total = self.get_connections_total(host)
-                if not ret_conn and conn_total < self._host_pool_size:
-                    if DEBUG:
-                        msg = 'keepalive: added one connection, len(self._hostmap'\
-                              '["%s"]): %s' % (host, conn_total + 1)
-                        om.out.debug(msg)
-                    ret_conn = conn_factory(host)
-                    self._used_cons.append(ret_conn)
-                    self._hostmap[host].append(ret_conn)
+                if conn_total < self._host_pool_size:
+                    msg = 'keepalive: added one connection,'\
+                          'len(self._hostmap["%s"]): %s'
+                    debug(msg % (host, conn_total + 1))
+                    conn = conn_factory(host)
+                    self._used_cons.append(conn)
+                    self._hostmap[host].append(conn)
+                    return conn
 
-                if ret_conn is not None:  # Good! We have one!
-                    return ret_conn
-                else:  # Maybe we should wait a little and try again 8^)
+                else:
+                    # Well, the connection pool for this host is full, this
+                    # means that many threads are sending request to the host
+                    # and using the connections. This is not bad, just shows
+                    # that w3af is keeping the connections busy
+                    #
+                    # Another reason for this situation is that the connections
+                    # are *really* slow => taking many seconds to retrieve the
+                    # HTTP response => not freeing often
+                    #
+                    # We should wait a little and try again
                     retry_count -= 1
-                    time.sleep(0.3)
+                    time.sleep(self.GET_AVAILABLE_CONNECTION_RETRY_SECS)
 
-            msg = 'keepalive: been waiting too long for a pool connection.' \
-                  ' I\'m giving up. Seems like the pool is full.'
-
-            if DEBUG:
-                om.out.debug(msg)
-
-            raise BaseFrameworkException(msg)
-
-    def resize_pool(self, new_size):
-        """
-        Set a new pool size.
-        """
-        pass
+            msg = 'HTTP connection pool (keepalive) waited too long (%s sec)' \
+                  ' for a free connection, giving up. This usually occurs' \
+                  ' when w3af is scanning using a slow connection, the remote' \
+                  ' server is slow (or applying QoS to IP addresses flagged' \
+                  ' as attackers).'
+            seconds = (self.GET_AVAILABLE_CONNECTION_RETRY_NUM *
+                       self.GET_AVAILABLE_CONNECTION_RETRY_SECS)
+            raise ConnectionPoolException(msg % seconds)
 
     def get_all(self, host=None):
         """
@@ -515,6 +526,9 @@ class ConnectionManager(object):
         If <host> is None return the grand total of created connections;
         otherwise return the total of created conns. for <host>.
         """
+        if host not in self._hostmap:
+            return 0
+
         values = self._hostmap.values() if (host is None) \
             else [self._hostmap[host]]
         return reduce(operator.add, map(len, values or [[]]))
@@ -544,11 +558,6 @@ class KeepAliveHandler(object):
         self._pool_lock = threading.RLock()
         # Map hosts to a `collections.deque` of response status.
         self._hostresp = {}
-        # Current number of 'in-a-row-timeouts'. It may vary depending on the
-        # current size of the pool.
-        self._curr_check_failures = IN_A_ROW_TIMEOUTS
-        # Tail list filter factory function
-        self._get_tail_filter = lambda: deque(maxlen=self._curr_check_failures)
 
     def get_open_connections(self):
         """
@@ -592,31 +601,18 @@ class KeepAliveHandler(object):
         if not host:
             raise urllib2.URLError('no host given')
 
+        conn_factory = self._get_connection
+
         try:
-            resp_statuses = self._hostresp.setdefault(host,
-                                                      self._get_tail_filter())
-            # Check if all our last 'resp_statuses' were timeouts and raise
-            # a ScanMustStopException if this is the case.
-            if len(resp_statuses) == self._curr_check_failures:
-
-                # https://mail.python.org/pipermail/python-dev/2007-January/070515.html
-                # https://github.com/andresriancho/w3af/search?q=deque&ref=cmdform&type=Issues
-                # https://github.com/andresriancho/w3af/issues/1311
-                #
-                # I copy the deque to avoid issues when iterating over it in the
-                # all() / for statement below
-                resp_statuses_cp = copy.copy(resp_statuses)
-
-                if all(st == RESP_TIMEOUT for st in resp_statuses_cp):
-                    msg = ('w3af found too many consecutive timeouts. The'
-                           ' remote webserver seems to be unresponsive; please'
-                           ' verify manually.')
-                    reason = 'Timeout while trying to reach target.'
-                    raise ScanMustStopByKnownReasonExc(msg, reason=reason)
-
-            conn_factory = self._get_connection
             conn = self._cm.get_available_connection(host, conn_factory)
+        except ConnectionPoolException:
+            # When `self._cm.get_available_connection(host, conn_factory)` does
+            # not return a conn, it will raise this exception. So we either get
+            # here and `raise`, or we have a connection and something else
+            # failed and we get to the other error handlers.
+            raise
 
+        try:
             if conn.is_fresh:
                 # First of all, call the request method. This is needed for
                 # HTTPS Proxy
@@ -624,10 +620,12 @@ class KeepAliveHandler(object):
                     conn.proxy_setup(req.get_full_url())
 
                 conn.is_fresh = False
+                start = time.time()
                 self._start_transaction(conn, req)
                 resp = conn.getresponse()
             else:
                 # We'll try to use a previously created connection
+                start = time.time()
                 resp = self._reuse_connection(conn, req, host)
                 # If the resp is None it means that connection is bad. It was
                 # possibly closed by the server. Replace it with a new one.
@@ -642,46 +640,55 @@ class KeepAliveHandler(object):
 
                     # Try again with the fresh one
                     conn.is_fresh = False
+                    start = time.time()
                     self._start_transaction(conn, req)
                     resp = conn.getresponse()
 
         except socket.timeout:
             # We better discard this connection
             self._cm.remove_connection(conn, host)
-            resp_statuses.append(RESP_TIMEOUT)
             raise URLTimeoutError()
 
         except socket.error:
             # We better discard this connection
             self._cm.remove_connection(conn, host)
-            resp_statuses.append(RESP_BAD)
             raise
         
         except httplib.HTTPException:
             # We better discard this connection
             self._cm.remove_connection(conn, host)
-            resp_statuses.append(RESP_BAD)
             raise
-        
-        else:
-            # This response seems to be fine
-            resp_statuses.append(RESP_OK)
-    
-            # If not a persistent connection, don't try to reuse it
-            if resp.will_close:
-                self._cm.remove_connection(conn, host)
-    
-            if DEBUG:
-                om.out.debug("STATUS: %s, %s" % (resp.status, resp.reason))
-            
-            resp._handler = self
-            resp._host = host
-            resp._url = req.get_full_url()
-            resp._connection = conn
-            resp.code = resp.status
-            resp.headers = resp.msg
-            resp.msg = resp.reason
-            return resp
+
+        # This response seems to be fine
+        # If not a persistent connection, don't try to reuse it
+        if resp.will_close:
+            self._cm.remove_connection(conn, host)
+
+        resp._handler = self
+        resp._host = host
+        resp._url = req.get_full_url()
+        resp._connection = conn
+        resp.code = resp.status
+        resp.headers = resp.msg
+        resp.msg = resp.reason
+
+        try:
+            resp.read()
+        except AttributeError:
+            # The rare case of: 'NoneType' object has no attribute 'recv', we
+            # read the response here because we're closer to the error and can
+            # better understand it.
+            #
+            # https://github.com/andresriancho/w3af/issues/2074
+            self._cm.remove_connection(conn, host)
+            raise HTTPRequestException('The HTTP connection died')
+
+        # We measure time here because it's the best place we know of
+        elapsed = time.time() - start
+        resp.set_wait_time(elapsed)
+
+        debug("HTTP response: %s, %s" % (resp.status, resp.reason))
+        return resp
 
     def _reuse_connection(self, conn, req, host):
         """
@@ -706,9 +713,9 @@ class KeepAliveHandler(object):
             # On the next try, the same exception was raised, etc. The tradeoff
             # is that it's now possible this call will raise a DIFFERENT
             # exception
-            if DEBUG:
-                om.out.error("unexpected exception - closing connection to %s"
-                             " (%d)" % (host, id(conn)))
+            msg = "unexpected exception - closing connection to %s (%d)"
+            error(msg % (host, id(conn)))
+
             self._cm.remove_connection(conn, host)
             raise
 
@@ -717,14 +724,10 @@ class KeepAliveHandler(object):
             # bad header back.  This is most likely to happen if
             # the socket has been closed by the server since we
             # last used the connection.
-            if DEBUG:
-                om.out.debug("failed to re-use connection to %s (%d)" % (host,
-                             id(conn)))
+            debug("failed to re-use connection to %s (%d)" % (host, id(conn)))
             r = None
         else:
-            if DEBUG:
-                om.out.debug(
-                    "re-using connection to %s (%d)" % (host, id(conn)))
+            debug("re-using connection to %s (%d)" % (host, id(conn)))
             r._multiread = None
 
         return r
@@ -787,16 +790,15 @@ class HTTPSHandler(KeepAliveHandler, urllib2.HTTPSHandler):
     def __init__(self, proxy):
         KeepAliveHandler.__init__(self)
         self._proxy = proxy
-        host = port = ''
         try:
             host, port = self._proxy.split(':')
         except:
             msg = 'The proxy you are specifying (%s) is invalid! The expected'\
                   ' format is <ip_address>:<port> is expected.'
             raise BaseFrameworkException(msg % proxy)
-
-        if not host or not port:
-            self._proxy = None
+        else:
+            if not host or not port:
+                self._proxy = None
 
     def https_open(self, req):
         return self.do_open(req)
@@ -906,11 +908,13 @@ class ProxyHTTPSConnection(ProxyHTTPConnection):
                                         self.cert_file)
         self.sock = ssl_sock_inst
 
+
 def to_utf8_raw(unicode_or_str):
     if isinstance(unicode_or_str, unicode):
         # Is 'ignore' the best option here?
         return unicode_or_str.encode('utf-8', 'ignore')
     return unicode_or_str
+
 
 class HTTPConnection(_HTTPConnection):
     # use the modified response class
