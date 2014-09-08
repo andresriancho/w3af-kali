@@ -30,8 +30,8 @@
      script_file = None
      force_profile = None
      profile = None
--    doupdate = None
-+    doupdate = False
+-    do_update = None
++    do_update = False
      
      for o, a in opts:
          if o == "-e":
@@ -40,9 +40,9 @@
              print(get_w3af_version())
              return 0
 -        if o in ('-f', '--force-update'):
--            doupdate = True
+-            do_update = True
 -        elif o in ('-n', '--no-update'):
--            doupdate = False
+-            do_update = False
      
      commands_to_run = _generate_run_commands(script_file, profile, force_profile)
      console = ConsoleUI(commands=commands_to_run, do_upd=doupdate)
