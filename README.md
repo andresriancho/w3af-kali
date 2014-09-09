@@ -65,7 +65,7 @@ git-buildpackage
  * Shutdown the VM, and take a snapshot. Call it "After apt-get dist-upgrade"
  * Build the new w3af package as explained before
  * Copy the `.deb` files to Kali
- * `dpkg -i w3af*.deb`
+ * `dpkg --install w3af*.deb`
  * Verify that the installation works as expected
  * Run a scan
 
