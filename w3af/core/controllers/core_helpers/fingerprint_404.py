@@ -31,6 +31,8 @@ from collections import deque
 from functools import wraps
 from itertools import izip_longest
 
+from darts.lib.utils.lru import SynchronizedLRUDict
+
 import w3af.core.data.kb.config as cf
 import w3af.core.controllers.output_manager as om
 
@@ -38,7 +40,6 @@ from w3af.core.data.bloomfilter.scalable_bloom import ScalableBloomFilter
 from w3af.core.data.fuzzer.utils import rand_alnum
 
 from w3af.core.controllers.misc.fuzzy_string_cmp import fuzzy_equal
-from w3af.core.controllers.misc.lru import LRU
 from w3af.core.controllers.misc.decorators import retry
 
 
@@ -50,7 +51,7 @@ def lru_404_cache(wrapped_method):
 
     @wraps(wrapped_method)
     def inner(self, http_response):
-        path = http_response.get_uri()
+        path = http_response.get_uri().url_string
 
         try:
             return self.is_404_LRU[path]
@@ -85,12 +86,12 @@ class fingerprint_404(object):
         self._already_analyzed = False
         self._404_responses = deque(maxlen=MAX_404_RESPONSES)
         self._lock = thread.allocate_lock()
-        self._fingerprinted_paths = ScalableBloomFilter()
+        self._fingerprinted_paths = set() #ScalableBloomFilter()
         self._directory_uses_404_codes = ScalableBloomFilter()
 
         # It is OK to store 200 here, I'm only storing path+filename as the key,
         # and bool as the value.
-        self.is_404_LRU = LRU(250)
+        self.is_404_LRU = SynchronizedLRUDict(250)
 
     def set_url_opener(self, urlopener):
         self._uri_opener = urlopener
@@ -110,7 +111,8 @@ class fingerprint_404(object):
         #    the object in order to use it.
         #
         if self._uri_opener is None:
-            msg = '404 fingerprint database was incorrectly initialized.'
+            msg = '404 fingerprint database was incorrectly initialized.'\
+                  ' URL opener is None.'
             raise RuntimeError(msg)
 
         # Get the filename extension and create a 404 for it
@@ -141,9 +143,16 @@ class fingerprint_404(object):
             not_exist_resp_lst.append(not_exist_resp)
 
         #
-        #   I have the 404 responses in not_exist_resp_lst, but maybe they
-        #   all look the same, so I'll filter the ones that look alike.
+        # I have the 404 responses in not_exist_resp_lst, but maybe they
+        # all look the same, so I'll filter the ones that look alike.
         #
+        # Just add the first one to the 404 responses list, since that one is
+        # "unique"
+        #
+        if len(not_exist_resp_lst):
+            self._404_responses.append(not_exist_resp_lst[0])
+
+        # And now add the unique responses
         for i in not_exist_resp_lst:
             for j in not_exist_resp_lst:
 
@@ -185,7 +194,7 @@ class fingerprint_404(object):
 
         Also, and because I was trying to cover ALL CASES, I was performing a
         lot of requests in order to cover them, which in most situations was
-        unnecesary.
+        unnecessary.
 
         So now I go for a much simple approach:
             1- Cover the simplest case of all using only 1 HTTP request
@@ -398,7 +407,8 @@ class fingerprint_404(object):
             url_404 = response_url.url_join(relative_url)
         else:
             relative_url = self._generate_404_filename(filename)
-            url_404 = response_url.url_join(relative_url)
+            url_404 = response_url.copy()
+            url_404.set_file_name(relative_url)
 
         response_404 = self._send_404(url_404)
         clean_response_404_body = get_clean_body(response_404)
@@ -407,8 +417,8 @@ class fingerprint_404(object):
         url_404.get_domain_path() not in self._directory_uses_404_codes:
             self._directory_uses_404_codes.add(url_404.get_domain_path())
 
-        return fuzzy_equal(clean_response_404_body,
-                                    clean_html_body, IS_EQUAL_RATIO)
+        return fuzzy_equal(clean_response_404_body, clean_html_body,
+                           IS_EQUAL_RATIO)
 
 
 def fingerprint_404_singleton(cleanup=False):
@@ -441,7 +451,7 @@ def get_clean_body(response):
         - output:
             - self._clean_body( response ) == 'spam  eggs'
 
-    The same works with filenames.
+    The same works with file names.
     All of them, are removed encoded and "as is".
 
     :param response: The HTTPResponse object to clean

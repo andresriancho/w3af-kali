@@ -22,6 +22,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import w3af.core.data.kb.knowledge_base as kb
 import w3af.core.data.constants.severity as severity
 
+from w3af.core.data.fuzzer.mutants.querystring_mutant import QSMutant
+from w3af.core.data.fuzzer.mutants.postdata_mutant import PostDataMutant
+from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.controllers.configurable import Configurable
 from w3af.core.controllers.misc.number_generator import consecutive_number_generator
 from w3af.core.data.options.opt_factory import opt_factory
@@ -49,9 +52,9 @@ class BaseTemplate(Configurable):
 
     def get_options(self):
         """
-        In this case we provide a sample implementation since most vulnerabilities
-        will have this template. If the specific vulnerability needs other params
-        then it should override this implementation.
+        In this case we provide a sample implementation since most
+        vulnerabilities will have this template. If the specific vulnerability
+        needs other params then it should override this implementation.
         """
         ol = OptionList()
 
@@ -64,11 +67,11 @@ class BaseTemplate(Configurable):
         ol.add(o)
 
         d = 'Query string or postdata parameters in url-encoded form'
-        h = 'If the HTTP method is GET, the data will be sent in the query-string'\
-            ' otherwise it will be sent using the HTTP request\'s body. If the'\
-            ' vulnerability requires the request to be sent using multipart-'\
-            'forms, the exploit will convert this url-encoded data into that'\
-            ' format.\n\n'\
+        h = 'If the HTTP method is GET, the data will be sent in the ' \
+            'query-string otherwise it will be sent using the HTTP request\'s' \
+            ' body. If the vulnerability requires the request to be sent using'\
+            ' multipart-forms, the exploit will convert this url-encoded data' \
+            ' into that format.\n\n'\
             'Enter the original parameter value, not the one which triggers'\
             ' the vulnerability. Correct input looks like "id=2" not like'\
             ' "id=2;cat /etc/passwd".'
@@ -92,16 +95,27 @@ class BaseTemplate(Configurable):
         self.url = options_list['url'].get_value()
         self.data = parse_qs(options_list['data'].get_value())
         self.method = options_list['method'].get_value()
-        self.vulnerable_parameter = options_list[
-            'vulnerable_parameter'].get_value()
+        self.vulnerable_parameter = options_list['vulnerable_parameter'].get_value()
 
         if not self.data:
-            raise ValueError('This vulnerability requires data to be configured.')
+            msg = 'This vulnerability requires data to be configured.'
+            raise ValueError(msg)
 
         if self.vulnerable_parameter not in self.data:
             msg = 'The vulnerable parameter was not found in the configured data'\
                   ' field. Please enter one of the following values: %s.'
             raise ValueError(msg % ', '.join(self.data))
+
+        try:
+            self.create_vuln()
+            
+        except RuntimeError, rte:
+            # https://github.com/andresriancho/w3af/issues/4310
+            raise ValueError('%s' % rte)
+
+        except KeyError, ke:
+            # https://github.com/andresriancho/w3af/issues/4310
+            raise ValueError('The vulnerable parameter "%s" was not found' % ke)
 
     def store_in_kb(self):
         """
@@ -113,6 +127,19 @@ class BaseTemplate(Configurable):
 
     def get_vuln_id(self):
         return consecutive_number_generator.inc()
+
+    def create_mutant_from_params(self):
+        url = self.url
+
+        if self.method.upper() == 'GET':
+            url.querystring = self.data
+            freq = FuzzableRequest(url, method=self.method)
+            MutantKlass = QSMutant
+        else:
+            freq = FuzzableRequest(url, method=self.method, post_data=self.data)
+            MutantKlass = PostDataMutant
+
+        return MutantKlass(freq)
 
     def create_base_vuln(self):
         """
@@ -136,12 +163,14 @@ class BaseTemplate(Configurable):
         """
         v = self.create_base_vuln()
 
-        # User configured
-        v.set_method(self.method)
+        mutant = self.create_mutant_from_params()
+        mutant.set_dc(self.data)
+        mutant.set_token((self.vulnerable_parameter, 0))
+
+        v.set_mutant(mutant)
+
+        # Set the name of the vulnerability
         v.set_name(self.name)
-        v.set_var(self.vulnerable_parameter)
-        v.set_url(self.url)
-        v.set_dc(self.data)
 
         return v
 
@@ -154,13 +183,13 @@ class BaseTemplate(Configurable):
     def get_method(self):
         return self.method
     
-    def get_var(self):
+    def get_vulnerable_parameter(self):
         return self.vulnerable_parameter
     
     def get_kb_location(self):
         """
-        :return: A tuple with the location where the vulnerability will be saved,
-                 example return value would be: ('eval', 'eval')
+        :return: A tuple with the location where the vulnerability will be
+                 saved, example return value would be: ('eval', 'eval')
         """
         raise NotImplementedError
 

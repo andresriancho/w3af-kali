@@ -21,7 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 import platform
 
-from .ubuntu import Ubuntu1204
+from .ubuntu1204 import Ubuntu1204
 
 #
 #   This piece of code will most likely be patched to be ignored when we create

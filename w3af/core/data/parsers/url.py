@@ -35,7 +35,7 @@ from w3af.core.data.misc.encoding import smart_str, PERCENT_ENCODE
 from w3af.core.data.misc.encoding import is_known_encoding
 from w3af.core.data.constants.encodings import DEFAULT_ENCODING
 from w3af.core.data.constants.top_level_domains import GTOP_LEVEL_DOMAINS
-from w3af.core.data.dc.data_container import DataContainer
+from w3af.core.data.dc.generic.data_container import DataContainer
 from w3af.core.data.dc.query_string import QueryString
 from w3af.core.data.db.disk_item import DiskItem
 
@@ -138,6 +138,7 @@ def parse_qs(qstr, ignore_exc=True, encoding=DEFAULT_ENCODING):
         # convert to string if unicode
         if isinstance(qstr, unicode):
             qstr = qstr.encode(encoding, 'ignore')
+
         try:
             odict = OrderedDict()
             for name, value in parse_qsl(qstr,
@@ -149,14 +150,13 @@ def parse_qs(qstr, ignore_exc=True, encoding=DEFAULT_ENCODING):
                     odict[name] = [value]
         except Exception:
             if not ignore_exc:
-                raise BaseFrameworkException('Error while parsing "%r"' % (qstr,))
+                raise BaseFrameworkException('Error while parsing "%r"' % qstr)
         else:
             def decode(item):
-                return (
-                    item[0].decode(encoding, 'ignore'),
-                    [e.decode(encoding, 'ignore') for e in item[1]]
-                )
+                return (item[0].decode(encoding, 'ignore'),
+                        [e.decode(encoding, 'ignore') for e in item[1]])
             qs.update((decode(item) for item in odict.items()))
+
     return qs
 
 
@@ -253,15 +253,18 @@ class URL(DiskItem):
         netloc = src_url_obj.get_domain() or u''
         path = src_url_obj.get_path() or u''
         params = src_url_obj.get_params() or u''
-        qs = unicode(copy.deepcopy(src_url_obj.querystring))
         fragment = src_url_obj.get_fragment() or u''
         
         encoding = src_url_obj.encoding
+        qs = copy.deepcopy(src_url_obj.querystring)
 
-        data = (scheme, netloc, path, params, qs, fragment)
+        data = (scheme, netloc, path, params, '', fragment)
         url_str = urlparse.urlunparse(data)
-        
-        return cls(url_str, encoding)
+
+        new_url = cls(url_str, encoding)
+        new_url.querystring = qs
+
+        return new_url
 
     @property
     def url_string(self):
@@ -307,21 +310,20 @@ class URL(DiskItem):
         """
         if isinstance(qs, DataContainer):
             self._querystr = qs
-        elif isinstance(qs, dict):
-            self._querystr = QueryString(qs.items())
         elif isinstance(qs, basestring):
             self._querystr = parse_qs(qs, ignore_exc=True,
                                       encoding=self.encoding)
         else:
-            raise TypeError, ("Invalid type '%r'; must be DataContainer, "
-                              "dict or string" % type(qs))
+            # This might fail because of the type-check performed in QueryString
+            # __init__, but that's ok.
+            self._querystr = QueryString(qs)
 
     querystring = property(get_querystring, set_querystring)
 
     @memoized
     def uri2url(self):
         """
-        :return: Returns a string contaning the URL without the query string.
+        :return: Returns a string containing the URL without the query string.
         """
         return URL.from_parts(self.scheme, self.netloc, self.path,
                               None, None, None, encoding=self._encoding)
@@ -334,16 +336,13 @@ class URL(DiskItem):
 
     def remove_fragment(self):
         """
-        :return: A URL containing the URL without the fragment.
+        :return: Removes the URL #fragment (if any)
         """
-        params = (self.scheme, self.netloc, self.path,
-                  self.params, unicode(self.querystring),
-                  None)
-        return URL.from_parts(*params, encoding=self._encoding)
+        self.fragment = u''
 
     def base_url(self):
         """
-        :return: A string contaning the URL without the query string and
+        :return: A string containing the URL without the query string and
                  without any path.
         """
         params = (self.scheme, self.netloc, None, None, None, None)
@@ -439,13 +438,11 @@ class URL(DiskItem):
         #       https://github.com/andresriancho/w3af/issues/475
         #
         fixed_url = urlparse.urlunparse((protocol, net_location, self.path,
-                                         self.params, str(self.querystring),
-                                         self.fragment))
+                                         self.params, '', self.fragment))
 
         # "re-init" the object
         (self.scheme, self.netloc, self.path,
-         self.params, self.querystring, self.fragment) = \
-            urlparse.urlparse(fixed_url)
+         self.params, _, self.fragment) = urlparse.urlparse(fixed_url)
 
     def get_port(self):
         """
@@ -551,29 +548,37 @@ class URL(DiskItem):
         output: myself.ru
 
         Code taken from: http://getoutfoxed.com/node/41
+
+        TODO: If you ever want to improve this code section, you might be
+              interested in https://pypi.python.org/pypi/tldextract , which
+              seems to be really updated and supported.
+
+              The (minor) down side is that they HTTP GET the GTOP_LEVEL_DOMAINS
+              each time you start the library for the first time.
         """
         # break authority into two parts: subdomain(s), and base authority
         # e.g. images.google.com --> [images, google.com]
         #      www.popo.com.au --> [www, popo.com.au]
         def split_authority(aAuthority):
 
-            # walk down from right, stop at (but include) first non-toplevel domain
+            # walk down from right, stop at (but include) first non-toplevel
+            # domain
             chunks = re.split("\.", aAuthority)
             chunks.reverse()
 
-            baseAuthority = ""
+            base_authority = ""
             subdomain = ""
-            foundBreak = 0
+            found_break = 0
 
             for chunk in chunks:
-                if (not foundBreak):
-                    baseAuthority = chunk + (
-                        ".", "")[baseAuthority == ""] + baseAuthority
+                if not found_break:
+                    base_authority = chunk + (
+                        ".", "")[base_authority == ""] + base_authority
                 else:
                     subdomain = chunk + (".", "")[subdomain == ""] + subdomain
                 if chunk not in GTOP_LEVEL_DOMAINS:
-                    foundBreak = 1
-            return ([subdomain, baseAuthority])
+                    found_break = 1
+            return [subdomain, base_authority]
 
         # def to split URI into its parts, returned as URI object
         def decompose_uri():

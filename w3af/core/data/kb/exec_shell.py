@@ -94,7 +94,8 @@ class ExecShell(Shell):
         to a local file.
 
         :param remote_filename: The remote file to download.
-        :param local_filename: The local file where to write the contents of the remote file.
+        :param local_filename: The local file where to write the contents of
+                               the remote file.
         :return: The message to show to the user.
         """
         remote_content = self.read(remote_filename)
@@ -116,7 +117,8 @@ class ExecShell(Shell):
         This is a wrapper around "write" that will upload a local file
         to the remote filesystem.
 
-        :param local_filename: The local file to read and then upload to the remote system.
+        :param local_filename: The local file to read and then upload to the
+                               remote system.
         :param remote_filename: The remote file to create and write contents to.
 
         :return: The message to show to the user.
@@ -133,8 +135,8 @@ class ExecShell(Shell):
 
     def write(self, remote_filename, file_content):
         """
-        Write a the contents of the parameter "file_content" to the "remote_filename"
-        file in the remote filesystem.
+        Write a the contents of the parameter "file_content" to the
+        "remote_filename" file in the remote filesystem.
 
         :param remote_filename: The filename where to write the file_content
         :param file_content: The string to write in the remote file
@@ -211,11 +213,11 @@ class ExecShell(Shell):
 
     def get_unlink_command(self):
         """
-        :return: The command to be used to remove files in the remote operating system.
-        Examples:
-            - rm -rf %s
-            - del %s
-        The %s will be replaced by the file to be read.
+        :return: The command to be used to remove files in the remote operating
+                 system. Examples:
+                     - rm -rf %s
+                     - del %s
+                 The %s will be replaced by the file to be read.
         """
         if self._rOS == 'windows':
             return 'del %s'
@@ -235,11 +237,11 @@ class ExecShell(Shell):
         :param filename: Need the filename to determine if we need to put quotes
                          around it (because of spaces in the filename) or not.
 
-        :return: The command to be used to read files in the remote operating system.
-        Examples:
-            - cat %s
-            - type %s
-        The %s will be replaced by the file to be read.
+        :return: The command to be used to read files in the remote operating
+                 system. Examples:
+                     - cat %s
+                     - type %s
+                 The %s will be replaced by the file to be read.
         """
         if self._rOS == 'windows':
             command = 'type %s'
@@ -264,12 +266,12 @@ class ExecShell(Shell):
     def end_interaction(self):
         """
         When the user executes "exit" in the console, this method is called.
-        Basically, here we handle WHAT TO DO in that case. In most cases (and this is
-        why we implemented it this way here) the response is "yes, do it end me" that
-        equals to "return True".
+        Basically, here we handle WHAT TO DO in that case. In most cases (and
+        this is why we implemented it this way here) the response is "yes, do it
+        end me" that equals to "return True".
 
-        In some other cases, the shell prints something to the console and then exists,
-        or maybe some other, more complex, thing.
+        In some other cases, the shell prints something to the console and then
+        exists, or maybe some other, more complex, thing.
         """
         return True
 

@@ -22,10 +22,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import w3af.core.data.parsers.encode_decode as enc_dec
 
 from w3af.core.data.constants.encodings import DEFAULT_ENCODING
-from w3af.core.data.dc.data_container import DataContainer
+from w3af.core.data.dc.generic.kv_container import KeyValueContainer
 
 
-class QueryString(DataContainer):
+class QueryString(KeyValueContainer):
     """
     This class represents a Query String.
 
@@ -34,13 +34,11 @@ class QueryString(DataContainer):
     def __init__(self, init_val=(), encoding=DEFAULT_ENCODING):
         super(QueryString, self).__init__(init_val, encoding)
 
+    def get_type(self):
+        return 'Query string'
+
     def __str__(self):
         """
-        >>> str(QueryString([('a','>'), ('b', ['a==1 && z >= 2','3>2'])]))
-        'a=%3E&b=a%3D%3D1%20%26%26%20z%20%3E%3D%202&b=3%3E2'
-        >>> str(QueryString([('a', 'x=/etc/passwd')]))
-        'a=x%3D%2Fetc%2Fpasswd'
-
         :return: string representation of the QueryString object.
         """
         return enc_dec.urlencode(self, encoding=self.encoding, safe='')

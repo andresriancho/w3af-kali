@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import select
 import Queue
 import textwrap
+import copy
 
 from multiprocessing.dummy import Process
 
@@ -31,7 +32,6 @@ from w3af.core.controllers.exceptions import OSDetectionException
 from w3af.core.controllers.plugins.attack_plugin import AttackPlugin
 from w3af.core.controllers.intrusion_tools.readMethodHelpers import read_os_detection
 from w3af.core.data.kb.read_shell import ReadShell
-from w3af.core.data.request.HTTPQsRequest import HTTPQSRequest
 from w3af.plugins.attack.db.sqlmap_wrapper import Target, SQLMapWrapper
 from w3af.plugins.attack.payloads.decorators.read_decorator import read_debug
 
@@ -88,12 +88,8 @@ class sqlmap(AttackPlugin):
 
         :return : True if vuln can be exploited.
         """
-        uri = vuln_obj.get_uri()
-        dc = vuln_obj.get_dc()
-        fuzzable_request = vuln_obj.get_mutant().get_fuzzable_req()
-
-        m = vuln_obj.get_mutant()
-        orig_value = m.get_original_value()
+        mutant = vuln_obj.get_mutant()
+        orig_value = mutant.get_token().get_original_value()
 
         # When the original value of the parameter was empty, mostly when it
         # was an HTML form, sqlmap can't find the vulnerability (and w3af does)
@@ -101,15 +97,12 @@ class sqlmap(AttackPlugin):
         parameter_values = {orig_value, '1'}
 
         for pvalue in parameter_values:
-            dc[vuln_obj.get_var()][m.get_var_index()] = pvalue
+            mutant = copy.deepcopy(mutant)
+            mutant.set_token_value(pvalue)
 
-            post_data = None
-            if isinstance(fuzzable_request, HTTPQSRequest):
-                uri.set_querystring(dc)
-            else:
-                post_data = str(dc) or None
+            post_data = mutant.get_data() or None
 
-            target = Target(uri, post_data)
+            target = Target(mutant.get_uri(), post_data)
 
             sqlmap = SQLMapWrapper(target, self._uri_opener)
             if sqlmap.is_vulnerable():
@@ -139,6 +132,7 @@ class sqlmap(AttackPlugin):
         
             http://sqlmap.org/
         """
+
 
 class RunFunctor(Process):
     def __init__(self, functor, params):
@@ -178,18 +172,25 @@ class RunFunctor(Process):
 
 
 class SQLMapShell(ReadShell):
-    
-    def __init__(self, vuln, uri_opener, worker_pool, sqlmap):
-        super(SQLMapShell, self).__init__(vuln, uri_opener, worker_pool)
-        self.sqlmap = sqlmap
 
     ALIAS = ('dbs', 'tables', 'users', 'dump')
 
-    def specific_user_input(self, command, params):
+    def __init__(self, vuln, uri_opener, worker_pool, sqlmap):
+        self.sqlmap = sqlmap
+        super(SQLMapShell, self).__init__(vuln, uri_opener, worker_pool)
+
+    def specific_user_input(self, command, params, return_err=True):
         # Call the parent in order to get read/download without duplicating
         # any code.
-        resp = super(SQLMapShell, self).specific_user_input(command, params,
-                                                            return_err=False)
+        #
+        # Not using super() due to some issues I've found in real life
+        #   https://github.com/andresriancho/w3af/issues/3610
+        #
+        # Documented here:
+        #   http://goo.gl/jhRznU
+        #   http://thomas-cokelaer.info/blog/2011/09/382/
+        resp = ReadShell.specific_user_input(self, command, params,
+                                             return_err=False)
         
         if resp is not None:
             return resp
@@ -287,3 +288,15 @@ class SQLMapShell(ReadShell):
                 exit                            Exit this shell session
             """
         return textwrap.dedent(_help)
+
+    def __reduce__(self):
+        """
+        Need to define this method since the Shell class defines it, and we have
+        a different number of __init__ parameters.
+        """
+        return self.__class__, (self._vuln, None, None, self.sqlmap)
+
+    def set_url_opener(self, uo):
+        if uo is not None:
+            self._uri_opener = uo
+            self.sqlmap.start_proxy(uo)

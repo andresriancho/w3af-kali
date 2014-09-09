@@ -19,25 +19,47 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
+#
+#   New to this code? Take a look at the exceptions documentation!
+#   https://github.com/andresriancho/w3af/wiki/HTTP-error-handling-in-w3af
+#
 
 
 class BaseFrameworkException(Exception):
     """
     A small class that defines a BaseFrameworkException.
     """
-
-    def __init__(self, value):
-        Exception.__init__(self)
-        self.value = str(value)
+    def __init__(self, message):
+        self.value = str(message)
+        Exception.__init__(self, self.value)
 
     def __str__(self):
         return self.value
 
 
+class HTTPRequestException(BaseFrameworkException):
+    """
+    This exception should be raised when **one** HTTP request fails.
+    """
+    def __init__(self, message, request=None):
+        BaseFrameworkException.__init__(self, message)
+        self.request = request
+
+    def get_url(self):
+        if self.request is None:
+            return None
+
+        return self.request.get_full_url()
+
+
+class ConnectionPoolException(HTTPRequestException):
+    pass
+
+
 class RunOnce(Exception):
     """
     A small class that defines an exception to be raised by plugins that
-    dont want to be run anymore.
+    don't want to be run anymore.
     """
     def __init__(self, value=''):
         Exception.__init__(self)
@@ -71,19 +93,27 @@ class ScanMustStopException(Exception):
 
 
 class ScanMustStopByUserRequest(ScanMustStopException):
+    """
+    The user requested the scan to stop, raise this exception to stop it.
+    """
     pass
 
 
 class ScanMustStopOnUrlError(ScanMustStopException):
+    """
+    This exception should be raised when **many** HTTP requests fail.
 
-    def __init__(self, urlerr, req):
+    Please note that HTTPRequestException should be used when only one HTTP
+    request failed.
+    """
+    def __init__(self, url_error, req):
         # Call parent's __init__
-        ScanMustStopException.__init__(self, urlerr)
+        ScanMustStopException.__init__(self, url_error)
         self.req = req
 
     def __str__(self):
         error_fmt = "Extended URL library error '%s' while requesting '%s'."
-        return (error_fmt % (self.msg, self.req.get_full_url()))
+        return error_fmt % (self.msg, self.req.get_full_url())
 
     __repr__ = __str__
 
@@ -106,8 +136,8 @@ class ScanMustStopByUnknownReasonExc(ScanMustStopException):
     def __str__(self):
         _str = self.msg
 
-        for error_str, parsed_traceback in self.errs:
-            _str += '\n' + error_str + ' ' + str(parsed_traceback)
+        for error_str in self.errs:
+            _str += '\n' + error_str
 
         return _str
 

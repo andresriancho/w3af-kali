@@ -26,8 +26,8 @@ from nose.plugins.attrib import attr
 from w3af.core.data.kb.vuln import Vuln
 from w3af.core.data.parsers.url import URL
 from w3af.core.data.request.fuzzable_request import FuzzableRequest
-from w3af.core.data.dc.data_container import DataContainer
-from w3af.core.data.fuzzer.mutants.mutant import Mutant
+from w3af.core.data.fuzzer.mutants.querystring_mutant import QSMutant
+from w3af.core.data.dc.generic.nr_kv_container import NonRepeatKeyValueContainer
 
 
 class MockVuln(Vuln):
@@ -39,6 +39,7 @@ class MockVuln(Vuln):
             
         super(MockVuln, self).__init__(name, long_desc, severity,
                                        _id, plugin_name)
+
 
 @attr('smoke')
 class TestVuln(unittest.TestCase):
@@ -61,22 +62,21 @@ class TestVuln(unittest.TestCase):
         self.assertEqual(inst2['eggs'], 'spam')
         self.assertEqual(inst1.get_url(), inst2.get_url())
         self.assertEqual(inst1.get_method(), inst2.get_method())
-        self.assertEqual(inst1.get_dc(), inst2.get_dc())
-        self.assertEqual(inst1.get_var(), inst2.get_var())
         self.assertEqual(inst1.get_to_highlight(), inst2.get_to_highlight())
 
+        # Since inst1 was created using a EmptyFuzzableRequest, this is fine:
+        self.assertIsInstance(inst1.get_dc(), NonRepeatKeyValueContainer)
+        self.assertIsNone(inst1.get_token_name())
+
     def test_from_mutant(self):
-        dc = DataContainer()
-        url = URL('http://moth/')
+        url = URL('http://moth/?a=1&b=2')
         payloads = ['abc', 'def']
 
-        dc['a'] = ['1', ]
-        dc['b'] = ['2', ]
-        freq = FuzzableRequest(url, dc=dc)
+        freq = FuzzableRequest(url)
         fuzzer_config = {}
         
-        created_mutants = Mutant.create_mutants(freq, payloads, [], False,
-                                                fuzzer_config)
+        created_mutants = QSMutant.create_mutants(freq, payloads, [], False,
+                                                  fuzzer_config)
                 
         mutant = created_mutants[0]
         
@@ -89,5 +89,4 @@ class TestVuln(unittest.TestCase):
         self.assertEqual(inst.get_url(), mutant.get_url())
         self.assertEqual(inst.get_method(), mutant.get_method())
         self.assertEqual(inst.get_dc(), mutant.get_dc())
-        self.assertEqual(inst.get_var(), mutant.get_var())
-    
+        self.assertEqual(inst.get_token_name(), mutant.get_token().get_name())

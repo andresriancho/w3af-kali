@@ -1,9 +1,11 @@
 From: Luciano Bello <luciano@debian.org>
 Subject: Indicates that the version cames from a Debian Package
 
---- a/w3af/core/controllers/misc/get_w3af_version.py
-+++ b/w3af/core/controllers/misc/get_w3af_version.py
-@@ -48,9 +48,5 @@ def get_w3af_version():
+Index: w3af-kali/w3af/core/controllers/misc/get_w3af_version.py
+===================================================================
+--- w3af-kali.orig/w3af/core/controllers/misc/get_w3af_version.py	2014-09-08 17:21:56.661961940 -0300
++++ w3af-kali/w3af/core/controllers/misc/get_w3af_version.py	2014-09-08 17:22:03.000000000 -0300
+@@ -48,9 +48,5 @@
      
      return ('w3af - Web Application Attack and Audit Framework\n'
              'Version: %s\n'

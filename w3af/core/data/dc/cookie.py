@@ -22,10 +22,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import re
 
 from w3af.core.data.constants.encodings import DEFAULT_ENCODING
-from w3af.core.data.dc.data_container import DataContainer
+from w3af.core.data.dc.generic.kv_container import KeyValueContainer
+
+KEY_VALUE_RE = re.compile('(.*?)=(.*?);')
 
 
-class Cookie(DataContainer):
+class Cookie(KeyValueContainer):
     """
     This class represents a cookie.
 
@@ -35,11 +37,11 @@ class Cookie(DataContainer):
 
         super(Cookie, self).__init__(encoding=encoding)
 
-        for k, v in re.findall('(.*?)=(.*?);', cookie_str + ';'):
+        for k, v in KEY_VALUE_RE.findall(cookie_str + ';'):
             k = k.strip()
             v = v.strip()
 
-            # This was added to support repeated parameter names
+            # This was added to support repeated cookie names
             if k in self:
                 self[k].append(v)
             else:
@@ -50,21 +52,53 @@ class Cookie(DataContainer):
         value = value.replace('\r', '%0d')
         return value
 
+    def get_type(self):
+        return 'Cookie'
+
     def __str__(self):
         """
         This method returns a string representation of the cookie Object.
 
         :return: string representation of the cookie object.
         """
-        res = ''
-        for parameter_name in self:
-            for element_index in xrange(len(self[parameter_name])):
-                ks = self._sanitize(parameter_name)
-                vs = self._sanitize(self[parameter_name][element_index])
-                res += ks + '=' + vs + '; '
-        return res[:-1]
+        cookie_pairs = []
+
+        for token in self.iter_tokens():
+            ks = self._sanitize(str(token.get_name()))
+            vs = self._sanitize(str(token.get_value()))
+            cookie_pairs.append('%s=%s' % (ks, vs))
+
+        return '; '.join(cookie_pairs)
 
     def __reduce__(self):
         r = list(super(Cookie, self).__reduce__())
         r[1] = (str(self),)
         return tuple(r)
+
+    @classmethod
+    def from_http_response(cls, http_response):
+        """
+        Create a cookie object from an HTTP response.
+        """
+        cookies = []
+
+        # Get data from RESPONSE
+        response_headers = http_response.get_headers()
+
+        for hname, hvalue in response_headers.iteritems():
+            if 'cookie' in hname.lower():
+                cookies.append(hvalue)
+
+        cookie_inst = cls(''.join(cookies))
+
+        #
+        # delete everything that the browsers usually keep to themselves, since
+        # this cookie object is the one we're going to send to the wire
+        #
+        for key in ['path', 'expires', 'domain', 'max-age']:
+            try:
+                del cookie_inst[key]
+            except:
+                pass
+
+        return cookie_inst

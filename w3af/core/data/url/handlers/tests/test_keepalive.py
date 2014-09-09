@@ -30,16 +30,15 @@ from mock import MagicMock, Mock
 from nose.plugins.attrib import attr
 
 from w3af.core.controllers.ci.moth import get_moth_http
-from w3af.core.controllers.exceptions import BaseFrameworkException, ScanMustStopException
+from w3af.core.controllers.exceptions import BaseFrameworkException
 from w3af.core.data.url.handlers.keepalive import (KeepAliveHandler,
-                                              ConnectionManager,
-                                              HTTPResponse,
-                                              URLTimeoutError,
-                                              HTTPHandler, HTTPSHandler)
+                                                   ConnectionManager,
+                                                   HTTPResponse,
+                                                   URLTimeoutError,
+                                                   HTTPHandler, HTTPSHandler)
 
 
 @attr('moth')
-@attr('ci_ready')
 class TestKeepalive(unittest.TestCase):
 
     def setUp(self):
@@ -75,6 +74,7 @@ class TestKeepalive(unittest.TestCase):
         # Mock conn's getresponse()
         resp = HTTPResponse(socket.socket())
         resp.will_close = True
+        resp.read = MagicMock(return_value='Response body')
         conn.getresponse = MagicMock(return_value=resp)
 
         # The connection mgr
@@ -114,15 +114,17 @@ class TestKeepalive(unittest.TestCase):
         conn_mgr.get_available_connection = MagicMock(return_value=conn)
         conn_mgr.remove_connection = MagicMock(return_value=None)
 
-        # Replace with mocked out ConnMgr.
+        # Replace with mocked out ConnMgr
         kah._cm = conn_mgr
-        self.assertRaises(URLTimeoutError, kah.do_open, req)
-        self.assertRaises(ScanMustStopException, kah.do_open, req)
 
-        kah._start_transaction.assert_called_once_with(conn, req)
-        conn_mgr.get_available_connection.assert_called_once_with(
-            host, conn_factory)
-        conn_mgr.remove_connection.assert_called_once_with(conn, host)
+        # We raise URLTimeoutError each time the connection timeouts, the
+        # keepalive handler doesn't take any decisions like
+        # ScanMustStopByKnownReasonExc, which is the job of the extended urllib
+        self.assertRaises(URLTimeoutError, kah.do_open, req)
+        self.assertRaises(URLTimeoutError, kah.do_open, req)
+
+        self.assertEqual(len(conn_mgr.get_available_connection.call_args_list), 2)
+        self.assertEqual(len(conn_mgr.remove_connection.call_args_list), 2)
 
     def test_free_connection(self):
         """
@@ -216,8 +218,7 @@ class test_connection_mgr(unittest.TestCase):
     def test_replace_conn(self):
         cf = lambda h: Mock()
         bad_conn = Mock()
-        self.assertRaises(
-            ValueError, self.cm.replace_connection, bad_conn, self.host, cf)
+        self.cm.replace_connection( bad_conn, self.host, cf)
         bad_conn = self.cm.get_available_connection(self.host, cf)
         old_len = self.cm.get_connections_total()
         # Replace bad with a new one
@@ -228,14 +229,17 @@ class test_connection_mgr(unittest.TestCase):
         self.assertEquals(self.cm.get_connections_total(), old_len)
 
     def test_remove_conn(self):
-        # Rem a non existing conn
-        non_exist_conn = Mock()
+        """
+        Remove a non existing conn, nothing should happen.
+        """
+        self.assertEqual(self.cm.get_connections_total(), 0)
+
         conn = self.cm.get_available_connection(self.host, lambda h: Mock())
-        old_len = self.cm.get_connections_total()
+        self.assertEqual(self.cm.get_connections_total(), 0)
         non_exist_host = "non_host"
-        self.assertRaises(
-            ValueError, self.cm.remove_connection, conn, non_exist_host)
+
         # Remove ok
+        self.cm.remove_connection(conn, non_exist_host)
         self.cm.remove_connection(conn, self.host)
-        # curr_len = old_len - 1
-        self.assertTrue(old_len - 1 == self.cm.get_connections_total() == 0)
+
+        self.assertEqual(self.cm.get_connections_total(), 0)

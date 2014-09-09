@@ -22,12 +22,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import unittest
 
 from w3af.core.data.dc.headers import Headers
+from w3af.core.data.dc.utils.token import DataToken
 
 
 class TestHeaders(unittest.TestCase):
 
     def test_empty(self):
-        self.assertEquals(Headers([]), {})
+        self.assertEquals(Headers([]), Headers([]))
 
     def test_simple(self):
         headers = Headers([('a', 'b')])
@@ -68,11 +69,8 @@ class TestHeaders(unittest.TestCase):
         # smart_unicode which might change in the future
         self.assertIn('Hola: \x00\x01\x02', str(headers))
         
-    def test_repeated_overwrite(self):
-        headers = Headers([('a', 'b'), ('a', '3')])
-
-        self.assertIn('a', headers)
-        self.assertEqual(headers['a'], '3')
+    def test_repeated_raises(self):
+        self.assertRaises(TypeError, Headers, [('a', 'b'), ('a', '3')])
 
     def test_special_chars(self):
         headers = Headers([('á', 'ç')])
@@ -109,12 +107,25 @@ class TestHeaders(unittest.TestCase):
 
         self.assertNotEqual(upper_headers, lower_headers)
 
-    def test_clone_with_list_values(self):
-        headers = Headers([('a', 'b'), ('c', 'd')])
-        cloned = headers.clone_with_list_values()
+    def test_headers_update(self):
+        abc_headers = Headers([('Abc', 'b')])
+        def_headers = Headers([('def', '1')])
 
-        self.assertEqual(cloned['a'], ['b'])
-        self.assertEqual(cloned['c'], ['d'])
+        abc_headers.update(def_headers)
+
+        expected_headers = Headers([('Abc', 'b'), ('def', '1')])
+
+        self.assertEqual(expected_headers, abc_headers)
+
+    def test_headers_update_overlap(self):
+        abc_headers = Headers([('Abc', 'b'), ('def', '2')])
+        def_headers = Headers([('def', '1')])
+
+        abc_headers.update(def_headers)
+
+        expected_headers = Headers([('Abc', 'b'), ('def', '1')])
+
+        self.assertEqual(expected_headers, abc_headers)
 
     def test_from_string(self):
         headers_from_str = Headers.from_string('a: b\r\n')
@@ -130,3 +141,27 @@ class TestHeaders(unittest.TestCase):
     def test_from_invalid_string(self):
         self.assertRaises(ValueError, Headers.from_string, 'ab')
 
+    def test_headers_iget(self):
+        upper_headers = Headers([('Abc', 'b')])
+
+        value, real_header = upper_headers.iget('abc')
+
+        self.assertEqual(value, 'b')
+        self.assertEqual(real_header, 'Abc')
+
+    def test_headers_idel(self):
+        upper_headers = Headers([('Abc', 'b')])
+
+        upper_headers.idel('abc')
+
+        self.assertNotIn('Abc', upper_headers)
+
+    def test_tokens_to_value(self):
+        token = DataToken('a', 'b', ('a',))
+        headers = Headers([('a', token)])
+
+        headers.tokens_to_value()
+
+        self.assertIn('a', headers)
+        self.assertEqual(headers['a'], 'b')
+        self.assertIsInstance(headers['a'], basestring)

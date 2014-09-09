@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 import sys
 
+from w3af.core.controllers.misc.which import which
 from w3af.core.controllers.dependency_check.dependency_check import dependency_check as mdep_check
 from w3af.core.controllers.dependency_check.platforms.base_platform import GUI
 
@@ -50,8 +51,14 @@ def dependency_check():
               ' system meets these requirements:\n'\
               '    - PyGTK >= 2.12\n'\
               '    - GTK >= 2.12\n'
-        print msg
+        print(msg)
         should_exit = True
-    
+
+    if not which('dot'):
+        msg = 'The required "dot" binary is missing, please install the' \
+              ' "graphviz" package in your operating system.'
+        print(msg)
+        should_exit = True
+
     if should_exit:
         sys.exit(1)

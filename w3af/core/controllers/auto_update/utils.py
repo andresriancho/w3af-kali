@@ -88,12 +88,12 @@ def get_current_branch(path=W3AF_LOCAL_PATH):
     :return: The active branch for the repo at "path".
     """
     repo = git.Repo(path)
-    lcomm = get_latest_commit()
-    names = [ref.name for ref in repo.refs if ref.commit.hexsha == lcomm]
     
     try:
-        name = [name for name in names if 'origin/' not in name][0]
+        name = repo.active_branch.name
     except IndexError:
+        return DETACHED_HEAD
+    except TypeError:
         return DETACHED_HEAD
 
     return name

@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import textwrap
 
 import w3af.plugins.attack.payloads.payload_handler as payload_handler
+import w3af.core.controllers.output_manager as om
 
 from w3af.core.controllers.threads.threadpool import return_args
 
@@ -66,9 +67,12 @@ class Payload(object):
                                                     use_api=True)
             except:
                 msg = 'The payload you are trying to run ("%s") can not be' \
-                      ' run because it is trying to call another payload ("%s")'\
-                      ' which is failing because there are no shells that'\
-                      ' support the required system calls.'
+                      ' run because it is trying to call another payload'\
+                      ' ("%s") which is failing because there are no shells'\
+                      ' that support the required system calls.'
+                om.out.console(msg)
+
+                # TODO: Should I raise an exception here?
                 return msg % (self, payload_name)
 
     def run(self, *args):

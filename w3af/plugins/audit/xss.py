@@ -42,14 +42,12 @@ class xss(AuditPlugin):
     :author: Andres Riancho ( andres.riancho@gmail.com )
     :author: Taras ( oxdef@oxdef.info )
     """
-    PAYLOADS = [
-                'RANDOMIZE</->',
+    PAYLOADS = ['RANDOMIZE</->',
                 'RANDOMIZE/*',
                 'RANDOMIZE"RANDOMIZE',
                 "RANDOMIZE'RANDOMIZE",
-                "RANDOMIZE`",
-                "RANDOMIZE ="
-                ]
+                "RANDOMIZE`RANDOMIZE",
+                "RANDOMIZE ="]
         
     def __init__(self):
         AuditPlugin.__init__(self)
@@ -65,12 +63,17 @@ class xss(AuditPlugin):
         
         :param freq: A FuzzableRequest
         """
-        fake_mutants = create_mutants(freq, ['',])
-        
-        # Run this in the worker pool in order to get different
-        # parameters tested at the same time.
-        self.worker_pool.map(self._check_xss_in_parameter, fake_mutants)
-        
+        fake_mutants = create_mutants(freq, [''])
+
+        # Before we run each fake mutant check in a different thread using the
+        # worker_pool, but this lead to a strange dead-lock
+        #
+        #   https://github.com/andresriancho/w3af/issues/4068
+        #
+        # So I simply migrated this to a slower for loop.
+        for fake_mutant in fake_mutants:
+            self._check_xss_in_parameter(fake_mutant)
+
     def _check_xss_in_parameter(self, mutant):
         """
         Tries to identify (persistent) XSS in one parameter.
@@ -112,9 +115,9 @@ class xss(AuditPlugin):
         :return: True in the case where a trivial XSS was identified.
         """
         payload = replace_randomize(''.join(self.PAYLOADS))
-        
+
         trivial_mutant = mutant.copy()
-        trivial_mutant.set_mod_value(payload)
+        trivial_mutant.set_token_value(payload)
         
         response = self._uri_opener.send_mutant(trivial_mutant)
 
@@ -136,9 +139,11 @@ class xss(AuditPlugin):
             was echoed back or not
         """
         xss_strings = [replace_randomize(i) for i in self.PAYLOADS]
-        mutant_list = create_mutants(mutant.get_fuzzable_req(),
+        fuzzable_params = [mutant.get_token_name()]
+
+        mutant_list = create_mutants(mutant.get_fuzzable_request(),
                                      xss_strings,
-                                     fuzzable_param_list=[mutant.get_var()])
+                                     fuzzable_param_list=fuzzable_params)
 
         self._send_mutants_in_threads(self._uri_opener.send_mutant,
                                       mutant_list,
@@ -159,14 +164,14 @@ class xss(AuditPlugin):
             if self._has_bug(mutant):
                 return
             
-            mod_value = mutant.get_mod_value()
+            sent_payload = mutant.get_token_payload()
 
             body_lower = response.get_body().lower()
-            mod_value_lower = mod_value.lower()
+            sent_payload_lower = sent_payload.lower()
 
-            for context in get_context_iter(body_lower, mod_value_lower):
-                if context.is_executable() or context.can_break(mod_value_lower):
-                    self._report_vuln(mutant, response, mod_value)
+            for context in get_context_iter(body_lower, sent_payload_lower):
+                if context.is_executable() or context.can_break(sent_payload_lower):
+                    self._report_vuln(mutant, response, sent_payload)
                     return
 
     def end(self):
@@ -204,17 +209,18 @@ class xss(AuditPlugin):
         
         :return: None, Vuln (if any) are saved to the kb.
         """
-        response_body = response.get_body()
+        body_lower = response.get_body().lower()
         
         for mutant, mutant_response_id in self._xss_mutants:
-            
-            mod_value = mutant.get_mod_value()
-            
-            for context in get_context_iter(response_body, mod_value):
-                if context.is_executable() or context.can_break(mod_value):
+
+            sent_payload = mutant.get_token_payload()
+            sent_payload_lower = sent_payload.lower()
+
+            for context in get_context_iter(body_lower, sent_payload):
+                if context.is_executable() or context.can_break(sent_payload_lower):
                     self._report_persistent_vuln(mutant, response,
                                                  mutant_response_id,
-                                                 mod_value,
+                                                 sent_payload_lower,
                                                  fuzzable_request)
                     break
     
@@ -231,7 +237,7 @@ class xss(AuditPlugin):
         desc = 'A persistent Cross Site Scripting vulnerability'\
                ' was found by sending "%s" to the "%s" parameter'\
                ' at %s, which is echoed when browsing to %s.'
-        desc = desc % (mod_value, mutant.get_var(), mutant.get_url(),
+        desc = desc % (mod_value, mutant.get_token_name(), mutant.get_url(),
                        response.get_url())
         
         csp_protects = site_protected_against_xss_by_csp(response)
@@ -251,7 +257,7 @@ class xss(AuditPlugin):
         v['persistent'] = True
         v['write_payload'] = mutant
         v['read_payload'] = fuzzable_request
-        v.add_to_highlight(mutant.get_mod_value())
+        v.add_to_highlight(mutant.get_token_payload())
 
         om.out.vulnerability(v.get_desc())
         self.kb_append_uniq(self, 'xss', v)
@@ -277,7 +283,7 @@ class xss(AuditPlugin):
         This method sets all the options that are configured using the user
         interface generated by the framework using the result of get_options().
         
-        @parameter options_list: A dictionary with the options for the plugin.
+        :param options_list: A dictionary with the options for the plugin.
         :return: No value is returned.
         """
         self._check_persistent_xss = options_list['persistent_xss'].get_value()

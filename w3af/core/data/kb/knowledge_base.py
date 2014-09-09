@@ -27,6 +27,7 @@ import collections
 from w3af.core.data.fuzzer.utils import rand_alpha
 from w3af.core.data.db.dbms import get_default_persistent_db_instance
 from w3af.core.data.db.disk_set import DiskSet
+from w3af.core.data.misc.cpickle_dumps import cpickle_dumps
 from w3af.core.data.parsers.url import URL
 from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.data.kb.vuln import Vuln
@@ -101,7 +102,7 @@ class BasicKnowledgeBase(object):
         """
         for saved_vuln in self.get(location_a, location_b):
             
-            if saved_vuln.get_var() == info_inst.get_var() and\
+            if saved_vuln.get_token_name() == info_inst.get_token_name() and\
             saved_vuln.get_url() == info_inst.get_url():
             
                 if saved_vuln.get_dc() is None and\
@@ -176,7 +177,8 @@ class BasicKnowledgeBase(object):
 
     def get_all_entries_of_class(self, klass):
         """
-        :return: A list of all objects of class == klass that are saved in the kb.
+        :return: A list of all objects of class == klass that are saved in the
+                 kb.
         """
         raise NotImplementedError
 
@@ -231,7 +233,7 @@ class DBKnowledgeBase(BasicKnowledgeBase):
                    ('uniq_id', 'TEXT'),
                    ('pickle', 'BLOB')]
 
-        self.table_name = rand_alpha(30)
+        self.table_name = 'knowledge_base_' + rand_alpha(30)
         self.db.create_table(self.table_name, columns)
         self.db.create_index(self.table_name, ['location_a', 'location_b'])
         self.db.create_index(self.table_name, ['uniq_id',])
@@ -300,7 +302,7 @@ class DBKnowledgeBase(BasicKnowledgeBase):
         location_a = self._get_real_name(location_a)
         uniq_id = self._get_uniq_id(value)
         
-        pickled_obj = cPickle.dumps(value)
+        pickled_obj = cpickle_dumps(value)
         t = (location_a, location_b, uniq_id, pickled_obj)
         
         query = "INSERT INTO %s VALUES (?, ?, ?, ?)" % self.table_name
@@ -427,7 +429,8 @@ class DBKnowledgeBase(BasicKnowledgeBase):
 
     def get_all_entries_of_class(self, klass):
         """
-        :return: A list of all objects of class == klass that are saved in the kb.
+        :return: A list of all objects of class == klass that are saved in the
+                 kb.
         """
         query = 'SELECT pickle FROM %s'
         results = self.db.select(query % self.table_name)
@@ -522,12 +525,11 @@ class DBKnowledgeBase(BasicKnowledgeBase):
         :return: True if the FuzzableRequest was previously unknown 
         """
         if not isinstance(fuzzable_request, FuzzableRequest):
-            msg = 'add_fuzzable_request requires a FuzzableRequest as parameter.'\
-                  'got %s instead.'
+            msg = 'add_fuzzable_request requires a FuzzableRequest as '\
+                  'parameter, got "%s" instead.'
             raise TypeError(msg % type(fuzzable_request))
         
         self.add_url(fuzzable_request.get_url())
-        
         return self.fuzzable_requests.add(fuzzable_request)
         
 

@@ -1,5 +1,5 @@
 """
-MutantXMLRPC.py
+XmlRpcMutant.py
 
 Copyright 2009 Andres Riancho
 
@@ -20,25 +20,21 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
 from w3af.core.data.fuzzer.mutants.postdata_mutant import PostDataMutant
+from w3af.core.data.dc.xmlrpc import XmlRpcContainer
 
 
-class MutantXMLRPC(PostDataMutant):
+class XmlRpcMutant(PostDataMutant):
     """
-    This class is a XMLRPC mutant.
-
-    *** IMPORTANT ***
-    Not in use in any section of the code!
-    *** IMPORTANT ***
+    This class is an XMLRPC mutant.
     """
-    def __init__(self, freq):
-        PostDataMutant.__init__(self, freq)
-
-    def get_mutant_type(self):
+    @staticmethod
+    def get_mutant_type():
         return 'XMLRPC data'
 
     def get_headers(self):
-        headers = self._headers
-        # TODO: Verify this, I had no internet while adding the next line
+        # TODO: Not working?
+        #headers = super(XmlRpcMutant, self).get_headers()
+        headers = self.get_fuzzable_request().get_headers()
         headers['Content-Type'] = 'application/xml'
         return headers
 
@@ -50,9 +46,20 @@ class MutantXMLRPC(PostDataMutant):
 
         :return: A string representing WHAT was fuzzed.
         """
-        res = ''
-        res += '"' + self.get_url() + '", using HTTP method '
-        res += self.get_method() + '. The sent JSON-data was: "'
-        res += str(self.get_dc())
-        res += '"'
-        return res
+        fmt = '"%s", using HTTP method %s. The sent XML-RPC was: "%s".'
+        return fmt % (self.get_url(), self.get_method(),
+                      self.get_dc().get_short_printable_repr())
+
+    @classmethod
+    def create_mutants(cls, freq, mutant_str_list, fuzzable_param_list,
+                       append, fuzzer_config, data_container=None):
+        """
+        This is a very important method which is called in order to create
+        mutants. Usually called from fuzzer.py module.
+        """
+        if not isinstance(freq.get_raw_data(), XmlRpcContainer):
+            return []
+
+        return cls._create_mutants_worker(freq, cls, mutant_str_list,
+                                          fuzzable_param_list, append,
+                                          fuzzer_config)

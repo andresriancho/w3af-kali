@@ -20,8 +20,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
 from w3af.core.data.kb.vuln_templates.base_template import BaseTemplate
-from w3af.core.data.fuzzer.mutants.mutant import Mutant
-from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.data.options.opt_factory import opt_factory
 
 
@@ -55,29 +53,19 @@ class LocalFileReadTemplate(BaseTemplate):
         self.file_pattern = options_list['file_pattern'].get_value()
     
     def create_vuln(self):
-        self.data[self.vulnerable_parameter][0] = self.payload
-        
         v = super(LocalFileReadTemplate, self).create_vuln()
-        
-        freq = FuzzableRequest(self.url, method=self.method, dc=self.data)
-        
-        mutant = Mutant(freq)
-        mutant.set_var(self.vulnerable_parameter)
-        mutant.set_dc(self.data)
-        mutant.set_mod_value(self.payload)
-        
-        v.set_mutant(mutant)
-        
+
+        v.get_mutant().set_token_value(self.payload)
         v['file_pattern'] = self.file_pattern
-        
+
         return v
     
     def get_kb_location(self):
         """
-        :return: A tuple with the location where the vulnerability will be saved,
-                 example return value would be: ('local_file_reader', 'local_file_reader')
+        :return: A tuple with the location where the vulnerability will be
+                 saved, example return value would be: ('lfi', 'lfi')
         """
-        return ('lfi', 'lfi')
+        return 'lfi', 'lfi'
 
     def get_vulnerability_name(self):
         """
