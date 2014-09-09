@@ -58,6 +58,12 @@ dpkg-checkbuilddeps
 git-buildpackage
 ```
 
+### Push the changes to w3af-kali repository
+```bash
+git push origin pristine-tar
+git push origin upstream
+```
+
 ## Testing the .deb files
  * Install `Kali` in a VirtualBox
  * `apt-get update`
