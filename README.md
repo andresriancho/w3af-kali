@@ -66,14 +66,19 @@ git push origin upstream
 
 ## Testing the .deb files
  * Install `Kali` in a VirtualBox
- * `apt-get update`
- * `apt-get dist-upgrade`
- * Shutdown the VM, and take a snapshot. Call it "After apt-get dist-upgrade"
+   * `apt-get update`
+   * `apt-get dist-upgrade`
+   * Shutdown the VM, and take a snapshot. Call it "After apt-get dist-upgrade"
  * Build the new w3af package as explained before
  * Copy the `.deb` files to Kali
  * `dpkg --install w3af*.deb`
  * Verify that the installation works as expected
- * Run a scan
+   * Run a scan
+
+## Push to Kali repositories
+Pushing to Kali repositories is not under our control, so we need to bother one of the Kali maintainers.
+
+Once they push the package we can see it [here](http://pkg.kali.org/pkg/w3af).
 
 ## Creation of this repository
 This repository is a copy of [Kali Linux's w3af repository](http://git.kali.org/gitweb/?p=packages/w3af.git;a=summary) which was created using these commands:
