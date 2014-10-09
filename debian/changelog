@@ -1,3 +1,9 @@
+w3af (1.6.0.6-0kali1) kali; urgency=low
+
+  * Added sha256 and sha512 to encode/decode tool 
+
+ -- Radha Kandula <radhakrishna.nani@gmail.com>  Wed, 08 Oct 2014 00:24:56 -0400
+
 w3af (1.6.0.5-0kali1) kali; urgency=medium
 
   * New (minor) w3af release
