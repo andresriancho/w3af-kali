@@ -45,6 +45,12 @@ git-import-orig ../w3af_1.6.0.5.orig.tar.gz
 ```
 Please note that the second and last commands will change depending on the version tag.
 
+### Package dependencies
+`w3af`'s dependencies change frequently and are listed [here](https://github.com/andresriancho/w3af/blob/master/w3af/core/controllers/dependency_check/requirements.py) . When we add a new dependency to upstream we then add extra work to the packaging process. These are some of the recommended steps to follow to make sure all dependencies are up to date:
+ * Check [requirements.py](https://github.com/andresriancho/w3af/blob/master/w3af/core/controllers/dependency_check/requirements.py) file history to identify any changes
+ * Find the two `Depends:` entries in the [debian/control](https://github.com/andresriancho/w3af-kali/blob/master/debian/control) file and make sure all `pip` and `OS` packages from `requirements.py` are listed there. It's important to identify the version of each Kali package, please verify the versions using http://pkg.kali.org/
+ * If there is a missing library that needs to be packaged contact the Kali developers
+
 ### Build the package
 
 ```bash
@@ -58,12 +64,6 @@ dpkg-checkbuilddeps
 git-buildpackage
 ```
 
-### Push the changes to w3af-kali repository
-```bash
-git push origin pristine-tar
-git push origin upstream
-```
-
 ## Testing the .deb files
  * Install `Kali` in a VirtualBox
    * `apt-get update`
@@ -74,6 +74,12 @@ git push origin upstream
  * `dpkg --install w3af*.deb`
  * Verify that the installation works as expected
    * Run a scan
+
+### Push the changes to this repository
+```bash
+git push origin pristine-tar
+git push origin upstream
+```
 
 ## Push to Kali repositories
 Pushing to Kali repositories is not under our control, so we need to bother one of the Kali maintainers.
