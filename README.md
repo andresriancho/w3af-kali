@@ -71,7 +71,8 @@ git-buildpackage
 ```
 
 The last command can fail because of one of the following:
- * Outdated patches, which you fix using [quilt](https://pkg-perl.alioth.debian.org/howto/quilt.html#creating_a_patch)
+ * Outdated patches (`Hunk #1 FAILED at`), which you fix using [quilt](https://pkg-perl.alioth.debian.org/howto/quilt.html#creating_a_patch)
+ * Package signing (`debsign: gpg error occurred!  Aborting`)
 
 ## Testing the .deb files
  * Install `Kali` in a VirtualBox
