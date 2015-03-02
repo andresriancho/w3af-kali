@@ -1,3 +1,21 @@
+w3af (1.6.45-0kali1) kali; urgency=medium
+
+  * HTTP response parsers are now run in a different process
+  * Added support for SSL's SNI using OpenSSL
+  * Added support for scanning servers with specific SSL protocols disabled (poodle)
+  * Added new platforms to the dependency check
+  * Run w3af inside docker http://docs.w3af.org/en/latest/install.html#installing-using-docker
+  * Updated sqlmap
+  * Performance improvements in core classes
+  * Improved profiling capabilities (internal use only)
+  * Improved exception handling to catch more descriptive tracebacks
+  * Added new plugins for web sockets and RFD
+  * Better error handling for HTTP requests
+  * Huge reducion of memory usage in phishtank plugin 
+  * >100 bugs fixed
+
+ -- Andres Riancho <andres.riancho@gmail.com>  Mon, 02 Mar 2015 14:12:06 -0300
+
 w3af (1.6.0.5-0kali1) kali; urgency=medium
 
   * New (minor) w3af release
