@@ -29,19 +29,24 @@ git merge kali-upstream/master
 
 ### Update the w3af version
 
-When the code being packaged needs to be updated you'll have to tag it in the `w3af` repository and then:
+Set the version to package:
+```bash
+# Define the version
+VERSION=1.6.45
+```
 
+When the code being packaged needs to be updated you'll have to tag it in the `w3af` repository and then:
 ```bash
 # Tag the new release in the w3af repository
 cd w3af/
-git tag 1.6.0.5
+git tag $VERSION
 git push origin --tags
 
 # And now in w3af-kali
 cd w3af-kali/
 # This downloads the updated tagged version from your git repo
 uscan --force-download --verbose
-git-import-orig ../w3af_1.6.0.5.orig.tar.gz
+git-import-orig ../w3af_$VERSION.orig.tar.gz
 ```
 Please note that the second and last commands will change depending on the version tag.
 
@@ -58,11 +63,15 @@ cd w3af-kali/
 
 # Add the new release changelog entry, pointing to the right version
 # so dpkg-buildpackage can find the tgz
-dch -v 1.6.0.5-0kali1 -D kali
+dch -v $VERSION-0kali1 -D kali
+git commit debian/changelog -m $VERSION
 
 dpkg-checkbuilddeps
 git-buildpackage
 ```
+
+The last command can fail because of one of the following:
+ * Outdated patches, which you fix using [quilt](https://pkg-perl.alioth.debian.org/howto/quilt.html#creating_a_patch)
 
 ## Testing the .deb files
  * Install `Kali` in a VirtualBox
