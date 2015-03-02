@@ -117,7 +117,7 @@ class un_ssl(AuditPlugin):
                     # so we just stop searching for this vulnerability
                     self._run = False
 
-    def handle_url_error(self, url_error):
+    def handle_url_error(self, uri, url_error):
         """
         Override the url error handler because in most cases we'll be connecting
         to a URL which is offline.
@@ -125,7 +125,7 @@ class un_ssl(AuditPlugin):
         :return: (True: to avoid this exception to be re-raised
                   None: There is no response)
         """
-        return True, None
+        return False, None
 
     def _redirects_to_secure(self, insecure_response, secure_response):
         """

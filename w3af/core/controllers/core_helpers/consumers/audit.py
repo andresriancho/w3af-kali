@@ -35,7 +35,6 @@ class audit(BaseConsumer):
 
     def __init__(self, audit_plugins, w3af_core):
         """
-        :param in_queue: The input queue that will feed the audit plugins
         :param audit_plugins: Instances of audit plugins in a list
         :param w3af_core: The w3af core that we'll use for status reporting
         """
@@ -96,7 +95,7 @@ class audit(BaseConsumer):
                                         (plugin, fuzzable_request, orig_resp))
 
     @task_decorator
-    def _audit(self, plugin, fuzzable_request, orig_resp):
+    def _audit(self, function_id, plugin, fuzzable_request, orig_resp):
         """
         Since threadpool's apply_async runs the callback only when the call to
         this method ends without any exceptions, it is *very important* to

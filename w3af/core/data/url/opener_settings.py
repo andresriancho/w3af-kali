@@ -20,7 +20,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
 import urllib2
-import socket
 import urlparse
 import cookielib
 
@@ -33,6 +32,7 @@ from w3af.core.data.kb.config import cf as cfg
 from w3af.core.data.options.opt_factory import opt_factory
 from w3af.core.data.options.option_list import OptionList
 from w3af.core.data.parsers.url import URL
+from w3af.core.data.url.constants import MAX_HTTP_RETRIES
 
 from w3af.core.data.url.handlers.fast_basic_auth import FastHTTPBasicAuthHandler
 from w3af.core.data.url.handlers.cookie_handler import CookieHandler
@@ -47,7 +47,8 @@ from w3af.core.data.url.handlers.blacklist import BlacklistHandler
 from w3af.core.data.url.handlers.mangle import MangleHandler
 from w3af.core.data.url.handlers.normalize import NormalizeHandler
 from w3af.core.data.url.handlers.errors import ErrorHandler
-from w3af.core.data.options.option_types import POSITIVE_INT, INT, STRING, LIST
+from w3af.core.data.options.option_types import (POSITIVE_INT, INT, STRING,
+                                                 LIST, BOOL)
 
 
 class OpenerSettings(Configurable):
@@ -85,10 +86,14 @@ class OpenerSettings(Configurable):
         #
         user_agent = 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1;'\
                      ' Trident/4.0; w3af.org)'
+        
+        # to use random Agent in http requests
+        self.rand_user_agent = False
+        
         #   which basically is the UA for IE8 running in Windows 7, plus our
-        #   website :)
+        #   website :)    
         self.header_list = [('User-Agent', user_agent)]
-
+                
         # By default, don't mangle any request/responses
         self._mangle_plugins = []
 
@@ -99,11 +104,12 @@ class OpenerSettings(Configurable):
     
     def set_default_values(self):
         cfg.save('timeout', 15)
-        socket.setdefaulttimeout(cfg.get('timeout'))
         cfg.save('headers_file', '')
         cfg.save('cookie_jar_file', '')
         cfg.save('user_agent', 'w3af.org')
+        cfg.save('rand_user_agent', False)
 
+        
         cfg.save('proxy_address', '')
         cfg.save('proxy_port', 8080)
 
@@ -118,7 +124,7 @@ class OpenerSettings(Configurable):
 
         cfg.save('ignore_session_cookies', False)
         cfg.save('max_file_size', 400000)
-        cfg.save('max_http_retries', 2)
+        cfg.save('max_http_retries', MAX_HTTP_RETRIES)
         cfg.save('max_requests_per_second', 0)
 
         cfg.save('url_parameter', '')
@@ -237,12 +243,6 @@ class OpenerSettings(Configurable):
             raise BaseFrameworkException(err)
         else:
             cfg.save('timeout', timeout)
-
-            # Set the default timeout
-            # I don't need to use timeoutsocket.py , it has been added to
-            # python sockets!
-            socket.setdefaulttimeout(cfg.get('timeout'))
-            
             self.need_update = True
 
     def get_timeout(self):
@@ -254,9 +254,17 @@ class OpenerSettings(Configurable):
                             != 'user_agent']
         self.header_list.append(('User-Agent', user_agent))
         cfg.save('user_agent', user_agent)
-
+        
+    def set_rand_user_agent(self, rand_user_agent):
+        om.out.debug('Called set_rand_user_agent')
+        self.rand_user_agent = rand_user_agent
+        cfg.save('rand_user_agent', rand_user_agent)
+        
     def get_user_agent(self):
         return cfg.get('user_agent')
+    
+    def get_rand_user_agent(self):
+        return cfg.get('rand_user_agent')
 
     def set_proxy(self, ip, port):
         """
@@ -558,7 +566,14 @@ class OpenerSettings(Configurable):
         o = opt_factory('user_agent', cfg.get('user_agent'), d, STRING,
                         help=h, tabid='Misc')
         ol.add(o)
-        
+
+        d = 'Use random User-Agent header'
+        h = 'Enable to make w3af choose a random user agent for each HTTP'\
+            ' request sent to the target web application.'
+        o = opt_factory('rand_user_agent', cfg.get('rand_user_agent'), d, BOOL,
+                        help=h, tabid='Misc')
+        ol.add(o)
+
         d = 'Maximum file size'
         h = 'Indicates the maximum file size (in bytes) that w3af will'\
             ' retrieve from the remote server.'
@@ -655,6 +670,7 @@ class OpenerSettings(Configurable):
         self.set_cookie_jar_file(get_opt_value('cookie_jar_file'))
         self.set_headers_file(get_opt_value('headers_file'))
         self.set_user_agent(get_opt_value('user_agent'))
+        self.set_rand_user_agent(get_opt_value('rand_user_agent'))
         cfg['ignore_session_cookies'] = get_opt_value('ignore_session_cookies')
 
         self.set_max_file_size(get_opt_value('max_file_size'))
