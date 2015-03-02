@@ -22,8 +22,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import itertools
 import re
 
-from functools import partial
-
 import w3af.core.controllers.output_manager as om
 import w3af.core.data.kb.config as cf
 import w3af.core.data.parsers.parser_cache as parser_cache
@@ -32,8 +30,7 @@ import w3af.core.data.constants.response_codes as http_constants
 from w3af.core.controllers.plugins.crawl_plugin import CrawlPlugin
 from w3af.core.controllers.core_helpers.fingerprint_404 import is_404
 from w3af.core.controllers.misc.itertools_toolset import unique_justseen
-from w3af.core.controllers.exceptions import (BaseFrameworkException,
-                                              ScanMustStopOnUrlError)
+from w3af.core.controllers.exceptions import BaseFrameworkException
 
 from w3af.core.data.misc.encoding import smart_unicode
 from w3af.core.data.bloomfilter.scalable_bloom import ScalableBloomFilter
@@ -66,7 +63,7 @@ class web_spider(CrawlPlugin):
         # Internal variables
         self._compiled_ignore_re = None
         self._compiled_follow_re = None
-        self._broken_links = DiskSet()
+        self._broken_links = DiskSet(table_prefix='web_spider')
         self._first_run = True
         self._target_urls = []
         self._target_domain = None
@@ -337,7 +334,7 @@ class web_spider(CrawlPlugin):
         if self._known_variants.need_more_variants(new_reference):
             return True
         else:
-            msg = ('Ignoring new reference "%s" (it is simply a variant).'
+            msg = ('Ignoring reference "%s" (it is simply a variant).'
                    % new_reference)
             om.out.debug(msg)
             return False
@@ -366,7 +363,14 @@ class web_spider(CrawlPlugin):
         referer = original_response.get_url().base_url().url_string
         headers = Headers([('Referer', referer)])
 
-        resp = self._uri_opener.GET(reference, cache=True, headers=headers)
+        # Note: We're not grep'ing this HTTP request/response now because it
+        #       has high probability of being a 404, and the grep plugins
+        #       already got enough 404 responses to analyze (from is_404 for
+        #       example). If it's not a 404 then we'll push it to the core
+        #       and it will come back to this plugin's crawl() where it will
+        #       be requested with grep=True
+        resp = self._uri_opener.GET(reference, cache=True, headers=headers,
+                                    grep=False)
 
         if is_404(resp):
             # Note: I WANT to follow links that are in the 404 page, but
@@ -390,11 +394,11 @@ class web_spider(CrawlPlugin):
                 #   * http://foo.com/abc/def/def/def/
                 #   * ...
                 #
-                non_recursive_verify_ref = partial(self._verify_reference,
-                                                   be_recursive=False)
-                self.worker_pool.map_multi_args(
-                    non_recursive_verify_ref,
-                    self._urls_to_verify_generator(resp, original_request))
+
+                # Do not use threads here, it will dead-lock (for unknown
+                # reasons). This is tested in TestDeadLock unittest.
+                for args in self._urls_to_verify_generator(resp, original_request):
+                    self._verify_reference(*args, be_recursive=False)
 
             # Store the broken links
             if not possibly_broken and resp.get_code() not in self.UNAUTH_FORBID:

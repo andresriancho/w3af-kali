@@ -61,9 +61,10 @@ class SimpleTextView(gtk.TextView):
     def set_text(self, newtext, use_repr=False):
         """Sets a new text in the pane, repr'ing it if needed.
 
-        :param use_repr: Use similar to repr() or not. We don't use repr() because repr() also
-        escapes new lines, and tabs, but we would like to keep those as they can be represented
-        properly in a textview.
+        :param use_repr: Use similar to repr() or not. We don't use repr()
+                         because repr() also escapes new lines, and tabs, but
+                         we would like to keep those as they can be represented
+                         properly in a textview.
 
         :param newtext: the new text of the pane.
         """
@@ -73,11 +74,10 @@ class SimpleTextView(gtk.TextView):
         if use_repr:
             newtext = self._repr(newtext)
         else:
-            #    Better handling of the newtext data to avoid issues
-            #    when decoding stuff that can NOT be represented in unicode. Example:
-            #    base64 decode /w== returns \xff which raises an exception here if we
-            #    use unicode(newtext)
-
+            # Better handling of the newtext data to avoid issues
+            # when decoding stuff that can NOT be represented in unicode.
+            # Example: base64 decode /w== returns \xff which raises an exception
+            # here if we use unicode(newtext)
             newtext = newtext.replace('\0', '\\x00')
 
             try:
@@ -229,10 +229,10 @@ class ThreadedProc(threading.Thread):
             self.event.set()
 
 
-# A helper function for the decoding functions
-
 def _get_nibbles(char):
     """
+    A helper function for the decoding functions
+
     :return: The first ans second nibble of the ascii value of the char
     """
     try:
@@ -254,6 +254,26 @@ def sha_encode(t):
     'c083106c930790151165b95bd11860724e3836cb'
     """
     s = hashlib.sha1(t)
+    return s.hexdigest()
+
+
+def sha256_encode(t):
+    """Encoder using SHA256.
+
+    >>> sha256_encode("Hola mundo")
+    'ca8f60b2cc7f05837d98b208b57fb6481553fc5f1219d59618fd025002a66f5c'
+    """
+    s = hashlib.sha256(t)
+    return s.hexdigest()
+
+
+def sha512_encode(t):
+    """Encoder using SHA512.
+
+    >>> sha512_encode("Hola mundo")
+    '34ddb0edac59e441459e07cf33bd628f53fbbf752141125f069f32081b169f933666c71b2f1b83031da66bc905a1e72af7c6cfd779fc197513639a098f94c641'
+    """
+    s = hashlib.sha512(t)
     return s.hexdigest()
 
 
@@ -544,6 +564,8 @@ _butNameFunc_enc = [
     (_("Double URL Encode"), double_urlencode),
     (_("Base64 Encode"), b64encode),
     (_("SHA1 Hash"), sha_encode),
+    (_("SHA256 Hash"), sha256_encode),
+    (_("SHA512 Hash"), sha512_encode),
     (_("MD5 Hash"), md5_encode),
     (_("Hex Encoding"), hex_encoding),
     (_("0xFFFF Encoding"), zero_x_encoding),
