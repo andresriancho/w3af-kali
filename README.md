@@ -11,6 +11,7 @@ sudo apt-get install devscripts git-buildpackage debhelper
 ### Get this repository
 ```bash
 git clone git@github.com:andresriancho/w3af-kali.git
+cd w3af-kali
 git checkout upstream
 git checkout pristine-tar
 git checkout master
@@ -21,7 +22,6 @@ git checkout master
 The Kali developers are really active and might add more patches or package dependencies. So before performing any change on our side, lets pull from upstream:
 
 ```bash
-cd w3af-kali
 git remote add kali-upstream git://git.kali.org/packages/w3af.git
 git fetch -v kali-upstream
 git merge kali-upstream/master
