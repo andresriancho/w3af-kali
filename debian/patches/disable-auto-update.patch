@@ -1,6 +1,8 @@
---- a/w3af_console
-+++ b/w3af_console
-@@ -34,14 +34,6 @@ Options:
+Index: w3af-kali/w3af_console
+===================================================================
+--- w3af-kali.orig/w3af_console	2015-03-02 14:14:58.000000000 -0300
++++ w3af-kali/w3af_console	2015-03-02 14:14:58.000000000 -0300
+@@ -34,14 +34,6 @@
      -s <script_file> or --script=<script_file>
          Run <script_file> script
  
@@ -15,7 +17,7 @@
      -p <profile> or --profile=<profile>
          Run with the selected <profile>
      
-@@ -110,8 +102,8 @@ def _generate_run_commands(script_file,
+@@ -110,8 +102,8 @@
  
  def main():
      try:
@@ -26,7 +28,7 @@
          opts, _ = getopt.getopt(sys.argv[1:], "ehvs:nfp:P:", long_options)
      except getopt.GetoptError:
          # Print help information and exit
-@@ -121,7 +113,7 @@ def main():
+@@ -121,7 +113,7 @@
      script_file = None
      force_profile = None
      profile = None
@@ -35,7 +37,7 @@
      
      for o, a in opts:
          if o == "-e":
-@@ -144,10 +136,6 @@ def main():
+@@ -144,10 +136,6 @@
          if o in ('-v', '--version'):
              print(get_w3af_version())
              return 0
@@ -46,9 +48,11 @@
      
      commands_to_run = _generate_run_commands(script_file, profile, force_profile)
      console = ConsoleUI(commands=commands_to_run, do_upd=do_update)
---- a/w3af_gui
-+++ b/w3af_gui
-@@ -27,14 +27,6 @@ Options:
+Index: w3af-kali/w3af_gui
+===================================================================
+--- w3af-kali.orig/w3af_gui	2015-03-02 14:14:58.000000000 -0300
++++ w3af-kali/w3af_gui	2015-03-02 14:14:58.000000000 -0300
+@@ -27,14 +27,6 @@
      -h or --help
          Display this help message.
  
@@ -63,7 +67,7 @@
      -p <profile> or --profile=<profile>
          Run with the selected <profile>
  
-@@ -61,7 +53,7 @@ def usage():
+@@ -61,7 +53,7 @@
  
  def main():
      try:
@@ -72,7 +76,7 @@
          opts, _ = getopt.getopt(sys.argv[1:], "ehnfp:", long_options)
      except getopt.GetoptError:
          # print help information and exit:
-@@ -69,7 +61,7 @@ def main():
+@@ -69,7 +61,7 @@
          return -3
      
      profile = None
@@ -81,7 +85,7 @@
      
      for o, a in opts:
          if o in ("-e"):
-@@ -83,11 +75,6 @@ def main():
+@@ -83,11 +75,6 @@
          if o in ('-h', '--help'):
              usage()
              return 0
@@ -93,3 +97,4 @@
  
      # go with GTK, but first check about DISPLAY environment variable
      if sys.platform != "win32":
+

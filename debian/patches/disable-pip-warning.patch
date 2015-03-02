@@ -1,0 +1,34 @@
+Index: w3af-kali/w3af/core/controllers/dependency_check/dependency_check.py
+===================================================================
+--- w3af-kali.orig/w3af/core/controllers/dependency_check/dependency_check.py   2015-03-02 14:14:58.601126122 -0300
++++ w3af-kali/w3af/core/controllers/dependency_check/dependency_check.py    2015-03-02 14:27:36.121130968 -0300
+@@ -27,19 +27,21 @@
+     # Is pip even there?
+     import pip
+ except ImportError:
+-    print('We recommend you install pip before continuing.')
+-    print('http://www.pip-installer.org/en/latest/installing.html')
+-    sys.exit(1)
++    #print('We recommend you install pip before continuing.')
++    #print('http://www.pip-installer.org/en/latest/installing.html')
++    #sys.exit(1)
++    pass
+ 
+ try:
+     # We do this in order to check for old pip versions
+     from pip._vendor.packaging.version import Version
+ except ImportError:
+-    print('An old pip version was detected. We recommend a pip update'
+-          ' before continuing:')
+-    print('    sudo pip install --upgrade pip')
+-    sys.exit(1)
+-
++    #print('An old pip version was detected. We recommend a pip update'
++    #      ' before continuing:')
++    #print('    sudo pip install --upgrade pip')
++    #sys.exit(1)
++    pass
++    
+ from .utils import verify_python_version
+ from .helper_script import (generate_helper_script,
+                             generate_pip_install_non_git,
