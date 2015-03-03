@@ -41,7 +41,7 @@ RUN apt-get install -y ca-certificates file git git-man javascript-common krb5-l
 RUN apt-get install joe
 
 # Install w3af
-ADD w3af-console_1.6.45-0kali1_all.deb /tmp/
+ADD w3af-console_1.6.46-0kali1_all.deb /tmp/
 
 # Mark dependencies as required
 RUN dpkg --install w3af*.deb; true
