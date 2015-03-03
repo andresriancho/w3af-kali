@@ -67,7 +67,10 @@ dch -v $VERSION-0kali1 -D kali
 git commit debian/changelog -m $VERSION
 
 dpkg-checkbuilddeps
-git-buildpackage --git-ignore-new
+
+# -uc and -us disable PGP signing (which we don't need, Kali devs will sign the final package)
+# --git-ignore-new ignores any changes to the local directory
+git-buildpackage --git-ignore-new -b -uc -us
 ```
 
 The last command can fail because of one of the following:
