@@ -80,6 +80,7 @@ The last command can fail because of one of the following:
 ## Testing the .deb files
  * Build a base Kali docker image using `docker/build.sh`, or use the one available at `docker pull andresriancho/kali`
  * Create a `w3af-kali` build:
+ 
  ```bash
  cd w3af-kali/
  cp ../*$VERSION*.deb docker/
@@ -87,6 +88,7 @@ The last command can fail because of one of the following:
  # edit the Dockerfile to ADD the required .deb files, and then build the image:
  sudo docker build -t andresriancho/w3af-kali .
  ```
+ 
  * Run the image using `docker run -i -t --rm andresriancho/w3af-kali /bin/bash`, then inside the container:
    * Verify that the installation works as expected by running a scan
 
