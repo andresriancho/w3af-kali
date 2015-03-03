@@ -75,7 +75,6 @@ git-buildpackage --git-ignore-new -b -uc -us
 
 The last command can fail because of one of the following:
  * Outdated patches (`Hunk #1 FAILED at`), which you fix using [quilt](https://pkg-perl.alioth.debian.org/howto/quilt.html#creating_a_patch)
- * Package signing (`debsign: gpg error occurred!  Aborting`)
 
 ## Testing the .deb files
  * Build a docker image using `docker/build.sh`
