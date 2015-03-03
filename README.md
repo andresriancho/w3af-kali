@@ -70,6 +70,7 @@ dpkg-checkbuilddeps
 
 # -uc and -us disable PGP signing (which we don't need, Kali devs will sign the final package)
 # --git-ignore-new ignores any changes to the local directory
+# -b builds binary only package
 git-buildpackage --git-ignore-new -b -uc -us
 ```
 
