@@ -6,10 +6,15 @@ MAINTAINER Andres Riancho <andres.riancho@gmail.com>
 WORKDIR /tmp/
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
+ENV HOME /root/
 
 # Squash errors about "Falling back to ..." during package installation
 ENV TERM linux
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+
+# Adding the proposed updates repo, this is where the Kali devs add the
+# test packages before merging them into "master"
+RUN echo "deb http://http.kali.org/kali kali-proposed-updates main" >> /etc/apt/sources.list
 
 # Update before installing any package
 RUN apt-get update -y
@@ -32,6 +37,9 @@ RUN apt-get install -y ca-certificates file git git-man javascript-common krb5-l
             python-six python-smmap python-support python-svn python-yaml \
             python2.7 python2.7-minimal rsync sgml-base wwwconfig-common xauth xml-core
 
+# I like this editor
+RUN apt-get install joe
+
 # Install w3af
 ADD w3af-console_1.6.45-0kali1_all.deb /tmp/
 
@@ -46,3 +54,6 @@ RUN dpkg --install w3af*.deb
 
 RUN w3af_console --help
 RUN w3af_console --version
+
+# Cleanup just in case someone wants to use this w3af-kali image
+RUN apt-get autoremove
