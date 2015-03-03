@@ -5,7 +5,7 @@ Building a new `Kali` package for `w3af` requires these steps to be completed:
 
 ### Install the required tools
 ```bash
-sudo apt-get install devscripts git-buildpackage debhelper
+sudo apt-get install devscripts git-buildpackage debhelper debootstrap
 ```
 
 ### Get this repository
@@ -75,15 +75,13 @@ The last command can fail because of one of the following:
  * Package signing (`debsign: gpg error occurred!  Aborting`)
 
 ## Testing the .deb files
- * Install `Kali` in a VirtualBox
+ * Build a docker image using `docker/build.sh`
+ * Run the image using `docker run -i -t --rm andresriancho/kali /bin/bash`, then inside the container:
    * `apt-get update`
    * `apt-get dist-upgrade`
-   * Shutdown the VM, and take a snapshot. Call it "After apt-get dist-upgrade"
- * Build the new w3af package as explained before
- * Copy the `.deb` files to Kali
- * `dpkg --install w3af*.deb`
- * Verify that the installation works as expected
-   * Run a scan
+   * Copy the newly built `.deb` files to the Kali container
+   * `dpkg --install w3af*.deb`
+   * Verify that the installation works as expected by running a scan
 
 ### Push the changes to this repository
 ```bash
