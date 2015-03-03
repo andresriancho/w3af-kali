@@ -92,8 +92,7 @@ The last command can fail because of one of the following:
  sudo docker build -t andresriancho/w3af-kali .
  ```
  
- * Run the image using `docker run -i -t --rm andresriancho/w3af-kali /bin/bash`, then inside the container:
-   * Verify that the installation works as expected by running a scan
+ * Run the image using `docker run -i -t --rm andresriancho/w3af-kali` . If the return code of that command is `0` then `w3af` was properly installed and the scan found all the expected stuff.
 
 ### Push the changes to this repository
 ```bash
