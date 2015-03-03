@@ -2,4 +2,6 @@ disable-os-package-check.patch
 01-kali-as-distribution.patch
 disable-auto-update.patch
 disable-pip-warning.patch
+jinja2-old.patch
+
 

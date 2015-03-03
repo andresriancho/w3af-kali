@@ -1,0 +1,15 @@
+Index: w3af/core/data/kb/info_set.py
+===================================================================
+--- w3af/core/data/kb/info_set.py.orig	2015-03-03 12:38:56.007663808 -0300
++++ w3af/core/data/kb/info_set.py	2015-03-03 13:24:35.047621644 -0300
+@@ -78,8 +78,8 @@
+     ITAG = None
+ 
+     JINJA2_ENV = Environment(undefined=StrictUndefined,
+-                             trim_blocks=True,
+-                             lstrip_blocks=True)
++                             trim_blocks=True)
++                             #lstrip_blocks=True)
+     JINJA2_ENV.filters['human_number'] = human_number
+     JINJA2_ENV.filters['sample_count'] = sample_count
+ 
