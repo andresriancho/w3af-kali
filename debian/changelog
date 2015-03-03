@@ -1,3 +1,10 @@
+w3af (1.6.46-0kali1) kali; urgency=medium
+
+  * Fixing bug to avoid dead-lock in docker environments
+  * Including missing file info_set.py
+
+ -- pablo <pablo@eulogias>  Tue, 03 Mar 2015 12:39:15 -0300
+
 w3af (1.6.45-0kali1) kali; urgency=medium
 
   * HTTP response parsers are now run in a different process
