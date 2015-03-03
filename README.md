@@ -67,7 +67,7 @@ dch -v $VERSION-0kali1 -D kali
 git commit debian/changelog -m $VERSION
 
 dpkg-checkbuilddeps
-git-buildpackage
+git-buildpackage --git-ignore-new
 ```
 
 The last command can fail because of one of the following:
