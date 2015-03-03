@@ -78,12 +78,18 @@ The last command can fail because of one of the following:
  * Outdated patches (`Hunk #1 FAILED at`), which you fix using [quilt](https://pkg-perl.alioth.debian.org/howto/quilt.html#creating_a_patch)
 
 ## Testing the .deb files
- * Build a docker image using `docker/build.sh`
- * Run the image using `docker run -i -t --rm andresriancho/kali /bin/bash`, then inside the container:
-   * `apt-get update`
-   * `apt-get dist-upgrade`
-   * Copy the newly built `.deb` files to the Kali container
-   * `dpkg --install w3af*.deb`
+ * Build a base Kali docker image using `docker/build.sh`, or use the one available at `docker pull andresriancho/kali`
+ * Create a `w3af-kali` build:
+ 
+ ```bash
+ cd w3af-kali/
+ cp ../*$VERSION*.deb docker/
+ cd docker/
+ # edit the Dockerfile to ADD the required .deb files, and then build the image:
+ sudo docker build -t andresriancho/w3af-kali .
+ ```
+ 
+ * Run the image using `docker run -i -t --rm andresriancho/w3af-kali /bin/bash`, then inside the container:
    * Verify that the installation works as expected by running a scan
 
 ### Push the changes to this repository
