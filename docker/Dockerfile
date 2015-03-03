@@ -37,6 +37,13 @@ RUN apt-get install -y ca-certificates file git git-man javascript-common krb5-l
             python-six python-smmap python-support python-svn python-yaml \
             python2.7 python2.7-minimal rsync sgml-base wwwconfig-common xauth xml-core
 
+# Requirements for w3af-scan.sh
+RUN wget https://bootstrap.pypa.io/get-pip.py
+RUN python get-pip.py
+RUN pip install --upgrade pip
+RUN pip install --upgrade virtualenv
+RUN apt-get install -y build-essential python-dev libmemcached-dev libxml2-dev libxslt1-dev
+
 # I like this editor
 RUN apt-get install joe
 
@@ -52,8 +59,20 @@ RUN apt-get --yes --fix-broken install
 # Really install w3af
 RUN dpkg --install w3af*.deb
 
+# Smoke tests
 RUN w3af_console --help
 RUN w3af_console --version
 
+# Add test web application
+RUN git clone https://github.com/andresriancho/django-moth.git
+RUN virtualenv /tmp/moth-venv/
+RUN /tmp/moth-venv/bin/pip install -r django-moth/requirements.txt
+
 # Cleanup just in case someone wants to use this w3af-kali image
 RUN apt-get autoremove
+
+# Scan test
+ADD w3af-scan.sh /tmp/
+
+# The tests to be run inside this container
+ENTRYPOINT ["/tmp/w3af-scan.sh"]
