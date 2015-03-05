@@ -2,6 +2,7 @@ w3af (1.6.46-0kali2) kali; urgency=medium
 
   * Update the minimal versions in debian/control
   * Update the depend: msgpack-python is replaced by python-msgpack
+  * debian/control: add tcpdump in Recommends
   * Add directory docker in ignored files for building source packages
 
  -- Sophie Brun <sophie@freexian.com>  Thu, 05 Mar 2015 09:25:03 +0100
