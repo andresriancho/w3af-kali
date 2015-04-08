@@ -36,7 +36,7 @@ from w3af.core.data.kb.vuln import Vuln
 from w3af.core.data.kb.info import Info
 from w3af.core.data.kb.shell import Shell
 from w3af.core.data.kb.info_set import InfoSet
-from w3af.core.data.constants.severity import (INFORMATION, LOW, MEDIUM, HIGH)
+from w3af.core.data.constants.severity import INFORMATION, LOW, MEDIUM, HIGH
 from weakref import WeakValueDictionary
 
 
@@ -315,22 +315,23 @@ class DBKnowledgeBase(BasicKnowledgeBase):
 
         :return: None
         """
-        # Only initialize once
-        if self.initialized:
-            return
+        with self._kb_lock:
+            if self.initialized:
+                return
 
-        self.initialized = True
+            self.urls = DiskSet(table_prefix='kb_urls')
+            self.fuzzable_requests = DiskSet(table_prefix='kb_fuzzable_requests')
 
-        self.urls = DiskSet(table_prefix='kb_urls')
-        self.fuzzable_requests = DiskSet(table_prefix='kb_fuzzable_requests')
+            self.db = get_default_persistent_db_instance()
 
-        self.db = get_default_persistent_db_instance()
+            self.table_name = 'knowledge_base_' + rand_alpha(30)
+            self.db.create_table(self.table_name, self.COLUMNS)
+            self.db.create_index(self.table_name, ['location_a', 'location_b'])
+            self.db.create_index(self.table_name, ['uniq_id'])
+            self.db.commit()
 
-        self.table_name = 'knowledge_base_' + rand_alpha(30)
-        self.db.create_table(self.table_name, self.COLUMNS)
-        self.db.create_index(self.table_name, ['location_a', 'location_b'])
-        self.db.create_index(self.table_name, ['uniq_id'])
-        self.db.commit()
+            # Only initialize once
+            self.initialized = True
 
     @requires_setup
     def clear(self, location_a, location_b):

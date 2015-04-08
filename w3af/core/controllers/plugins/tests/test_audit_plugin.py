@@ -85,7 +85,8 @@ class TestAuditPlugin(unittest.TestCase):
         freq = FuzzableRequest(url)
 
         plugin_inst = self.w3af.plugins.get_plugin_inst('audit', 'sqli')
-        plugin_inst._uri_opener.settings.set_timeout(1)
+        plugin_inst._uri_opener.settings.set_configured_timeout(1)
+        plugin_inst._uri_opener.clear_timeout()
 
         # We expect the server to timeout and the response to be a 204
         resp = plugin_inst.get_original_response(freq)
@@ -116,7 +117,7 @@ class TestAuditPlugin(unittest.TestCase):
 
         mod = 'w3af.core.controllers.plugins.audit_plugin.%s'
 
-        mock_plugin_timeout = 1
+        mock_plugin_timeout = 2
         msg = '[timeout] The "%s" plugin took more than %s seconds to'\
               ' complete the analysis of "%s", killing it!'
 

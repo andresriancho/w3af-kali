@@ -47,15 +47,15 @@ class SGMLParser(BaseParser):
         '([\w\.%-]{1,45}@([A-Z0-9\.-]{1,45}\.){1,10}[A-Z]{2,4})',
         re.I | re.U)
 
+    META_URL_REDIR_RE = re.compile('.*?URL.*?=(.*)', re.I | re.U)
+
     TAGS_WITH_URLS = {
         'go', 'a', 'anchor', 'img', 'link', 'script', 'iframe', 'object',
         'embed', 'area', 'frame', 'applet', 'input', 'base', 'div', 'layer',
         'form', 'ilayer', 'bgsound', 'html', 'audio', 'video'
     }
 
-    TAGS_WITH_MAILTO = {'a'}
-
-    URL_ATTRS = {'href', 'src', 'data', 'action', 'manifest'}
+    URL_ATTRS = {'href', 'src', 'data', 'action', 'manifest', 'link', 'uri'}
 
     # I don't want to inject into Apache's directory indexing parameters
     APACHE_INDEXING = {"?C=N;O=A", "?C=M;O=A", "?C=S;O=A", "?C=D;O=D",
@@ -71,9 +71,7 @@ class SGMLParser(BaseParser):
         self._inside_textarea = False
         self._inside_script = False
 
-        # Internal containers
         self._tag_and_url = set()
-        self._parsed_urls = set()
         self._forms = []
         self._comments_in_doc = []
         self._meta_redirs = []
@@ -83,9 +81,22 @@ class SGMLParser(BaseParser):
         # Parse!
         self._parse(http_resp)
 
+    def clear(self):
+        # Internal containers
+        self._tag_and_url.clear()
+        self._forms = []
+        self._comments_in_doc = []
+        self._meta_redirs = []
+        self._meta_tags = []
+        self._emails.clear()
+
+        if self._dom is not None:
+            self._dom.clear()
+            self._dom = None
+
     def _handle_exception(self, where, ex):
-        msg = 'An exception occurred while %s: "%s"' % (where, ex)
-        om.out.error(msg)
+        msg = 'An exception occurred while %s: "%s"'
+        om.out.error(msg % (where, ex))
         om.out.error('Error traceback: %s' % traceback.format_exc())
 
     def start(self, tag, attrs):
@@ -96,10 +107,14 @@ class SGMLParser(BaseParser):
         handler = '_handle_%s_tag_start' % tag
 
         try:
-            meth = getattr(self, handler, lambda *args: None)
-            meth(tag, attrs)
-        except Exception, ex:
-            self._handle_exception('parsing document', ex)
+            method = getattr(self, handler)
+        except AttributeError:
+            pass
+        else:
+            try:
+                method(tag, attrs)
+            except Exception, ex:
+                self._handle_exception('parsing %s tag' % tag, ex)
 
         try:
             if tag in self.TAGS_WITH_URLS:
@@ -108,7 +123,10 @@ class SGMLParser(BaseParser):
             self._handle_exception('extracting references', ex)
 
         try:
-            if tag in self.TAGS_WITH_MAILTO:
+            # Before I defined TAGS_WITH_MAILTO = {'a'} at the class level, but
+            # since it had only one item, and this doesn't change often (ever?)
+            # changed it to this for performance
+            if tag == 'a':
                 self._find_emails(tag, attrs)
         except Exception, ex:
             self._handle_exception('finding emails', ex)
@@ -118,7 +136,12 @@ class SGMLParser(BaseParser):
         Called by the parser on element close.
         """
         # Call handler method if exists
-        getattr(self, '_handle_' + tag + '_tag_end', lambda arg: None)(tag)
+        try:
+            method = getattr(self, '_handle_%s_tag_end' % tag)
+        except AttributeError:
+            return
+        else:
+            return method(tag)
 
     def data(self, data):
         """
@@ -141,9 +164,18 @@ class SGMLParser(BaseParser):
         """
         Parse the HTTP response body
         """
-        # Start parsing!
-        parser = etree.HTMLParser(target=self, recover=True)
         resp_body = http_resp.body
+
+        # HTML Parser raises XMLSyntaxError on empty response body #8695
+        # https://github.com/andresriancho/w3af/issues/8695
+        if not resp_body:
+            # Simply return, don't even try to parse this response, it's empty
+            # anyways. The result of this return is to have an empty SGMLParser
+            # which won't have any links, forms, etc. (correct for a response
+            # body which is empty).
+            return
+
+        parser = etree.HTMLParser(target=self, recover=True)
 
         try:
             # Note: Given that the parser has target != None, this call does not
@@ -160,22 +192,29 @@ class SGMLParser(BaseParser):
                                       recover=True,
                                       encoding=http_resp.charset)
             etree.fromstring(resp_body, parser)
-        except etree.XMLSyntaxError:
+        except etree.XMLSyntaxError, xse:
             msg = 'An error occurred while parsing "%s",'\
                   ' original exception: "%s"'
-            om.out.debug(msg % (http_resp.get_url(), etree.XMLSyntaxError))
+            om.out.debug(msg % (http_resp.get_url(), xse))
 
     def get_dom(self):
         """
         :return: The DOM instance
         """
         if self._dom is None:
+            http_resp = self.get_http_response()
+            resp_body = http_resp.get_body()
+
+            # HTML Parser raises XMLSyntaxError on empty response body #8695
+            # https://github.com/andresriancho/w3af/issues/8695
+            if not resp_body:
+                # Simply return None, don't even try to parse this response,
+                # it's empty anyways
+                return self._dom
+
             # Start parsing, using a parser without target so we get the DOM
             # instance as result of our call to fromstring
             parser = etree.HTMLParser(recover=True)
-
-            http_resp = self.get_http_response()
-            resp_body = http_resp.get_body()
 
             try:
                 self._dom = etree.fromstring(resp_body, parser)
@@ -189,10 +228,10 @@ class SGMLParser(BaseParser):
                 parser = etree.HTMLParser(recover=True,
                                           encoding=http_resp.charset)
                 self._dom = etree.fromstring(resp_body, parser)
-            except etree.XMLSyntaxError:
+            except etree.XMLSyntaxError, xse:
                 msg = 'An error occurred while parsing "%s",'\
                       ' original exception: "%s"'
-                om.out.debug(msg % (http_resp.get_url(), etree.XMLSyntaxError))
+                om.out.debug(msg % (http_resp.get_url(), xse))
 
         return self._dom
 
@@ -271,7 +310,6 @@ class SGMLParser(BaseParser):
                 # url.normalize_url()
 
                 # Save url
-                self._parsed_urls.add(url)
                 self._tag_and_url.add((tag, url))
 
     def _fill_forms(self, tag, attrs):
@@ -298,7 +336,7 @@ class SGMLParser(BaseParser):
         other with the URLs that came out from a regular expression. The
         second list is less trustworthy.
         """
-        return list(self._parsed_urls), []
+        return [url for tag, url in self._tag_and_url], []
 
     def get_references(self):
         return self.references
@@ -382,11 +420,10 @@ class SGMLParser(BaseParser):
             #   "4;URL=http://www.f00.us/"
             #   "2; URL=http://www.f00.us/"
             #   "6  ; URL=http://www.f00.us/"
-            for urlstr in re.findall('.*?URL.*?=(.*)', content, re.IGNORECASE):
+            for urlstr in self.META_URL_REDIR_RE.findall(content):
                 urlstr = self._decode_url(urlstr.strip())
                 url = unicode(self._base_url.url_join(urlstr))
                 url = URL(url, encoding=self._encoding)
-                self._parsed_urls.add(url)
                 self._tag_and_url.add(('meta', url))
 
     def _handle_form_tag_start(self, tag, attrs):
