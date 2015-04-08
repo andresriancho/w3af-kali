@@ -19,11 +19,13 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
+import json
 import copy
-import unittest
 import cPickle
+import unittest
 
 from nose.plugins.attrib import attr
+from vulndb.db_vuln import Reference, DBVuln
 
 from w3af.core.data.kb.info import Info
 from w3af.core.data.parsers.url import URL
@@ -31,6 +33,22 @@ from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.data.dc.query_string import QueryString
 from w3af.core.data.fuzzer.mutants.querystring_mutant import QSMutant
 from w3af.core.data.dc.generic.nr_kv_container import NonRepeatKeyValueContainer
+
+
+BLIND_SQLI_REFS = [{"url": "http://capec.mitre.org/data/definitions/7.html",
+                    "title": "MITRE - CAPEC"},
+                   {"url": "http://projects.webappsec.org/w/page/13246963/SQL%20Injection",
+                    "title": "WASC"},
+                   {"url": "http://www.w3schools.com/sql/sql_injection.asp",
+                    "title": "W3 Schools"},
+                   {"url": "https://www.owasp.org/index.php/Blind_SQL_Injection",
+                    "title": "OWASP"}]
+
+BLIND_SQLI_TOP10_REFS = [
+   {u'link': u'https://www.owasp.org/index.php/Top_10_2013-A1',
+    u'owasp_version': u'2013',
+    u'risk_id': 1}
+]
 
 
 class MockInfo(Info):
@@ -177,3 +195,103 @@ class TestInfo(unittest.TestCase):
         i2 = copy.deepcopy(i1)
 
         self.assertEqual(i1.get_uniq_id(), i2.get_uniq_id())
+
+    def test_vulndb_id_not_set(self):
+        i = Info('TestCase', MockInfo.LONG_DESC, 1, 'plugin_name')
+        self.assertFalse(i.has_db_details())
+
+    def test_vulndb_id_set(self):
+        # The vulndb_id overrides the 'Blind SQL injection vulnerability' name
+        i = Info('Blind SQL injection vulnerability', MockInfo.LONG_DESC, 1,
+                 'plugin_name', vulndb_id=17)
+
+        # lazy calculation
+        self.assertIsNone(i._vulndb)
+
+        url = 'https://www.owasp.org/index.php/PHP_File_Inclusion'
+        title = 'OWASP'
+        expected_references = [Reference(url, title)]
+
+        self.assertTrue(i.has_db_details())
+        self.assertEqual(i.get_vulndb_id(), 17)
+        self.assertIsInstance(i.get_long_description(), basestring)
+        self.assertIsInstance(i.get_fix_guidance(), basestring)
+        self.assertEqual(i.get_fix_effort(), 50)
+        self.assertEqual(i.get_tags(), ['web', 'file', 'inclusion', 'error',
+                                        'injection'])
+        self.assertEqual(i.get_wasc_ids(), [])
+        self.assertEqual(list(i.get_wasc_urls()), [])
+        self.assertEqual(list(i.get_cwe_urls()),
+                         ['https://cwe.mitre.org/data/definitions/98.html'])
+        self.assertEqual(i.get_cwe_ids(), [u'98'])
+        self.assertEqual(i.get_references(), expected_references)
+        self.assertEqual(list(i.get_owasp_top_10_references()),
+                         [(u'2013', 1,
+                           'https://www.owasp.org/index.php/Top_10_2013-A1')])
+        self.assertIsInstance(i.get_vuln_info_from_db(), DBVuln)
+
+        # lazy calculation success
+        self.assertIsNotNone(i._vulndb)
+
+    def test_vulndb_id_get_from_name(self):
+        # Since there is no vulndb_id set, the name wins:
+        i = Info('Blind SQL injection vulnerability', MockInfo.LONG_DESC, 1,
+                 'plugin_name')
+
+        # lazy calculation
+        self.assertIsNone(i._vulndb)
+
+        expected_references = [Reference(d['url'], d['title']) for d in BLIND_SQLI_REFS]
+
+        self.assertTrue(i.has_db_details())
+        self.assertEqual(i.get_vulndb_id(), 46)
+        self.assertIsInstance(i.get_long_description(), basestring)
+        self.assertIsInstance(i.get_fix_guidance(), basestring)
+        self.assertEqual(i.get_fix_effort(), 50)
+        self.assertEqual(i.get_tags(), [u'web', u'sql', u'blind',
+                                        u'injection', u'database'])
+        self.assertEqual(i.get_wasc_ids(), [])
+        self.assertEqual(list(i.get_wasc_urls()), [])
+        self.assertEqual(list(i.get_cwe_urls()),
+                         [u'https://cwe.mitre.org/data/definitions/89.html'])
+        self.assertEqual(i.get_cwe_ids(), [u'89'])
+        self.assertEqual(i.get_references(), expected_references)
+        self.assertEqual(list(i.get_owasp_top_10_references()),
+                         [(u'2013', 1,
+                           'https://www.owasp.org/index.php/Top_10_2013-A1')])
+        self.assertIsInstance(i.get_vuln_info_from_db(), DBVuln)
+
+        # lazy calculation success
+        self.assertIsNotNone(i._vulndb)
+
+    def test_to_json(self):
+        i = Info('Blind SQL injection vulnerability', MockInfo.LONG_DESC, 1,
+                 'plugin_name')
+
+        i['test'] = 'foo'
+        i.add_to_highlight('abc', 'def')
+
+        jd = i.to_json()
+        json_string = json.dumps(jd)
+        jd = json.loads(json_string)
+
+        self.assertEqual(jd['name'], i.get_name())
+        self.assertEqual(jd['url'], str(i.get_url()))
+        self.assertEqual(jd['var'], i.get_token_name())
+        self.assertEqual(jd['response_ids'], i.get_id())
+        self.assertEqual(jd['vulndb_id'], i.get_vulndb_id())
+        self.assertEqual(jd['desc'], i.get_desc(with_id=False))
+        self.assertEqual(jd['long_description'], i.get_long_description())
+        self.assertEqual(jd['fix_guidance'], i.get_fix_guidance())
+        self.assertEqual(jd['fix_effort'], i.get_fix_effort())
+        self.assertEqual(jd['tags'], i.get_tags())
+        self.assertEqual(jd['wasc_ids'], i.get_wasc_ids())
+        self.assertEqual(jd['wasc_urls'], list(i.get_wasc_urls()))
+        self.assertEqual(jd['cwe_urls'], list(i.get_cwe_urls()))
+        self.assertEqual(jd['references'], BLIND_SQLI_REFS)
+        self.assertEqual(jd['owasp_top_10_references'], BLIND_SQLI_TOP10_REFS)
+        self.assertEqual(jd['plugin_name'], i.get_plugin_name())
+        self.assertEqual(jd['severity'], i.get_severity())
+        self.assertEqual(jd['attributes'], i.copy())
+        self.assertEqual(jd['highlight'], list(i.get_to_highlight()))
+

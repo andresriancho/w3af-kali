@@ -24,6 +24,7 @@ import sys
 import threading
 
 from multiprocessing.dummy import Process
+from functools import wraps
 
 from w3af import ROOT_PATH
 from w3af.core.controllers.misc.factory import factory
@@ -42,20 +43,30 @@ def start_thread_on_demand(func):
     printed using the om (see functions below), which ends up with unordered
     messages printed to the console.
     """
+    @wraps(func)
     def od_wrapper(*args, **kwds):
         from w3af.core.controllers.output_manager import manager
 
+        if manager.is_alive():
+            return func(*args, **kwds)
+
         with OutputManager.start_lock:
-            if not manager.is_alive():
-                try:
-                    manager.start()
-                except RuntimeError:
-                    # is_alive() doesn't always return the true state of the
-                    # thread, thus we need to add this try/except, see:
-                    #
-                    # https://github.com/andresriancho/w3af/issues/7453
-                    pass
+            try:
+                manager.start()
+            except RuntimeError:
+                # is_alive() might say that the process is NOT alive when:
+                #   * We just created the OutputManager instance
+                #   * The instance was created, started and joined
+                #
+                # In the second case, we can't start() it again and thus we'll
+                # get a RuntimeError
+                #
+                # https://github.com/andresriancho/w3af/issues/7453
+                # https://github.com/andresriancho/w3af/issues/5354
+                pass
+
         return func(*args, **kwds)
+
     return od_wrapper
 
 
@@ -120,16 +131,16 @@ class OutputManager(Process):
                 break
 
             if work_unit == POISON_PILL:
-
+                # This is added at fresh_output_manager_inst
                 break
 
             else:
-                args, kwds = work_unit
+                args, kwargs = work_unit
                 #
                 #    Please note that error handling is done inside:
                 #        _call_output_plugins_action
                 #
-                apply(self._call_output_plugins_action, args, kwds)
+                self._call_output_plugins_action(*args, **kwargs)
 
                 self.in_queue.task_done()
 

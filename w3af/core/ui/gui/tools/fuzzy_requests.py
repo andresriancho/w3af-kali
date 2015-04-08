@@ -19,19 +19,20 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
-import gtk
-import gobject
 import functools
 import os
 
+import gtk
+import gobject
 from w3af import ROOT_PATH
-from w3af.core.ui.gui import reqResViewer, helpers, entries, fuzzygen
+from w3af.core.ui.gui import helpers, entries
+from w3af.core.ui.gui.reqResViewer import ReqResViewer, RequestPart
 from w3af.core.ui.gui.clusterGraph import distance_function_selector
 from w3af.core.ui.gui.payload_generators import create_generator_menu
-
 from w3af.core.data.db.history import HistoryItem
 from w3af.core.controllers.exceptions import (HTTPRequestException,
                                               ScanMustStopException)
+from w3af.core.ui.gui.tools.helpers import fuzzygen
 
 
 FUZZY_REQUEST_EXAMPLE = """\
@@ -91,25 +92,25 @@ class PreviewWindow(entries.RememberingWindow):
         self.set_transient_for(parent)
 
         # content
-        self.panes = reqResViewer.requestPart(self, w3af, editable=False,
-                                              widgname="fuzzypreview")
+        self.panes = RequestPart(self, w3af, editable=False,
+                                 widgname="fuzzypreview")
         self.vbox.pack_start(self.panes)
         self.panes.show()
 
         # the ok button
         centerbox = gtk.HBox()
         quant = fg.calculate_quantity()
-        self.pagesControl = entries.PagesControl(w3af, self._pageChange, quant)
+        self.pagesControl = entries.PagesControl(w3af, self.page_change, quant)
         centerbox.pack_start(self.pagesControl, True, False)
         centerbox.show()
         self.vbox.pack_start(centerbox, False, False, padding=5)
 
-        self._pageChange(0)
+        self.page_change(0)
 
         self.vbox.show()
         self.show()
 
-    def _pageChange(self, page):
+    def page_change(self, page):
         while len(self.pages) <= page:
             it = self.generator.next()
             self.pages.append(it)
@@ -153,12 +154,12 @@ class FuzzyRequests(entries.RememberingWindow):
         self._fix_content_lengthCB.show()
 
         # request
-        self.originalReq = reqResViewer.requestPart(self, w3af,
-                                                    [analyzBut.set_sensitive,
-                                                     self.sendPlayBut.set_sensitive,
-                                                     functools.partial(
-                                                     self.sSB_state.change, "rRV")],
-                                                    editable=True, widgname="fuzzyrequest")
+        self.originalReq = RequestPart(self, w3af,
+                                       [analyzBut.set_sensitive,
+                                        self.sendPlayBut.set_sensitive,
+                                        functools.partial(self.sSB_state.change, "rRV")],
+                                       editable=True,
+                                       widgname="fuzzyrequest")
 
         if initial_request is None:
             self.originalReq.show_raw(FUZZY_REQUEST_EXAMPLE, '')
@@ -219,16 +220,16 @@ class FuzzyRequests(entries.RememberingWindow):
         vbox.pack_start(self.title0, False, True)
 
         # result itself
-        self.resultReqResp = reqResViewer.reqResViewer(w3af, withFuzzy=False,
-                                                       editableRequest=False,
-                                                       editableResponse=False)
+        self.resultReqResp = ReqResViewer(w3af, withFuzzy=False,
+                                          editableRequest=False,
+                                          editableResponse=False)
         self.resultReqResp.set_sensitive(False)
         vbox.pack_start(self.resultReqResp, True, True, padding=5)
         vbox.show()
 
         # result control
         centerbox = gtk.HBox()
-        self.pagesControl = entries.PagesControl(w3af, self._pageChange)
+        self.pagesControl = entries.PagesControl(w3af, self.page_change)
         centerbox.pack_start(self.pagesControl, True, False)
         centerbox.show()
 
@@ -439,10 +440,10 @@ class FuzzyRequests(entries.RememberingWindow):
         if len(self.responses) >= 3:
             self.clusterButton.set_sensitive(True)
         self.pagesControl.activate(len(self.responses))
-        self._pageChange(0)
+        self.page_change(0)
         return True
 
-    def _pageChange(self, page):
+    def page_change(self, page):
         """
         Change the page, and show the information that was stored in
         self.responses
