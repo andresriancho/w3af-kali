@@ -15,6 +15,10 @@ echo "Testing version ${VERSION}"
 # Start the test web application in background
 /tmp/moth-venv/bin/python django-moth/start_daemons.py --log-directory=/tmp/ &
 
+# Make sure we have the latest packages
+apt-get update -y
+apt-get upgrade -y
+
 # Go to the mounted volume directory
 cd /w3af
 
