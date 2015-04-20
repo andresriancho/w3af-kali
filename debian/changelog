@@ -1,5 +1,11 @@
 w3af (1.6.49-0kali1) kali; urgency=medium
 
+  * Fixing multiple bugs
+
+ -- Andres Riancho <andres@tagcube.io>  Mon, 20 Apr 2015 09:45:31 -0300
+
+w3af (1.6.49-0kali1) kali; urgency=medium
+
   * Import new upstream release
   * Add depends: python-markdown, python-vulndb
 
