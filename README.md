@@ -86,17 +86,23 @@ The last command can fail because of one of the following:
 
 ## Testing the .deb files
  * Build a base Kali docker image using `docker/build.sh`, or use the one available at `docker pull andresriancho/kali`
- * Create a `w3af-kali` build:
+ * Create a `w3af-kali` build which includes `django-moth` and some `w3af` dependencies:
  
  ```bash
- cd w3af-kali/
- cp ../*$VERSION*.deb docker/
- cd docker/
- # edit the Dockerfile to ADD the required .deb files, and then build the image:
+ cd w3af-kali/docker/
  sudo docker build -t andresriancho/w3af-kali .
  ```
  
- * Run the image using `docker run -i -t --rm andresriancho/w3af-kali` . If the return code of that command is `0` then `w3af` was properly installed and the scan found all the expected stuff.
+ * Prepare the test files and run the image:
+ 
+ ```bash
+ cd w3af-kali/docker/
+ cp ../../*$VERSION*.deb .
+ sudo docker run -v `pwd`:/w3af/ -i -t --name w3af-kali --rm andresriancho/w3af-kali $VERSION
+ ```
+
+ If the return code of the command is `0` then `w3af` was properly installed and the scan
+ found all the expected vulnerabilities.
 
 ### Push the changes to this repository
 ```bash

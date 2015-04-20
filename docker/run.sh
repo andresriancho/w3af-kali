@@ -9,6 +9,28 @@ fi
 set -x
 set -e
 
+VERSION="$1"
+echo "Testing version ${VERSION}"
+
+# Go to the mounted volume directory
+cd /w3af
+
+# Mark dependencies as required
+dpkg --install w3af*${VERSION}*.deb && true
+
+# Install dependencies
+apt-get --yes --fix-broken install
+
+# Really install w3af
+dpkg --install w3af*${VERSION}*.deb
+
+# Smoke tests
+w3af_console --help
+w3af_console --version
+
+# Cleanup just in case someone wants to use this w3af-kali image
+apt-get autoremove
+
 /tmp/moth-venv/bin/python django-moth/start_daemons.py --log-directory=/tmp/ &
 
 # Let the daemons start
@@ -68,6 +90,7 @@ EOF
 #
 # Run the scan
 #
+cd /
 w3af_console -s /tmp/test-script.w3af
 
 

@@ -47,32 +47,13 @@ RUN apt-get install -y build-essential python-dev libmemcached-dev libxml2-dev l
 # I like this editor
 RUN apt-get install joe
 
-# Install w3af
-ADD w3af-console_1.6.46-0kali1_all.deb /tmp/
-
-# Mark dependencies as required
-RUN dpkg --install w3af*.deb; true
-
-# Install dependencies
-RUN apt-get --yes --fix-broken install
-
-# Really install w3af
-RUN dpkg --install w3af*.deb
-
-# Smoke tests
-RUN w3af_console --help
-RUN w3af_console --version
-
 # Add test web application
 RUN git clone https://github.com/andresriancho/django-moth.git
 RUN virtualenv /tmp/moth-venv/
 RUN /tmp/moth-venv/bin/pip install -r django-moth/requirements.txt
 
-# Cleanup just in case someone wants to use this w3af-kali image
-RUN apt-get autoremove
-
 # Scan test
-ADD w3af-scan.sh /tmp/
+ADD run.sh /tmp/
 
 # The tests to be run inside this container
-ENTRYPOINT ["/tmp/w3af-scan.sh"]
+ENTRYPOINT ["/tmp/run.sh"]
