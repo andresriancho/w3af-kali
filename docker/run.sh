@@ -12,6 +12,9 @@ set -e
 VERSION="$1"
 echo "Testing version ${VERSION}"
 
+# Start the test web application in background
+/tmp/moth-venv/bin/python django-moth/start_daemons.py --log-directory=/tmp/ &
+
 # Go to the mounted volume directory
 cd /w3af
 
@@ -30,11 +33,6 @@ w3af_console --version
 
 # Cleanup just in case someone wants to use this w3af-kali image
 apt-get autoremove
-
-/tmp/moth-venv/bin/python django-moth/start_daemons.py --log-directory=/tmp/ &
-
-# Let the daemons start
-sleep 5
 
 #
 #   Create the script
