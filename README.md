@@ -54,6 +54,7 @@ git-import-orig ../w3af_$VERSION.orig.tar.gz
 ```
 
 ### Package dependencies
+
 `w3af`'s dependencies change frequently and are listed
 [here](https://github.com/andresriancho/w3af/blob/master/w3af/core/controllers/dependency_check/requirements.py).
 When we add a new dependency to upstream we then add extra work to the packaging
@@ -92,16 +93,22 @@ The last command can fail because of one of the following:
  [quilt](https://pkg-perl.alioth.debian.org/howto/quilt.html#creating_a_patch)
 
 ## Testing the .deb files
- * Build a base Kali docker image using `docker/build.sh`, or use the one
- available at `docker pull andresriancho/kali`
- * Create a `w3af-kali` build which includes `django-moth` and some `w3af` dependencies:
+
+ * Get the latest `w3af-kali` docker from [the registry](https://registry.hub.docker.com/u/andresriancho/w3af-kali/).
+ The image includes `django-moth` and some `w3af` dependencies:
+
+ ```bash
+ docker pull andresriancho/w3af-kali
+ ```
+
+ * Update the image with your local changes by running a build:
  
  ```bash
  cd w3af-kali/docker/
  sudo docker build -t andresriancho/w3af-kali .
  ```
  
- * Prepare the test files and run the image:
+ * Prepare the test files and run the container:
  
  ```bash
  cd w3af-kali/docker/
