@@ -1,5 +1,5 @@
-This repository contains all files required to build the `w3af` package for
-[Kali](http://www.kali.org/).
+This repository contains all files required to build the [w3af](https://github.com/andresriancho/w3af)
+package for [Kali](http://www.kali.org/).
 
 ## Building a new package
 Building a new `Kali` package for `w3af` requires these steps to be completed:
