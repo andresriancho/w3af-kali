@@ -1,4 +1,5 @@
-This repository contains all files required to build the `w3af` package for [Kali](http://www.kali.org/).
+This repository contains all files required to build the `w3af` package for
+[Kali](http://www.kali.org/).
 
 ## Building a new package
 Building a new `Kali` package for `w3af` requires these steps to be completed:
@@ -19,7 +20,7 @@ git checkout master
 
 ### Get the latest from Kali repositories
 
-The Kali developers are really active and might add more patches or package dependencies. 
+The Kali developers are really active and might add more patches or package dependencies.
 So before performing any change on our side, lets pull from upstream:
 
 ```bash
@@ -36,7 +37,8 @@ Set the version to package:
 VERSION=`python get-latest-w3af-tag.py`
 ```
 
-When the code being packaged needs to be updated you'll have to tag it in the `w3af` repository and then:
+When the code being packaged needs to be updated you'll have to tag it in the `w3af`
+repository and then:
 ```bash
 # Tag the new release in the w3af repository
 cd w3af/
@@ -49,10 +51,13 @@ cd w3af-kali/
 uscan --force-download --verbose
 git-import-orig ../w3af_$VERSION.orig.tar.gz
 ```
-Please note that the second and last commands will change depending on the version tag.
 
 ### Package dependencies
-`w3af`'s dependencies change frequently and are listed [here](https://github.com/andresriancho/w3af/blob/master/w3af/core/controllers/dependency_check/requirements.py) . When we add a new dependency to upstream we then add extra work to the packaging process. These are some of the recommended steps to follow to make sure all dependencies are up to date:
+`w3af`'s dependencies change frequently and are listed
+[here](https://github.com/andresriancho/w3af/blob/master/w3af/core/controllers/dependency_check/requirements.py).
+When we add a new dependency to upstream we then add extra work to the packaging
+process. These are some of the recommended steps to follow to make sure all
+dependencies are up to date:
 
  * Check [requirements.py](https://github.com/andresriancho/w3af/blob/master/w3af/core/controllers/dependency_check/requirements.py) file history to identify any changes
 
@@ -82,10 +87,12 @@ git-buildpackage --git-ignore-new -b -uc -us
 ```
 
 The last command can fail because of one of the following:
- * Outdated patches (`Hunk #1 FAILED at`), which you fix using [quilt](https://pkg-perl.alioth.debian.org/howto/quilt.html#creating_a_patch)
+ * Outdated patches (`Hunk #1 FAILED at`), which you fix using
+ [quilt](https://pkg-perl.alioth.debian.org/howto/quilt.html#creating_a_patch)
 
 ## Testing the .deb files
- * Build a base Kali docker image using `docker/build.sh`, or use the one available at `docker pull andresriancho/kali`
+ * Build a base Kali docker image using `docker/build.sh`, or use the one
+ available at `docker pull andresriancho/kali`
  * Create a `w3af-kali` build which includes `django-moth` and some `w3af` dependencies:
  
  ```bash
@@ -116,7 +123,8 @@ Pushing to Kali repositories is not under our control, so we need to bother one 
 Once they push the package we can see it [here](http://pkg.kali.org/pkg/w3af).
 
 ## Creation of this repository
-This repository is a copy of [Kali Linux's w3af repository](http://git.kali.org/gitweb/?p=packages/w3af.git;a=summary) which was created using these commands:
+This repository is a copy of [Kali Linux's w3af repository](http://git.kali.org/gitweb/?p=packages/w3af.git;a=summary)
+which was created using these commands:
 
 ```bash
 cd /tmp/
