@@ -33,7 +33,7 @@ git merge kali-upstream/master
 Set the version to package:
 ```bash
 # Define the version
-VERSION=1.6.45
+VERSION=`python get-latest-w3af-tag.py`
 ```
 
 When the code being packaged needs to be updated you'll have to tag it in the `w3af` repository and then:
