@@ -31,22 +31,23 @@ git merge kali-upstream/master
 
 ### Update the w3af version
 
-Set the version to package:
-```bash
-# Define the version
-VERSION=`python get-latest-w3af-tag.py`
-```
-
 When the code being packaged needs to be updated you'll have to tag it in the `w3af`
-repository and then:
+repository:
 ```bash
 # Tag the new release in the w3af repository
 cd w3af/
 git tag $VERSION
 git push origin --tags
+```
 
+And then:
+```bash
 # And now in w3af-kali
 cd w3af-kali/
+
+# Define the version
+VERSION=`python get-latest-w3af-tag.py`
+
 # This downloads the updated tagged version from your git repo
 uscan --force-download --verbose
 git-import-orig ../w3af_$VERSION.orig.tar.gz
