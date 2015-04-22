@@ -94,6 +94,13 @@ The last command can fail because of one of the following:
  * Outdated patches (`Hunk #1 FAILED at`), which you fix using
  [quilt](https://pkg-perl.alioth.debian.org/howto/quilt.html#creating_a_patch)
 
+ ```bash
+ quilt push jinja2-old.patch
+ subl debian/patches/jinja2-old.patch
+ quilt refresh
+ quilt push jinja2-old.patch
+ ```
+
 ## Testing the .deb files
 
  * Get the latest `w3af-kali` docker from [the registry](https://registry.hub.docker.com/u/andresriancho/w3af-kali/).
