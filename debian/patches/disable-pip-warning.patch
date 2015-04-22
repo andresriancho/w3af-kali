@@ -1,7 +1,7 @@
 Index: w3af-kali/w3af/core/controllers/dependency_check/dependency_check.py
 ===================================================================
---- w3af-kali.orig/w3af/core/controllers/dependency_check/dependency_check.py   2015-03-02 14:14:58.601126122 -0300
-+++ w3af-kali/w3af/core/controllers/dependency_check/dependency_check.py    2015-03-02 14:27:36.121130968 -0300
+--- w3af-kali.orig/w3af/core/controllers/dependency_check/dependency_check.py	2015-04-22 08:46:58.054334406 -0300
++++ w3af-kali/w3af/core/controllers/dependency_check/dependency_check.py	2015-04-22 11:04:24.000000000 -0300
 @@ -27,19 +27,21 @@
      # Is pip even there?
      import pip
