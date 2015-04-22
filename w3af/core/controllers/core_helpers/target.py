@@ -19,7 +19,6 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
-import time
 import urllib2
 
 import w3af.core.data.kb.config as cf
@@ -57,8 +56,6 @@ class w3af_core_target(Configurable):
         cf.cf.save('target_framework', 'unknown')
         cf.cf.save('target_domains', set())
         cf.cf.save('baseURLs', [])
-        cf.cf.save('session_name', 'default_session' + '-' +
-                   time.strftime('%Y-%b-%d_%H-%M-%S'))
 
     def get_options(self):
         """
@@ -71,8 +68,7 @@ class w3af_core_target(Configurable):
         o = opt_factory('target', targets, d, 'url_list')
         ol.add(o)
 
-        d = 'Target operating system (' + '/'.join(
-            self._operating_systems) + ')'
+        d = 'Target operating system (%s)' % '/'.join(self._operating_systems)
         h = 'This setting is here to enhance w3af performance.'
 
         # This list "hack" has to be done because the default value is the one
@@ -83,8 +79,8 @@ class w3af_core_target(Configurable):
         o = opt_factory('target_os', tmp_list, d, 'combo', help=h)
         ol.add(o)
 
-        d = 'Target programming framework (' + '/'.join(
-            self._programming_frameworks) + ')'
+        frameworks = '/'.join(self._programming_frameworks)
+        d = 'Target programming framework (%s)' % frameworks
         h = 'This setting is here to enhance w3af performance.'
         # This list "hack" has to be done because the default value is the one
         # in the first position on the list
@@ -177,16 +173,6 @@ class w3af_core_target(Configurable):
         cf.cf.save('targets', target_urls)
         cf.cf.save('target_domains', list(set([u.get_domain() for u in target_urls])))
         cf.cf.save('baseURLs', [i.base_url() for i in target_urls])
-
-        if target_urls:
-            sess_name = [x.get_domain() for x in target_urls]
-            sess_name = u'-'.join(sess_name)
-        else:
-            sess_name = u'no_target'
-
-        fmt = u'%s-%s'
-        cf.cf.save('session_name', fmt % (sess_name,
-                                          time.strftime('%Y-%b-%d_%H-%M-%S')))
 
         # Advanced target selection
         os = options_list['target_os'].get_value_str()
