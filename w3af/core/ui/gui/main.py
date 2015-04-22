@@ -53,8 +53,9 @@ from w3af.core.ui.gui.auto_update.gui_updater import GUIUpdater
  
 from w3af.core.ui.gui import scanrun, helpers, profiles, compare
 from w3af.core.ui.gui import export_request
-from w3af.core.ui.gui import entries, encdec, pluginconfig, confpanel
+from w3af.core.ui.gui import entries, pluginconfig, confpanel
 from w3af.core.ui.gui import wizard, guardian
+from w3af.core.ui.gui.tools import encdec
 from w3af.core.ui.gui.user_help.open_help import open_help
 from w3af.core.ui.gui.tabs.log.main_body import LogBody
 from w3af.core.ui.gui.tabs.exploit.main_body import ExploitBody
@@ -712,8 +713,9 @@ class MainApp(object):
         This is separated because it's called when the process finishes by
         itself or by the user click.
         """
-        self.startstopbtns.change_internals(_("Clear"), gtk.STOCK_CLEAR,
-                                           _("Clear all the obtained results"))
+        self.startstopbtns.change_internals(_("Clear"),
+                                            gtk.STOCK_CLEAR,
+                                            _("Clear all the obtained results"))
         self.throbber.running(False)
         self.toolbut_pause.set_sensitive(False)
         self.scan_should = "clear"

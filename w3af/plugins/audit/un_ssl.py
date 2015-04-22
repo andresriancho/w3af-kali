@@ -55,8 +55,18 @@ class un_ssl(AuditPlugin):
         if not self._should_run:
             return
 
-        # Define some variables
         initial_uri = freq.get_uri()
+        if initial_uri.get_port() not in {80, 443}:
+            # We get here then the original URL looks like http://foo:3921/
+            #
+            # It's really strange (maybe not even possible?) to find a server
+            # that listens for HTTP and HTTPS connections on the same port,
+            # since we don't want to guess the port, nor generate errors such
+            # as #8871 we just ignore this case
+            self._should_run = False
+            return
+
+        # Define some variables
         insecure_uri = initial_uri.copy()
         secure_uri = initial_uri.copy()
 
@@ -68,9 +78,11 @@ class un_ssl(AuditPlugin):
         secure_fr = copy.deepcopy(freq)
         secure_fr.set_url(secure_uri)
 
-        # Make sure that we ignore errors during this test
+        # Make sure that we disable error handling during these tests, we want
+        # the requests to fail quickly and without affecting the library's error
+        # rate
         send_mutant = self._uri_opener.send_mutant
-        kwargs = {'grep': False, 'ignore_errors': True}
+        kwargs = {'grep': False, 'error_handling': False}
 
         try:
             insecure_response = send_mutant(insecure_fr, **kwargs)

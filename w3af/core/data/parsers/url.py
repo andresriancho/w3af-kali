@@ -73,18 +73,20 @@ def memoized(meth):
 
 
 def parse_qsl(qs, keep_blank_values=0, strict_parsing=0):
-    """This is a slightly modified version of the function with the same name
-    that is defined in urlparse.py . I had to modify it in order to have
-    '+' handled in the way w3af needed it. Note that the only change is:
+    """This was a slightly modified version of the function with the same name
+    that is defined in urlparse.py . I modified it, and then reverted the patch
+    to have different handling of '+':
 
     -        name = unquote(nv[0].replace('+', ' '))
     -        value = unquote(nv[1].replace('+', ' '))
     +        name = unquote(nv[0])
     +        value = unquote(nv[1])
 
-    In other words, keep those + !
+    Due to this [0] bug: "Proxy (and maybe others) affected by querystring +
+    not being decoded by URL class #9139", I reverted my changes to the function
+    but kept it here for better docs.
 
-    Parse a query given as a string argument.
+    [0] https://github.com/andresriancho/w3af/issues/9139
 
     Arguments:
 
@@ -117,8 +119,8 @@ def parse_qsl(qs, keep_blank_values=0, strict_parsing=0):
             else:
                 continue
         if len(nv[1]) or keep_blank_values:
-            name = urlparse.unquote(nv[0])
-            value = urlparse.unquote(nv[1])
+            name = urlparse.unquote(nv[0].replace('+', ' '))
+            value = urlparse.unquote(nv[1].replace('+', ' '))
             r.append((name, value))
 
     return r
@@ -128,7 +130,7 @@ def parse_qs(qstr, ignore_exc=True, encoding=DEFAULT_ENCODING):
     """
     Parse a url encoded string (a=b&c=d) into a QueryString object.
 
-    :param url_enc_str: The string to parse
+    :param qstr: The string to parse
     :return: A QueryString object (a dict wrapper).
     """
     if not isinstance(qstr, basestring):
@@ -269,6 +271,7 @@ class URL(DiskItem):
         return new_url
 
     @property
+    @memoized
     def url_string(self):
         """
         :return: A <unicode> representation of the URL
@@ -386,7 +389,7 @@ class URL(DiskItem):
 
         # We may have auth URLs like <http://user:passwd@host.tld:80>.
         # Notice the ":" duplication. We'll be interested in transforming
-        # 'net_location' beginning in the last appereance of ':'
+        # 'net_location' beginning in the last appearance of ':'
         at_symb_index = net_location.rfind('@')
         colon_symb_max_index = net_location.rfind(':')
         
@@ -476,9 +479,10 @@ class URL(DiskItem):
         For more information read RFC 1808 especially section 5.
 
         :param relative: The relative url to add to the base url
-        :param encoding: The encoding to use for the final url_object being returned.
-                         If no encoding is specified, the returned url_object will
-                         have the same encoding that the current url_object.
+        :param encoding: The encoding to use for the final url_object being
+                         returned. If no encoding is specified, the returned
+                         url_object will have the same encoding that the current
+                         url_object.
         :return: The joined URL.
 
         Example usage available in test_url.py
@@ -807,9 +811,10 @@ class URL(DiskItem):
     def __hash__(self):
         return hash(self.url_string)
 
+    @memoized
     def __str__(self):
         """
-        :return: A string representation of myself
+        :return: A string representation of self
         """
         urlstr = smart_str(
             self.url_string,

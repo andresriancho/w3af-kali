@@ -300,24 +300,23 @@ class HistoryItem(object):
     def save(self):
         """Save object into DB."""
         resp = self.response
-        values = []
-        values.append(resp.get_id())
-        values.append(self.request.get_uri().url_string)
-        values.append(resp.get_code())
-        values.append(self.tag)
-        values.append(int(self.mark))
-        values.append(str(resp.info()))
-        values.append(resp.get_wait_time())
-        values.append(resp.get_msg())
-        values.append(resp.content_type)
-        ch = resp.charset
-        values.append(ch)
-        values.append(self.request.get_method())
-        values.append(len(resp.body))
         code = int(resp.get_code()) / 100
-        values.append(code)
-        values.append(resp.get_alias())
-        values.append(int(self.request.get_uri().has_query_string()))
+
+        values = [resp.get_id(),
+                  self.request.get_uri().url_string,
+                  resp.get_code(),
+                  self.tag,
+                  int(self.mark),
+                  str(resp.info()),
+                  resp.get_wait_time(),
+                  resp.get_msg(),
+                  resp.content_type,
+                  resp.charset,
+                  self.request.get_method(),
+                  len(resp.body),
+                  code,
+                  resp.get_alias(),
+                  int(self.request.get_uri().has_query_string())]
 
         if not self.id:
             sql = ('INSERT INTO %s '
@@ -329,18 +328,43 @@ class HistoryItem(object):
         else:
             values.append(self.id)
             sql = ('UPDATE %s'
-                   ' SET id = ?, url = ?, code = ?, tag = ?, mark = ?, info = ?, '
-                   'time = ?, msg = ?, content_type = ?, charset = ?, '
-                   'method = ?, response_size = ?, codef = ?, alias = ?, has_qs = ? '
-                   ' WHERE id = ?' % self._DATA_TABLE)
+                   ' SET id = ?, url = ?, code = ?, tag = ?, mark = ?,'
+                   ' info = ?, time = ?, msg = ?, content_type = ?,'
+                   ' charset = ?, method = ?, response_size = ?, codef = ?,'
+                   ' alias = ?, has_qs = ? WHERE id = ?' % self._DATA_TABLE)
             self._db.execute(sql, values)
 
         #
         # Save raw data to file
         #
-        fname = self._get_fname_for_id(self.id)
-        
-        req_res = open(fname, 'wb')
+        path_fname = self._get_fname_for_id(self.id)
+
+        try:
+            req_res = open(path_fname, 'wb')
+        except IOError:
+            # We get here when the path_fname does not exist (for some reason)
+            # and want to analyze exactly why to be able to fix the issue in
+            # the future.
+            #
+            # Now the path_fname looks like:
+            #   /root/.w3af/tmp/19524/main.db_traces/1.trace
+            #
+            # I want to investigate which path doesn't exist, so I'm starting
+            # from the first and add directories until reaching the last one
+            #
+            # https://github.com/andresriancho/w3af/issues/9022
+            path, fname = os.path.split(path_fname)
+            split_path = path.split('/')
+
+            for i in xrange(len(split_path) + 1):
+                test_path = '/'.join(split_path[:i])
+                if not os.path.exists(test_path):
+                    msg = ('Directory does not exist: "%s" while trying to'
+                           ' write DB history to "%s"')
+                    raise IOError(msg % (test_path, path_fname))
+
+            raise
+
         data = (self.request.to_dict(),
                 self.response.to_dict(),
                 self._MSGPACK_CANARY)
@@ -363,9 +387,7 @@ class HistoryItem(object):
 
     def _update_field(self, name, value):
         """Update custom field in DB."""
-        sql = 'UPDATE ' + self._DATA_TABLE
-        sql += ' SET ' + name + ' = ? '
-        sql += ' WHERE id = ?'
+        sql = 'UPDATE %s SET %s = ? WHERE id = ?' % (self._DATA_TABLE, name)
         self._db.execute(sql, (value, self.id))
 
     def update_tag(self, value, force_db=False):

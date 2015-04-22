@@ -22,7 +22,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import gtk
 import gobject
 
-from w3af.core.ui.gui import reqResViewer, helpers, entries, httpLogTab
+from w3af.core.ui.gui import helpers, entries, httpLogTab
+from w3af.core.ui.gui.reqResViewer import ReqResViewer
 from w3af.core.ui.gui.entries import ConfigOptions, StatusBar
 
 from w3af.core.controllers.exceptions import BaseFrameworkException, ProxyException
@@ -54,9 +55,9 @@ class ProxiedRequests(entries.RememberingWindow):
     """
     def __init__(self, w3af):
         """Constructor."""
-        super(ProxiedRequests, self).__init__(w3af, "proxytool",
-                                              _("w3af - Proxy"),
-                                              "Using_the_Proxy",
+        super(ProxiedRequests, self).__init__(w3af, 'proxytool',
+                                              _('w3af - Proxy'),
+                                              'Using_the_Proxy',
                                               onDestroy=self._close)
         self.w3af = w3af
         
@@ -77,7 +78,8 @@ class ProxiedRequests(entries.RememberingWindow):
              None, _('Move to the next request'), self._next),
         ])
         actiongroup.add_toggle_actions([
-            # xml_name, icon, real_menu_text, accelerator, tooltip, callback, initial_flag
+            # xml_name, icon, real_menu_text, accelerator, tooltip,
+            # callback, initial_flag
             (
                 'TrapReq', gtk.STOCK_JUMP_TO, _(
                     '_Trap Requests'), None, _('Trap requests'),
@@ -104,10 +106,9 @@ class ProxiedRequests(entries.RememberingWindow):
         self._prev_ip_port = None
         # We need to make widget (split or tabbed) firstly
         self._layout = self.pref.get_value('proxy', 'trap_view')
-        self.reqresp = reqResViewer.reqResViewer(w3af,
-                                                 [self.bt_drop.set_sensitive,
-                                                  self.bt_send.set_sensitive],
-                                                 editableRequest=True, layout=self._layout)
+        self.reqresp = ReqResViewer(w3af, [self.bt_drop.set_sensitive,
+                                           self.bt_send.set_sensitive],
+                                    editableRequest=True, layout=self._layout)
         self.reqresp.set_sensitive(False)
         vbox = gtk.VBox()
         vbox.pack_start(self.reqresp, True, True)
@@ -168,7 +169,8 @@ class ProxiedRequests(entries.RememberingWindow):
         
         d = _('Proxy IP address and port number')
         h = _('Local IP address where the proxy will listen for HTTP requests.')
-        o = opt_factory('ipport', "127.0.0.1:8080", d, option_types.IPPORT, help=h)
+        o = opt_factory('ipport', '127.0.0.1:8080', d, option_types.IPPORT,
+                        help=h)
         proxy_options.add(o)
         
         d = _('Regular expression for URLs to intercept')
@@ -294,7 +296,8 @@ class ProxiedRequests(entries.RememberingWindow):
         self.pref.save()
 
         if self._layout != self.pref.get_value('proxy', 'trap_view'):
-            self.show_alert(_("Some of options will take effect after you restart proxy tool"))
+            self.show_alert(_("Some of options will take effect after you"
+                              " restart proxy tool"))
 
     def show_alert(self, msg):
         dlg = gtk.MessageDialog(

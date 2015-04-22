@@ -129,18 +129,27 @@ class InfoSet(object):
         return template.render(context)
 
     def get_id(self):
+        """
+        :return: All the ids associated with the instances stored in self.infos
+        """
         all_ids = []
         for info in self.infos:
             all_ids.extend(info.get_id())
         return list(set(all_ids))
 
     def get_urls(self):
+        """
+        :return: All the URLs associated with the instances stored in self.infos
+        """
         all_urls = []
         for info in self.infos:
             all_urls.append(info.get_url())
         return list(set(all_urls))
 
     def get_uris(self):
+        """
+        :return: All the URIs associated with the instances stored in self.infos
+        """
         all_urls = []
         for info in self.infos:
             all_urls.append(info.get_uri())
@@ -157,6 +166,79 @@ class InfoSet(object):
                  handling Info instances.
         """
         return self._mutant
+
+    def to_json(self):
+        """
+        :return: A dict containing all (*) the information from this InfoSet
+                 instance, which can be serialized using python's json module.
+
+                 (*) There is some loss of fidelity, make sure you read the
+                     implementation before using it for anything other than
+                     writing a report.
+        """
+        attributes = {}
+        long_description = None
+        fix_guidance = None
+        fix_effort = None
+        tags = None
+        wasc_ids = None
+        wasc_urls = None
+        cwe_urls = None
+        cwe_ids = None
+        references = None
+        owasp_top_10_references = None
+
+        for k, v in self.first_info.iteritems():
+            attributes[str(k)] = str(v)
+
+        if self.has_db_details():
+            long_description = self.get_long_description()
+            fix_guidance = self.get_fix_guidance()
+            fix_effort = self.get_fix_effort()
+            tags = self.get_tags()
+            wasc_ids = self.get_wasc_ids()
+            cwe_ids = self.get_cwe_ids()
+
+            # These require special treatment since they are iterators
+            wasc_urls = [u for u in self.get_wasc_urls()]
+            cwe_urls = [u for u in self.get_cwe_urls()]
+
+            owasp_top_10_references = []
+            for owasp_version, risk_id, ref in self.get_owasp_top_10_references():
+                data = {'owasp_version': owasp_version,
+                        'risk_id': risk_id,
+                        'link': ref}
+                owasp_top_10_references.append(data)
+
+            references = []
+            for ref in self.get_references():
+                data = {'url': ref.url,
+                        'title': ref.title}
+                references.append(data)
+
+        _data = {'url': str(self.get_url()),
+                 'urls': [str(u) for u in self.get_urls()],
+                 'var': self.get_token_name(),
+                 'response_ids': self.get_id(),
+                 'vulndb_id': self.get_vulndb_id(),
+                 'name': self.get_name(),
+                 'desc': self.get_desc(with_id=False),
+                 'long_description': long_description,
+                 'fix_guidance': fix_guidance,
+                 'fix_effort': fix_effort,
+                 'tags': tags,
+                 'wasc_ids': wasc_ids,
+                 'wasc_urls': wasc_urls,
+                 'cwe_urls': cwe_urls,
+                 'cwe_ids': cwe_ids,
+                 'references': references,
+                 'owasp_top_10_references': owasp_top_10_references,
+                 'plugin_name': self.get_plugin_name(),
+                 'severity': self.get_severity(),
+                 'attributes': attributes,
+                 'highlight': list(self.get_to_highlight())}
+
+        return _data
 
     def get_method(self):
         return self.first_info.get_method()
@@ -183,6 +265,9 @@ class InfoSet(object):
 
     def get_plugin_name(self):
         return self.first_info.get_plugin_name()
+
+    def get_to_highlight(self):
+        return self.first_info.get_to_highlight()
 
     def get_token_name(self):
         """
@@ -242,6 +327,45 @@ class InfoSet(object):
         """
         assert self.ITAG is not None, 'Need to specify unique id tag'
         return info[self.ITAG] == self.get_attribute(self.ITAG)
+
+    def has_db_details(self):
+        return self.first_info.has_db_details()
+
+    def get_vulndb_id(self):
+        return self.first_info.get_vulndb_id()
+
+    def get_long_description(self):
+        return self.first_info.get_long_description()
+
+    def get_fix_guidance(self):
+        return self.first_info.get_fix_guidance()
+
+    def get_fix_effort(self):
+        return self.first_info.get_fix_effort()
+
+    def get_tags(self):
+        return self.first_info.get_tags()
+
+    def get_wasc_ids(self):
+        return self.first_info.get_wasc_ids()
+
+    def get_wasc_urls(self):
+        return self.first_info.get_wasc_urls()
+
+    def get_cwe_urls(self):
+        return self.first_info.get_cwe_urls()
+
+    def get_cwe_ids(self):
+        return self.first_info.get_cwe_ids()
+
+    def get_references(self):
+        return self.first_info.get_references()
+
+    def get_owasp_top_10_references(self):
+        return self.first_info.get_owasp_top_10_references()
+
+    def get_vuln_info_from_db(self):
+        return self.first_info.get_vuln_info_from_db()
 
     def __eq__(self, other):
         return self.get_uniq_id() == other.get_uniq_id()
