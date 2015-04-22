@@ -77,6 +77,8 @@ class InfoSet(object):
     TEMPLATE = None
     ITAG = None
 
+    MAX_INFO_INSTANCES = 30
+
     JINJA2_ENV = Environment(undefined=StrictUndefined,
                              trim_blocks=True,
                              lstrip_blocks=True)
@@ -99,10 +101,19 @@ class InfoSet(object):
         self._mutant = EmptyMutant()
 
     def add(self, info):
+        if len(self.infos) == self.MAX_INFO_INSTANCES:
+            return False
+
         self.infos.append(info)
+        return True
 
     def extend(self, infos):
-        self.infos.extend(infos)
+        for i in infos:
+            added = self.add(i)
+            if not added:
+                return False
+
+        return True
 
     @property
     def first_info(self):
@@ -326,7 +337,47 @@ class InfoSet(object):
         :return: True if they do match
         """
         assert self.ITAG is not None, 'Need to specify unique id tag'
-        return info[self.ITAG] == self.get_attribute(self.ITAG)
+        return info[self.ITAG] == self.get_attribute(self.ITAG) and \
+               info.get_name() == self.get_name()
+
+    def has_db_details(self):
+        return self.first_info.has_db_details()
+
+    def get_vulndb_id(self):
+        return self.first_info.get_vulndb_id()
+
+    def get_long_description(self):
+        return self.first_info.get_long_description()
+
+    def get_fix_guidance(self):
+        return self.first_info.get_fix_guidance()
+
+    def get_fix_effort(self):
+        return self.first_info.get_fix_effort()
+
+    def get_tags(self):
+        return self.first_info.get_tags()
+
+    def get_wasc_ids(self):
+        return self.first_info.get_wasc_ids()
+
+    def get_wasc_urls(self):
+        return self.first_info.get_wasc_urls()
+
+    def get_cwe_urls(self):
+        return self.first_info.get_cwe_urls()
+
+    def get_cwe_ids(self):
+        return self.first_info.get_cwe_ids()
+
+    def get_references(self):
+        return self.first_info.get_references()
+
+    def get_owasp_top_10_references(self):
+        return self.first_info.get_owasp_top_10_references()
+
+    def get_vuln_info_from_db(self):
+        return self.first_info.get_vuln_info_from_db()
 
     def has_db_details(self):
         return self.first_info.has_db_details()

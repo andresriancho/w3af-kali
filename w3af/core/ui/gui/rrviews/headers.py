@@ -44,8 +44,8 @@ class HttpHeadersView(RememberingVPaned):
         self.parentView = parentView
         self.is_request = True
         box = gtk.HBox()
-        self._headersStore = gtk.ListStore(
-            gobject.TYPE_STRING, gobject.TYPE_STRING)
+        self._headersStore = gtk.ListStore(gobject.TYPE_STRING,
+                                           gobject.TYPE_STRING)
         self._headersTreeview = gtk.TreeView(self._headersStore)
         # Column for Name
         renderer = gtk.CellRendererText()
@@ -172,7 +172,7 @@ class HttpHeadersView(RememberingVPaned):
         self.startLine = ''
 
     def highlight(self, text, tag):
-        """Highlight word in thetext."""
+        """Highlight word in the text."""
         self._raw.highlight(text, tag)
 
     def show_object(self, obj):
@@ -190,10 +190,12 @@ class HttpHeadersView(RememberingVPaned):
             self._raw.set_text(obj.get_body())
 
     def get_object(self):
-        """Return object (request or resoponse)."""
+        """Return object (request or response)."""
         head = self.startLine
+
         for header in self._headersStore:
             head += header[0] + ':' + header[1] + CRLF
+
         if self.is_request:
             return http_request_parser(head, self._raw.get_text())
         else:
