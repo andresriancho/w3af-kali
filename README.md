@@ -34,15 +34,14 @@ git merge kali-upstream/master
 When the code being packaged needs to be updated you'll have to tag it in the `w3af`
 repository:
 ```bash
-# Tag the new release in the w3af repository
+# Tag the new release in the w3af repository changing the $VERSION
 cd w3af/
 git tag $VERSION
 git push origin --tags
 ```
 
-And then:
+And now in w3af-kali:
 ```bash
-# And now in w3af-kali
 cd w3af-kali/
 
 # Define the version
