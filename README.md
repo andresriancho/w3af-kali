@@ -76,7 +76,7 @@ cd w3af-kali/
 
 # Add the new release changelog entry, pointing to the right version
 # so dpkg-buildpackage can find the tgz
-dch -v $VERSION-0kali1 -D kali
+dch -v $VERSION-0kali1 -D kali -M --force-distribution
 git commit debian/changelog -m $VERSION
 
 dpkg-checkbuilddeps
