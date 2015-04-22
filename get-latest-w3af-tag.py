@@ -1,12 +1,17 @@
 #!/usr/bin/env python
 
+import sys
 import requests
 import semver
 
 url = 'https://api.github.com/repos/andresriancho/w3af/tags'
 
 data = requests.get(url).json()
-tag_names = [x['name'] for x in data]
+try:
+    tag_names = [x['name'] for x in data]
+except TypeError:
+    print('Unexpected data: "%s"' % data)
+    sys.exit(1)
 
 valid_tags = []
 
