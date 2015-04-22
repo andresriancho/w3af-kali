@@ -95,10 +95,14 @@ The last command can fail because of one of the following:
  [quilt](https://pkg-perl.alioth.debian.org/howto/quilt.html#creating_a_patch)
 
  ```bash
- quilt push jinja2-old.patch
- subl debian/patches/jinja2-old.patch
+ git checkout $W3AF_FILE_TO_PATCH
+
+ # Edit the file with the changes you want to be in the debian package
+ subl $W3AF_FILE_TO_PATCH
+
  quilt refresh
- quilt push jinja2-old.patch
+ quilt pop
+ quilt push $PATCH_NAME
  ```
 
 ## Testing the .deb files
