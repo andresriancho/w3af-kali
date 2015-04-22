@@ -24,11 +24,11 @@ So before performing any change on our side, lets pull from upstream:
 git remote add kali-upstream git://git.kali.org/packages/w3af.git
 git fetch -v kali-upstream
 
-git checkout master
-git merge kali-upstream/master
-
 git checkout pristine-tar
 git merge kali-upstream/pristine-tar
+
+git checkout master
+git merge kali-upstream/master
 ```
 
 ### Update the w3af version
