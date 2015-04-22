@@ -4,7 +4,9 @@ Index: w3af/core/data/kb/info_set.py
 +++ w3af-kali/w3af/core/data/kb/info_set.py	2015-03-03 13:24:35.047621644 -0300
 @@ -78,8 +78,8 @@
      ITAG = None
- 
+     
+     MAX_INFO_INSTANCES = 30
+
      JINJA2_ENV = Environment(undefined=StrictUndefined,
 -                             trim_blocks=True,
 -                             lstrip_blocks=True)
