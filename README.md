@@ -13,9 +13,6 @@ sudo apt-get install devscripts git-buildpackage debhelper debootstrap
 ```bash
 git clone git@github.com:andresriancho/w3af-kali.git
 cd w3af-kali
-git checkout upstream
-git checkout pristine-tar
-git checkout master
 ```
 
 ### Get the latest from Kali repositories
@@ -26,7 +23,12 @@ So before performing any change on our side, lets pull from upstream:
 ```bash
 git remote add kali-upstream git://git.kali.org/packages/w3af.git
 git fetch -v kali-upstream
+
+git checkout master
 git merge kali-upstream/master
+
+git checkout pristine-tar
+git merge kali-upstream/pristine-tar
 ```
 
 ### Update the w3af version
