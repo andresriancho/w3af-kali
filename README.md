@@ -13,6 +13,7 @@ sudo apt-get install devscripts git-buildpackage debhelper debootstrap
 ```bash
 git clone git@github.com:andresriancho/w3af-kali.git
 cd w3af-kali
+git fetch --all
 ```
 
 ### Get the latest from Kali repositories
