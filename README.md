@@ -120,18 +120,19 @@ The last command can fail because of one of the following:
 
 ### Push the changes to this repository
 ```bash
+git push
 git push origin pristine-tar
 git push origin upstream
 ```
 
 ## Push to Kali repositories
-Pushing to Kali repositories is not under our control, so we need to bother one of the Kali maintainers.
+Pushing to Kali repositories is not under our control, so we need to bother one
+of the Kali maintainers.
 
 Once they push the package we can see it [here](http://pkg.kali.org/pkg/w3af).
 
 ## Creation of this repository
-This repository is a copy of [Kali Linux's w3af repository](http://git.kali.org/gitweb/?p=packages/w3af.git;a=summary)
-which was created using these commands:
+This repository is a copy of [Kali Linux's w3af repository](http://git.kali.org/gitweb/?p=packages/w3af.git;a=summary) which was created using these commands:
 
 ```bash
 cd /tmp/
