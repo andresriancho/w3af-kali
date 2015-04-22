@@ -6,7 +6,7 @@ Building a new `Kali` package for `w3af` requires these steps to be completed:
 
 ### Install the required tools
 ```bash
-sudo apt-get install devscripts git-buildpackage debhelper debootstrap
+sudo apt-get install -y devscripts git-buildpackage debhelper debootstrap
 ```
 
 ### Get this repository
@@ -100,7 +100,7 @@ The last command can fail because of one of the following:
  The image includes `django-moth` and some `w3af` dependencies:
 
  ```bash
- docker pull andresriancho/w3af-kali
+ sudo docker pull andresriancho/w3af-kali
  ```
 
  * Update the image with your local changes by running a build:
@@ -156,3 +156,4 @@ git merge kali-upstream/master
 ## Resources
 
  * http://pkg.kali.org/pkg/w3af
+ * The steps outlined in this README.md are automated in [w3af-kali-ci](https://github.com/andresriancho/w3af-kali-ci)
