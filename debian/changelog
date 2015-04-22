@@ -1,20 +1,9 @@
 w3af (1.6.51-0kali1) kali; urgency=medium
 
-  * Version bump
+  * Import new upstream release
+  * Refresh patch
 
- -- Andres Riancho <andres@tagcube.io>  Wed, 22 Apr 2015 10:16:46 -0300
-
-w3af (1.6.50-0kali1) kali; urgency=medium
-
-  * Fixing html_file+jinja2 bug
-
- -- Andres Riancho <andres@tagcube.io>  Wed, 22 Apr 2015 09:16:32 -0300
-
-w3af (1.6.49-0kali1) kali; urgency=medium
-
-  * Fixing multiple bugs
-
- -- Andres Riancho <andres@tagcube.io>  Mon, 20 Apr 2015 09:45:31 -0300
+ -- Sophie Brun <sophie@freexian.com>  Wed, 22 Apr 2015 17:15:04 +0200
 
 w3af (1.6.49-0kali1) kali; urgency=medium
 
