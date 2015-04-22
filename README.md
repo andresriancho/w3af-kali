@@ -13,6 +13,8 @@ sudo apt-get install devscripts git-buildpackage debhelper debootstrap
 ```bash
 git clone git@github.com:andresriancho/w3af-kali.git
 cd w3af-kali
+git prune
+git gc
 git fetch --all
 ```
 
