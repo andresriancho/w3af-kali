@@ -4,9 +4,13 @@ import sys
 import requests
 import semver
 
-url = 'https://api.github.com/repos/andresriancho/w3af/tags'
+from requests.auth import HTTPBasicAuth
 
-data = requests.get(url).json()
+# hackish ugly
+TOKEN = '5f524d5c0a775091c8d5b9fa6b8e96682cba393d'[::-1]
+URL = 'https://api.github.com/repos/andresriancho/w3af/tags'
+
+data = requests.get(URL, auth=HTTPBasicAuth(TOKEN, 'x-oauth-basic')).json()
 try:
     tag_names = [x['name'] for x in data]
 except TypeError:
