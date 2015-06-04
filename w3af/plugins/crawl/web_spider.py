@@ -32,9 +32,9 @@ from w3af.core.controllers.core_helpers.fingerprint_404 import is_404
 from w3af.core.controllers.misc.itertools_toolset import unique_justseen
 from w3af.core.controllers.exceptions import BaseFrameworkException
 
+from w3af.core.data.db.variant_db import VariantDB
 from w3af.core.data.misc.encoding import smart_unicode
 from w3af.core.data.bloomfilter.scalable_bloom import ScalableBloomFilter
-from w3af.core.data.db.variant_db import VariantDB
 from w3af.core.data.db.disk_set import DiskSet
 from w3af.core.data.dc.headers import Headers
 from w3af.core.data.dc.factory import dc_from_form_params
@@ -67,8 +67,8 @@ class web_spider(CrawlPlugin):
         self._first_run = True
         self._target_urls = []
         self._target_domain = None
-        self._known_variants = VariantDB()
         self._already_filled_form = ScalableBloomFilter()
+        self._variant_db = VariantDB()
 
         # User configured variables
         self._ignore_regex = ''
@@ -103,6 +103,10 @@ class web_spider(CrawlPlugin):
 
         # Nothing to do here...
         if resp.get_code() == http_constants.UNAUTHORIZED:
+            return
+
+        # Nothing to do here...
+        if resp.is_image():
             return
 
         # And we don't trust what comes from the core, check if 404
@@ -179,7 +183,7 @@ class web_spider(CrawlPlugin):
                               self._headers_url_generator(resp, fuzzable_req))
         
         for ref, fuzzable_req, original_resp, possibly_broken in gen:
-            if self._should_output_extracted_url(ref, original_resp):
+            if self._should_verify_extracted_url(ref, original_resp):
                 yield ref, fuzzable_req, original_resp, possibly_broken
 
     def _headers_url_generator(self, resp, fuzzable_req):
@@ -264,7 +268,7 @@ class web_spider(CrawlPlugin):
                 possibly_broken = resp_is_404 or (ref in only_re_refs)
                 yield ref, fuzzable_req, resp, possibly_broken
 
-    def _should_output_extracted_url(self, ref, resp):
+    def _should_verify_extracted_url(self, ref, resp):
         """
         :param ref: A newly found URL
         :param resp: The HTTP response where the URL was found
@@ -290,11 +294,22 @@ class web_spider(CrawlPlugin):
             if not self._is_forward(ref):
                 return False
 
-        # Work with the parsed references and report broken
-        # links. Then work with the regex references and DO NOT
-        # report broken links
-        if self._need_more_variants(ref):
-            self._known_variants.append(ref)
+        #
+        # I tried to have only one VariantDB in the framework instead of two,
+        # but after some tests and architecture considerations it was better
+        # to duplicated the data.
+        #
+        # In the future I'll run plugins in different processes than the core,
+        # so it makes sense to have independent plugins.
+        #
+        # If I remove the web_spider VariantDB and just leave the one in the
+        # core the framework keeps working but this method
+        # (_should_verify_extracted_url) will return True much more often, which
+        # leads to extra HTTP requests for URLs which we already checked and the
+        # core will dismiss anyway
+        #
+        fuzzable_request = FuzzableRequest(ref)
+        if self._variant_db.append(fuzzable_request):
             return True
 
         return False
@@ -310,34 +325,6 @@ class web_spider(CrawlPlugin):
         self.worker_pool.map_multi_args(
             self._verify_reference,
             self._urls_to_verify_generator(resp, fuzzable_req))
-
-    def _need_more_variants(self, new_reference):
-        """
-        :param new_reference: The new URL that we want to see if its a variant
-            of at most MAX_VARIANTS references stored in self._already_crawled.
-
-        :return: True if I need more variants of ref.
-
-        Basically, the idea is to crawl the whole website, but if we are
-        crawling a site like youtube.com that has A LOT of links with the form:
-            - http://www.youtube.com/watch?v=xwLNu5MHXFs
-            - http://www.youtube.com/watch?v=JEzjwifH4ts
-            - ...
-            - http://www.youtube.com/watch?v=something_here
-
-        Then we don't actually want to follow all the links to all the videos!
-        So we are going to follow a decent number of variant URLs (in this
-        case, video URLs) to see if we can find something interesting in those
-        links, but after a fixed number of variants, we will start ignoring all
-        those variants.
-        """
-        if self._known_variants.need_more_variants(new_reference):
-            return True
-        else:
-            msg = ('Ignoring reference "%s" (it is simply a variant).'
-                   % new_reference)
-            om.out.debug(msg)
-            return False
 
     def _verify_reference(self, reference, original_request,
                           original_response, possibly_broken,
@@ -405,7 +392,7 @@ class web_spider(CrawlPlugin):
                 t = (resp.get_url(), original_request.get_uri())
                 self._broken_links.add(t)
         else:
-            msg = 'Adding reference "%s" to the result.'
+            msg = '[web_spider] Sending link to w3af core: "%s"'
             om.out.debug(msg % reference)
 
             fuzz_req = FuzzableRequest(reference, headers=headers)
@@ -531,7 +518,8 @@ class web_spider(CrawlPlugin):
 
         By default ignore_regex is an empty string (nothing is ignored) and
         follow_regex is '.*' (everything is followed). Both regular expressions
-        are normal regular expressions that are compiled with Python's re module.
+        are normal regular expressions that are compiled with Python's re
+        module.
 
         The regular expressions are applied to the URLs that are found using the
         match function.

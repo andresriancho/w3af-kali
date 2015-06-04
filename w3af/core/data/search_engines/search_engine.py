@@ -33,8 +33,8 @@ class SearchEngine(object):
 
     def __init__(self):
         #
-        #   Based on some tests performed by Nahuel Sanchez, Google will allow us to automate
-        #   searches if we use this user agent:
+        # Based on some tests performed by Nahuel Sanchez, Google will allow
+        # us to automate searches if we use this user agent:
         #
         hdrs = [('User-Agent',
                  'Googlebot/3.1 (+http://www.googlebot.com/bot.html)')]
@@ -84,11 +84,12 @@ class SearchEngine(object):
 
     def get_n_result_pages(self, query, limit=0):
         """
-        Return a list of httpresponses that represent the pages returned by
+        Return a list of HTTPResponses that represent the pages returned by
         the search engine when w3af performs a search.
         """
         start = 0
         result = []
+
         while True:
             try:
                 res_page = self.page_search(query, start, 10)
@@ -96,7 +97,8 @@ class SearchEngine(object):
                 om.out.debug(str(w3))
                 raise
             except Exception, e:
-                msg = 'Unhandled exception in SearchEngine.get_n_result_pages(): "%s"'
+                msg = ('Unhandled exception in SearchEngine.'
+                       'get_n_result_pages(): "%s"')
                 om.out.debug(msg % e)
                 raise
             else:
@@ -122,7 +124,8 @@ class SearchEngine(object):
 
     def search(self, query, start, count=10):
         """
-        This method is meant to be overriden by the subclasses of SearchEngine.py
+        This method is meant to be overriden by the subclasses of
+        SearchEngine.py
 
         This method searches the web and returns a list of URLs.
 
@@ -135,9 +138,10 @@ class SearchEngine(object):
 
     def page_search(self, query, start, count=10):
         """
-        This method is meant to be overriden by the subclasses of SearchEngine.py
+        This method is meant to be overriden by the subclasses of
+        SearchEngine.py
 
-        This method searches the web and returns a list of http response objects.
+        This method searches the web and returns a list of http response objects
 
         :param query: The query that we want to perform in the search engine
         :param start: The first result item
