@@ -28,17 +28,15 @@ import socket
 import select
 import time
 import os
-
-
-from OpenSSL import SSL
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing.dummy import Process
 
-import w3af.core.controllers.output_manager as om
+from OpenSSL import SSL
 
+import w3af.core.controllers.output_manager as om
 from w3af import ROOT_PATH
 from w3af.core.controllers.exceptions import BaseFrameworkException, ProxyException
-from w3af.core.data.parsers.url import URL
+from w3af.core.data.parsers.doc.url import URL
 from w3af.core.data.request.fuzzable_request import FuzzableRequest
 from w3af.core.data.dc.headers import Headers
 
@@ -405,7 +403,7 @@ class Proxy(Process):
         class myProxyHandler(w3afProxyHandler):
 
     And redefine the following methods:
-        def do_ALL( self )
+        def do_ALL(self)
             Which originally receives a request from the browser, sends it to
             the remote site, receives the response and returns the response to
             the browser. This method is called every time the browser sends a

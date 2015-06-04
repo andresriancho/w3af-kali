@@ -27,7 +27,7 @@ GUI = 2
 CORE_PIP_PACKAGES = [PIPDependency('clamd', 'clamd', '1.0.1'),
                      PIPDependency('github', 'PyGithub', '1.21.0'),
                      PIPDependency('git.util', 'GitPython', '0.3.2.RC1'),
-                     PIPDependency('pybloomfilter', 'pybloomfiltermmap', '0.3.11'),
+                     PIPDependency('pybloomfilter', 'pybloomfiltermmap', '0.3.14'),
                      PIPDependency('esmre', 'esmre', '0.3.1'),
                      PIPDependency('phply', 'phply', '0.9.1'),
                      PIPDependency('stopit', 'stopit', '1.1.0'),
@@ -44,7 +44,7 @@ CORE_PIP_PACKAGES = [PIPDependency('clamd', 'clamd', '1.0.1'),
                      # https://github.com/andresriancho/w3af/issues/8339
                      PIPDependency('pyasn1', 'pyasn1', '0.1.3'),
 
-                     PIPDependency('lxml', 'lxml', '2.3.2'),
+                     PIPDependency('lxml', 'lxml', '3.4.4'),
                      PIPDependency('scapy.config', 'scapy-real', '2.2.0-dev'),
                      PIPDependency('guess_language', 'guess-language', '0.2'),
                      PIPDependency('cluster', 'cluster', '1.1.1b3'),
@@ -54,7 +54,11 @@ CORE_PIP_PACKAGES = [PIPDependency('clamd', 'clamd', '1.0.1'),
                      PIPDependency('darts.lib.utils', 'darts.util.lru', '0.5'),
                      PIPDependency('jinja2', 'Jinja2', '2.7.3'),
                      PIPDependency('vulndb', 'vulndb', '0.0.17'),
-                     PIPDependency('markdown', 'markdown', '2.6.1')]
+
+                     # https://gist.github.com/andresriancho/cf2fa1ce239b30f37bd9
+                     PIPDependency('ruamel.ordereddict',
+                                   'ruamel.ordereddict',
+                                   '0.4.6')]
 
 GUI_PIP_EXTRAS = [PIPDependency('xdot', 'xdot', '0.6')]
 

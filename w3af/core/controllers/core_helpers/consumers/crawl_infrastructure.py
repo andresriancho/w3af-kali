@@ -47,8 +47,6 @@ class crawl_infrastructure(BaseConsumer):
     def __init__(self, crawl_infrastructure_plugins, w3af_core,
                  max_discovery_time):
         """
-        :param in_queue: The input queue that will feed the crawl_infrastructure
-                         plugins
         :param crawl_infrastructure_plugins: Instances of crawl_infrastructure
                                              plugins in a list
         :param w3af_core: The w3af core that we'll use for status reporting
@@ -57,7 +55,8 @@ class crawl_infrastructure(BaseConsumer):
         """
         super(crawl_infrastructure, self).__init__(crawl_infrastructure_plugins,
                                                    w3af_core,
-                                                   thread_name='CrawlInfra')
+                                                   thread_name='CrawlInfra',
+                                                   max_pool_queued_tasks=100)
         self._max_discovery_time = int(max_discovery_time)
 
         # For filtering fuzzable requests found by plugins:
@@ -73,14 +72,24 @@ class crawl_infrastructure(BaseConsumer):
         Consume the queue items, sending them to the plugins which are then
         going to find vulnerabilities, new URLs, etc.
         """
-
         while True:
 
             try:
                 work_unit = self.in_queue.get(timeout=0.1)
+            except KeyboardInterrupt:
+                # https://github.com/andresriancho/w3af/issues/9587
+                #
+                # If we don't do this, the thread will die and will never
+                # process the POISON_PILL, which will end up in an endless
+                # wait for .join()
+                continue
+
             except Queue.Empty:
                 # pylint: disable=E1120
-                self._route_all_plugin_results()
+                try:
+                    self._route_all_plugin_results()
+                except KeyboardInterrupt:
+                    continue
                 # pylint: enable=E1120
             else:
                 if work_unit == POISON_PILL:
@@ -98,12 +107,22 @@ class crawl_infrastructure(BaseConsumer):
                     break
 
                 else:
-                    self._consume(work_unit)
-                    self.in_queue.task_done()
+                    # With specific error/success handling just for debugging
+                    try:
+                        self._consume(work_unit)
+                    except KeyboardInterrupt:
+                        self.in_queue.task_done()
+                    except:
+                        self.in_queue.task_done()
+                    else:
+                        self.in_queue.task_done()
+
                     work_unit = None
 
     def _teardown(self, plugin=None):
-        """End plugins"""
+        """
+        End plugins
+        """
         if plugin is None:
             to_teardown = self._consumer_plugins
         else:
@@ -237,6 +256,8 @@ class crawl_infrastructure(BaseConsumer):
         self._disabled_plugins = set()
         self._consumer_plugins = []
 
+        self._variant_db.cleanup()
+
     def show_summary(self):
         """
         This method is called after the crawl and infrastructure phases finishes
@@ -365,20 +386,24 @@ class crawl_infrastructure(BaseConsumer):
         #       - http://host.tld/?id=payload1&action=remove
         #       - http://host.tld/?id=payload1&action=remove
         #
-        if self._variant_db.need_more_variants_for_fr(fuzzable_request):
-            self._variant_db.append_fr(fuzzable_request)
+        if not self._variant_db.append(fuzzable_request):
+            msg = 'Ignoring reference "%s" (it is simply a variant).'
+            msg %= fuzzable_request.get_uri()
+            om.out.debug(msg)
+            return False
 
-            # Log the new finding to the user, without dups
-            # https://github.com/andresriancho/w3af/issues/8496
-            url = fuzzable_request.get_url()
-            if self._reported_found_urls.add(url):
-                msg = 'New URL found by %s plugin: "%s"'
-                args = (plugin.get_name(), url)
-                om.out.information(msg % args)
+        msg = 'New fuzzable request identified: "%s"'
+        om.out.debug(msg % fuzzable_request)
 
-            return True
+        # Log the new finding to the user, without dups
+        # https://github.com/andresriancho/w3af/issues/8496
+        url = fuzzable_request.get_url()
+        if self._reported_found_urls.add(url):
+            msg = 'New URL found by %s plugin: "%s"'
+            args = (plugin.get_name(), url)
+            om.out.information(msg % args)
 
-        return False
+        return True
 
     @task_decorator
     def _discover_worker(self, function_id, plugin, fuzzable_request):

@@ -147,12 +147,34 @@ def create_detailed_pickling_error(exception, instance):
     """
     attribute = None
 
-    for k, v in instance.__dict__.iteritems():
+    def can_pickle(data):
         try:
             cPickle.dumps(v)
         except:
-            attribute = k
-            break
+            return False
+        else:
+            return True
+
+    if hasattr(instance, '__dict__'):
+        # Objects have dicts with all the attributes
+        for k, v in instance.__dict__.iteritems():
+            if not can_pickle(v):
+                attribute = k
+                break
+
+    elif isinstance(instance, dict):
+        # Similar to the above but we don't have __dict__
+        for k, v in instance.iteritems():
+            if not can_pickle(v):
+                attribute = k
+                break
+
+    elif isinstance(instance, (tuple, list)):
+        # Use enumerate to name the items in the list
+        for i, v in enumerate(instance):
+            if not can_pickle(v):
+                attribute = 'index-%s' % i
+                break
 
     wrapped = DetailedMaybeEncodingError(exception, instance, attribute)
     debug("Possible encoding error while sending result: %s" % wrapped)
@@ -265,9 +287,9 @@ class Pool(object):
             self._repopulate_pool()
 
     def _setup_queues(self):
-        from multiprocessing.queues import SimpleQueue
-        self._inqueue = SimpleQueue()
-        self._outqueue = SimpleQueue()
+        from .queues import SimpleQueueWithSize
+        self._inqueue = SimpleQueueWithSize()
+        self._outqueue = SimpleQueueWithSize()
         self._quick_put = self._inqueue._writer.send
         self._quick_get = self._outqueue._reader.recv
 

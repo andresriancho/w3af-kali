@@ -26,7 +26,7 @@ import thread
 import urllib
 import string
 
-from collections import deque
+from collections import namedtuple
 from functools import wraps
 from itertools import izip_longest
 
@@ -37,6 +37,7 @@ import w3af.core.controllers.output_manager as om
 
 from w3af.core.data.bloomfilter.scalable_bloom import ScalableBloomFilter
 from w3af.core.data.fuzzer.utils import rand_alnum
+from w3af.core.data.db.disk_deque import DiskDeque
 
 from w3af.core.controllers.misc.fuzzy_string_cmp import fuzzy_equal
 from w3af.core.controllers.misc.decorators import retry
@@ -46,6 +47,13 @@ from w3af.core.controllers.exceptions import (HTTPRequestException,
 
 IS_EQUAL_RATIO = 0.90
 MAX_404_RESPONSES = 20
+
+
+FourOhFourResponse = namedtuple('FourOhFourResponse', ('body', 'doc_type'))
+
+
+def FourOhFourResponseFactory(http_response):
+    return FourOhFourResponse(http_response.get_body(), http_response.doc_type)
 
 
 def lru_404_cache(wrapped_method):
@@ -85,7 +93,7 @@ class fingerprint_404(object):
         #   Internal variables
         #
         self._already_analyzed = False
-        self._404_responses = deque(maxlen=MAX_404_RESPONSES)
+        self._404_responses = DiskDeque(maxsize=MAX_404_RESPONSES)
         self._lock = thread.allocate_lock()
         self._fingerprinted_paths = set() #ScalableBloomFilter()
         self._directory_uses_404_codes = ScalableBloomFilter()
@@ -151,7 +159,9 @@ class fingerprint_404(object):
         # "unique"
         #
         if len(not_exist_resp_lst):
-            self._404_responses.append(not_exist_resp_lst[0])
+            http_response = not_exist_resp_lst[0]
+            four_oh_data = FourOhFourResponseFactory(http_response)
+            self._404_responses.append(four_oh_data)
 
         # And now add the unique responses
         for i in not_exist_resp_lst:
@@ -160,7 +170,7 @@ class fingerprint_404(object):
                 if i is j:
                     continue
 
-                if fuzzy_equal(i.get_body(), j.get_body(), IS_EQUAL_RATIO):
+                if fuzzy_equal(i.body, j.body, IS_EQUAL_RATIO):
                     # They are equal, just ignore it
                     continue
                 else:
@@ -271,7 +281,7 @@ class fingerprint_404(object):
                 if resp_content_type != resp_404.doc_type:
                     continue
 
-                if fuzzy_equal(resp_404.get_body(), resp_body, IS_EQUAL_RATIO):
+                if fuzzy_equal(resp_404.body, resp_body, IS_EQUAL_RATIO):
                     msg = '"%s" (id:%s) is a 404 [similarity_index > %s]'
                     fmt = (http_response.get_url(),
                            http_response.id,
@@ -297,12 +307,13 @@ class fingerprint_404(object):
                         #
                         #   Aha! It actually was a 404!
                         #
-                        self._404_responses.append(http_response)
+                        four_oh_data = FourOhFourResponseFactory(http_response)
+                        self._404_responses.append(four_oh_data)
                         self._fingerprinted_paths.add(domain_path)
 
-                        msg = '"%s" (id:%s) is a 404 (similarity_index > %s).'\
-                              ' Adding new knowledge to the 404_bodies database'\
-                              ' (length=%s).'
+                        msg = ('"%s" (id:%s) is a 404 (similarity_index > %s).'
+                               ' Adding new knowledge to the 404_bodies'
+                               ' database (length=%s).')
                         fmt = (http_response.get_url(), http_response.id,
                                IS_EQUAL_RATIO, len(self._404_responses))
                         om.out.debug(msg % fmt)
@@ -450,7 +461,7 @@ def is_404(http_response):
 
 def get_clean_body(response):
     """
-    @see: BlindSqliResponseDiff.get_clean_body()
+    :see: BlindSqliResponseDiff.get_clean_body()
 
     Definition of clean in this method:
         - input:
