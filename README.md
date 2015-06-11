@@ -4,10 +4,10 @@ package for [Kali](http://www.kali.org/).
 Before running these steps manually note that the steps outlined in this README.md are automated
 in [w3af-kali-ci](https://github.com/andresriancho/w3af-kali-ci) and this workflow is much simpler:
 
-    * Tag a new release in `w3af`
-    * Apply changes to this repository
-    * Rebuild [w3af-kali-ci](https://circleci.com/gh/andresriancho/w3af-kali-ci) to test the changes
-      in this repository
+ * Tag a new release in `w3af`
+ * Apply changes to this repository
+ * Rebuild [w3af-kali-ci](https://circleci.com/gh/andresriancho/w3af-kali-ci) to test the changes
+   in this repository
 
 ## Building a new package
 Building a new `Kali` package for `w3af` requires these steps to be completed:
