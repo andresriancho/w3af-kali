@@ -72,7 +72,7 @@ class profile(object):
                 else:
                     if not self.get_name():
                         msg = ('The profile with name "%s" does NOT contain a'
-                               '[profile] section with the "name" attribute.')
+                               ' [profile] section with the "name" attribute.')
                         raise BaseFrameworkException(msg % (profname,))
 
         # Save the profname variable
@@ -345,24 +345,27 @@ class profile(object):
         """
         :return: An OptionList with the options for a configurable object.
         """
-        options_list = configurable_instance.get_options()
+        configurable_options = configurable_instance.get_options()
 
         try:
-            for option in self._config.options(section):
-                try:
-                    value = self._config.get(section, option)
-                except KeyError:
-                    # We should never get here...
-                    msg = 'The option "%s" is unknown for the "%s" section.'
-                    raise BaseFrameworkException(msg % (option, section))
-                else:
-                    options_list[option].set_value(value)
-        except:
-            # This is for back compatibility with old profiles
-            # that don't have a http-settings nor misc-settings section
-            return options_list
+            profile_options = self._config.options(section)
+        except ConfigParser.NoSectionError:
+            # Some profiles don't have an http-settings or misc-settings
+            # section, so we return the defaults as returned by the configurable
+            # instance
+            return configurable_options
 
-        return options_list
+        for option in profile_options:
+            try:
+                value = self._config.get(section, option)
+            except KeyError:
+                # We should never get here...
+                msg = 'The option "%s" is unknown for the "%s" section.'
+                raise BaseFrameworkException(msg % (option, section))
+            else:
+                configurable_options[option].set_value(value)
+
+        return configurable_options
 
     def set_name(self, name):
         """
