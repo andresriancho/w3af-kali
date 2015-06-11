@@ -43,6 +43,10 @@ class phpinfo(CrawlPlugin):
     :author: Viktor Gazdag ( woodspeed@gmail.com )
     :author: Aung Khant ( aungkhant[at]yehg.net )
     """
+    PHP_VERSION_RE = re.compile('(<tr class="h"><td>\n|alt="PHP Logo" /></a>)'
+                                '<h1 class="p">PHP Version (.*?)</h1>')
+    SYSTEM_RE = re.compile('System </td><td class="v">(.*?)</td></tr>')
+
     def __init__(self):
         CrawlPlugin.__init__(self)
 
@@ -69,53 +73,72 @@ class phpinfo(CrawlPlugin):
 
             self.worker_pool.map_multi_args(self._check_and_analyze, args)
 
+    def _get_potential_phpinfos(self):
+        """
+        :return: Filename of the php info file.
+        """
+        res = ['phpinfo.php', 'PhpInfo.php', 'PHPinfo.php', 'PHPINFO.php',
+               'phpInfo.php', 'info.php', 'test.php?mode=phpinfo',
+               'index.php?view=phpinfo', 'index.php?mode=phpinfo',
+               'TEST.php?mode=phpinfo', '?mode=phpinfo', '?view=phpinfo',
+               'install.php?mode=phpinfo', 'INSTALL.php?mode=phpinfo',
+               'admin.php?mode=phpinfo', 'phpversion.php', 'phpVersion.php',
+               'test1.php', 'phpinfo1.php', 'phpInfo1.php', 'info1.php',
+               'PHPversion.php', 'x.php', 'xx.php', 'xxx.php']
+
+        identified_os = kb.kb.raw_read('fingerprint_os', 'operating_system_str')
+
+        if not isinstance(identified_os, basestring):
+            identified_os = cf.cf.get('target_os')
+
+        # pylint: disable=E1103
+        if 'windows' in identified_os.lower():
+            res = list(set([path.lower() for path in res]))
+        # pylint: enable=E1103
+
+        return res
+
     def _check_and_analyze(self, domain_path, php_info_filename):
         """
         Check if a php_info_filename exists in the domain_path.
         :return: None, everything is put() into the self.output_queue.
         """
-        # Request the file
         php_info_url = domain_path.url_join(php_info_filename)
         try:
             response = self._uri_opener.GET(php_info_url, cache=True)
         except BaseFrameworkException, w3:
             msg = 'Failed to GET phpinfo file: "%s". Exception: "%s".'
             om.out.debug(msg % (php_info_url, w3))
-        else:
-            # Check if it's a phpinfo file
-            if is_404(response):
-                return
+            return
 
-            # Create the fuzzable request and send it to the core
-            fr = FuzzableRequest.from_http_response(response)
-            self.output_queue.put(fr)
+        # Needs to exist
+        if is_404(response):
+            return
 
-            regex_str = '(<tr class="h"><td>\n|alt="PHP Logo" /></a>)<h1'\
-                        ' class="p">PHP Version (.*?)</h1>'
-            php_version = re.search(regex_str, response.get_body(), re.I)
+        # Create the fuzzable request and send it to the core
+        fr = FuzzableRequest.from_http_response(response)
+        self.output_queue.put(fr)
 
-            regex_str = 'System </td><td class="v">(.*?)</td></tr>'
-            sysinfo = re.search(regex_str, response.get_body(), re.I)
+        # Check if it's a phpinfo file
+        php_version = self.PHP_VERSION_RE.search(response.get_body(), re.I)
+        sysinfo = self.SYSTEM_RE.search(response.get_body(), re.I)
 
-            if php_version and sysinfo:
-                desc = 'The phpinfo() file was found at: %s. The version'\
-                       ' of PHP is: "%s" and the system information is:'\
-                       ' "%s".'
-                desc = desc % (response.get_url(),
-                               php_version.group(2),
-                               sysinfo.group(1))
+        if php_version and sysinfo:
+            desc = ('The phpinfo() file was found at: %s. The version'
+                    ' of PHP is: "%s" and the system information is:'
+                    ' "%s".')
+            desc %= (response.get_url(), php_version.group(2), sysinfo.group(1))
 
-                v = Vuln('phpinfo() file found', desc, severity.MEDIUM,
-                         response.id, self.get_name())
-                v.set_url(response.get_url())
+            v = Vuln('phpinfo() file found', desc, severity.MEDIUM,
+                     response.id, self.get_name())
+            v.set_url(response.get_url())
 
-                kb.kb.append(self, 'phpinfo', v)
-                om.out.vulnerability(v.get_desc(),
-                                     severity=v.get_severity())
+            kb.kb.append(self, 'phpinfo', v)
+            om.out.vulnerability(v.get_desc(), severity=v.get_severity())
 
-                if not self._has_audited:
-                    self._has_audited = True
-                    self.audit_phpinfo(response)
+            if not self._has_audited:
+                self._has_audited = True
+                self.audit_phpinfo(response)
 
     def audit_phpinfo(self, response):
         """
@@ -506,9 +529,8 @@ class phpinfo(CrawlPlugin):
                          self.get_name())
             
             i.set_url(response.get_url())
-
-        kb.kb.append(self, 'phpinfo', i)
-        om.out.information(i.get_desc())
+            kb.kb.append(self, 'phpinfo', i)
+            om.out.information(i.get_desc())
 
     def _session_hash_function(self, response):
         regex_str = 'session\.hash_function</td><td class="v">(.*?)</td>'
@@ -529,29 +551,6 @@ class phpinfo(CrawlPlugin):
             
             kb.kb.append(self, 'phpinfo', i)
             om.out.information(i.get_desc())
-
-    def _get_potential_phpinfos(self):
-        """
-        :return: Filename of the php info file.
-        """
-        res = ['phpinfo.php', 'PhpInfo.php', 'PHPinfo.php', 'PHPINFO.php',
-               'phpInfo.php', 'info.php', 'test.php?mode=phpinfo',
-               'index.php?view=phpinfo', 'index.php?mode=phpinfo',
-               'TEST.php?mode=phpinfo', '?mode=phpinfo', '?view=phpinfo',
-               'install.php?mode=phpinfo', 'INSTALL.php?mode=phpinfo',
-               'admin.php?mode=phpinfo', 'phpversion.php', 'phpVersion.php',
-               'test1.php', 'phpinfo1.php', 'phpInfo1.php', 'info1.php',
-               'PHPversion.php', 'x.php', 'xx.php', 'xxx.php']
-
-        identified_os = kb.kb.raw_read('fingerprint_os', 'operating_system_str')
-
-        if not isinstance(identified_os, basestring):
-            identified_os = cf.cf.get('target_os')
-
-        if re.match('windows', identified_os, re.IGNORECASE):
-            res = list(set([path.lower() for path in res]))
-
-        return res
 
     def end(self):
         self._analyzed_dirs.cleanup()

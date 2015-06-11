@@ -19,7 +19,7 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
-from __future__ import with_statement
+from __future__ import with_statement, print_function
 
 import sys
 import os
@@ -31,8 +31,11 @@ from concurrent.futures import Future
 from multiprocessing.dummy import Queue, Process
 
 from w3af.core.data.misc.file_utils import replace_file_special_chars
-from w3af.core.controllers.exceptions import DBException
 from w3af.core.controllers.misc.temp_dir import get_temp_dir, create_temp_dir
+from w3af.core.controllers.exceptions import (DBException,
+                                              NoSuchTableException,
+                                              MalformedDBException)
+
 
 # Constants
 SETUP = 'SETUP'
@@ -40,6 +43,21 @@ QUERY = 'QUERY'
 SELECT = 'SELECT'
 COMMIT = 'COMMIT'
 POISON = 'POISON'
+
+DB_MALFORMED_ERROR = ('SQLite raised a database disk image is malformed'
+                      ' exception. While we do have good understanding on the'
+                      ' many reasons that'
+                      ' might lead to this issue [0] and multiple bug reports'
+                      ' by users [1] there is no clear indication on exactly'
+                      ' what causes the issue in w3af.\n\n'
+                      ''
+                      'If you are able to reproduce this issue in your'
+                      ' environment we would love to hear the OS and hardware'
+                      ' details, steps to reproduce, and any other related'
+                      ' information. Just send us a comment at #4905 [1].\n\n'
+                      ''
+                      '[0] https://www.sqlite.org/howtocorrupt.html\n'
+                      '[1] https://github.com/andresriancho/w3af/issues/4905')
 
 
 def verify_started(meth):
@@ -296,6 +314,10 @@ class SQLiteExecutor(Process):
         #
         # https://github.com/andresriancho/w3af/issues/4937
         #
+        # It doesn't seem to help because I'm still getting malformed database
+        # files, but I'll keep it anyways because I'm assuming that it's going
+        # to reduce (not to zero, but reduce) these issues.
+        #
         #self.cursor.execute('PRAGMA synchronous=OFF')
     
     def run(self):
@@ -325,7 +347,7 @@ class SQLiteExecutor(Process):
             kwds = kwds or {}
             
             if self.DEBUG:
-                print '%s %s %s' % (op_code, args, kwds)
+                print('%s %s %s' % (op_code, args, kwds))
             
             handler = OP_CODES.get(op_code, None)
             
@@ -343,9 +365,26 @@ class SQLiteExecutor(Process):
                                     
                 try:
                     result = handler(*args, **kwds)
+                except sqlite3.OperationalError, e:
+                    # I don't like this string match, but it seems that the
+                    # exception doesn't have any error code to match
+                    if 'no such table' in e.message:
+                        dbe = NoSuchTableException(str(e))
+
+                    elif 'malformed' in e.message:
+                        print(DB_MALFORMED_ERROR)
+                        dbe = MalformedDBException(DB_MALFORMED_ERROR)
+
+                    else:
+                        # More specific exceptions to be added here later...
+                        dbe = DBException(str(e))
+
+                    future.set_exception(dbe)
+
                 except Exception, e:
                     dbe = DBException(str(e))
                     future.set_exception(dbe)
+
                 else:
                     future.set_result(result)
 

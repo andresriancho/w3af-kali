@@ -37,9 +37,10 @@ from w3af.core.controllers.core_helpers.status import w3af_core_status
 from w3af.core.controllers.core_helpers.profiles import w3af_core_profiles
 from w3af.core.controllers.core_helpers.plugins import w3af_core_plugins
 from w3af.core.controllers.core_helpers.target import w3af_core_target
-from w3af.core.controllers.core_helpers.strategy import w3af_core_strategy
+from w3af.core.controllers.core_helpers.strategy import CoreStrategy
 from w3af.core.controllers.core_helpers.fingerprint_404 import fingerprint_404_singleton
 from w3af.core.controllers.core_helpers.exception_handler import ExceptionHandler
+from w3af.core.controllers.core_helpers.strategy_observers.disk_space_observer import DiskSpaceObserver
 from w3af.core.controllers.threads.threadpool import Pool
 from w3af.core.controllers.misc.homeDir import get_home_dir
 
@@ -117,11 +118,11 @@ class w3afCore(object):
         self.plugins = w3af_core_plugins(self)
         self.status = w3af_core_status(self)
         self.target = w3af_core_target()
-        self.strategy = w3af_core_strategy(self)
+        self.strategy = CoreStrategy(self)
         
-        # FIXME: In the future, when the output_manager is not an awful singleton
-        # anymore, this line should be removed and the output_manager object
-        # should take a w3afCore object as a parameter in its __init__
+        # FIXME: In the future, when the output_manager is not an awful
+        # singleton anymore, this line should be removed and the output_manager
+        # object should take a w3afCore object as a parameter in its __init__
         om.manager.set_w3af_core(self)
         
         # Create the URI opener object
@@ -163,7 +164,8 @@ class w3afCore(object):
         # Now that we know we're going to run a new scan, overwrite the old
         # strategy which might still have data stored in it and create a new
         # one  
-        self.strategy = w3af_core_strategy(self)
+        self.strategy = CoreStrategy(self)
+        self.strategy.add_observer(DiskSpaceObserver())
 
         # Init the 404 detection for the whole framework
         fp_404_db = fingerprint_404_singleton(cleanup=True)
