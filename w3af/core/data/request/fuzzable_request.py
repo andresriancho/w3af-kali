@@ -22,13 +22,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 import csv
 import string
 import cStringIO
-
 from urllib import unquote
 from itertools import chain
 
 import w3af.core.controllers.output_manager as om
 import w3af.core.data.kb.config as cf
-
 from w3af.core.controllers.exceptions import BaseFrameworkException
 from w3af.core.data.dc.cookie import Cookie
 from w3af.core.data.dc.generic.data_container import DataContainer
@@ -36,9 +34,10 @@ from w3af.core.data.dc.headers import Headers
 from w3af.core.data.dc.generic.kv_container import KeyValueContainer
 from w3af.core.data.dc.factory import dc_from_hdrs_post
 from w3af.core.data.db.disk_item import DiskItem
-from w3af.core.data.parsers.url import URL
+from w3af.core.data.parsers.doc.url import URL
 from w3af.core.data.request.request_mixin import RequestMixIn
 from w3af.core.data.constants.encodings import DEFAULT_ENCODING
+
 
 ALL_CHARS = ''.join(chr(i) for i in xrange(256))
 TRANS_TABLE = string.maketrans(ALL_CHARS, ALL_CHARS)
@@ -66,6 +65,14 @@ class FuzzableRequest(RequestMixIn, DiskItem):
     # user, since they will be calculated based on the attributes we are
     # going to store and these won't be updated.
     REMOVE_HEADERS = ('content-length',)
+
+    __slots__ = ('_method',
+                 '_cookie',
+                 '_post_data',
+                 '_headers',
+                 '_uri',
+                 '_url',
+                 '_sent_info_comp')
 
     def __init__(self, uri, method='GET', headers=None, cookie=None,
                  post_data=None):
@@ -96,6 +103,13 @@ class FuzzableRequest(RequestMixIn, DiskItem):
 
         # Set the internal variables
         self._sent_info_comp = None
+
+    def __getstate__(self):
+        state = {k: getattr(self, k) for k in self.__slots__}
+        return state
+
+    def __setstate__(self, state):
+        [setattr(self, k, v) for k, v in state.iteritems()]
 
     def get_default_headers(self):
         """
@@ -394,20 +408,20 @@ class FuzzableRequest(RequestMixIn, DiskItem):
     def set_referer(self, referer):
         self._headers['Referer'] = str(referer)
 
-    def set_cookie(self, c):
+    def set_cookie(self, cookie):
         """
         :param cookie: A Cookie object as defined in core.data.dc.cookie,
             or a string.
         """
-        if isinstance(c, Cookie):
-            self._cookie = c
-        elif isinstance(c, basestring):
-            self._cookie = Cookie(c)
-        elif c is None:
+        if isinstance(cookie, Cookie):
+            self._cookie = cookie
+        elif isinstance(cookie, basestring):
+            self._cookie = Cookie(cookie)
+        elif cookie is None:
             self._cookie = Cookie()
         else:
             fmt = '[FuzzableRequest error] set_cookie received: "%s": "%s".'
-            error_str = fmt % (type(c), repr(c))
+            error_str = fmt % (type(cookie), repr(cookie))
             om.out.error(error_str)
             raise BaseFrameworkException(error_str)
 

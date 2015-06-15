@@ -24,16 +24,14 @@ import copy
 import httplib
 import urllib2
 import threading
-
 from itertools import imap
 
 import w3af.core.controllers.output_manager as om
 import w3af.core.data.parsers.parser_cache as parser_cache
-
 from w3af.core.controllers.exceptions import BaseFrameworkException
 from w3af.core.data.misc.encoding import smart_unicode, ESCAPED_CHAR
 from w3af.core.data.constants.encodings import DEFAULT_ENCODING
-from w3af.core.data.parsers.url import URL
+from w3af.core.data.parsers.doc.url import URL
 from w3af.core.data.dc.headers import Headers
 from w3af.core.controllers.misc.decorators import memoized
 
@@ -59,6 +57,26 @@ class HTTPResponse(object):
     DOC_TYPE_PDF = 'DOC_TYPE_PDF'
     DOC_TYPE_IMAGE = 'DOC_TYPE_IMAGE'
     DOC_TYPE_OTHER = 'DOC_TYPE_OTHER'
+
+    __slots__ = ('_code',
+                 '_charset',
+                 '_headers',
+                 '_body',
+                 '_raw_body',
+                 '_content_type',
+                 '_dom',
+                 'id',
+                 '_from_cache',
+                 '_info',
+                 '_realurl',
+                 '_uri',
+                 '_redirected_url',
+                 '_redirected_uri',
+                 '_msg',
+                 '_time',
+                 '_alias',
+                 '_doc_type',
+                 '_body_lock')
 
     def __init__(self, code, read, headers, geturl, original_url,
                  msg='OK', _id=None, time=DEFAULT_WAIT_TIME, alias=None,
@@ -263,18 +281,6 @@ class HTTPResponse(object):
 
     body = property(get_body, set_body)
 
-    def get_dom(self):
-        """
-        Just a shortcut to get the dom (if any)
-        :return: A DOM instance from lxml
-        """
-        parser = self.get_parser()
-        if parser is not None:
-            return parser.get_dom()
-
-        # No DOM for this response
-        return None
-
     def get_clear_text_body(self):
         """
         Just a shortcut to get the clear text body
@@ -395,9 +401,7 @@ class HTTPResponse(object):
 
         The only thing that changes is the header name.
         """
-        regular_headers = self.headers.iteritems()
-        lcase_headers = dict((k.lower(), v) for k, v in regular_headers)
-        return Headers(lcase_headers.items())
+        return Headers([(k.lower(), v) for k, v in self.headers.iteritems()])
 
     def set_url(self, url):
         """
@@ -656,10 +660,10 @@ class HTTPResponse(object):
         return copy.deepcopy(self)
 
     def __getstate__(self):
-        state = self.__dict__.copy()
+        state = {k: getattr(self, k) for k in self.__slots__}
         state.pop('_body_lock')
         return state
     
     def __setstate__(self, state):
-        self.__dict__ = state
+        [setattr(self, k, v) for k, v in state.iteritems()]
         self._body_lock = threading.RLock()

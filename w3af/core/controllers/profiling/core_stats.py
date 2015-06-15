@@ -26,6 +26,7 @@ import os
 
 from functools import partial
 
+import w3af.core.controllers.output_manager as om
 from w3af.core.controllers.misc.number_generator import consecutive_number_generator
 from .utils import get_filename_fmt, dump_data_every_thread, cancel_thread
 
@@ -69,12 +70,24 @@ def dump_data(w3af_core):
     try:
         data = {'Requests sent': consecutive_number_generator.get(),
                 'Requests per minute': s.get_rpm(),
-                'Crawl queue input speed': s.get_crawl_input_speed(),
-                'Crawl queue output speed': s.get_crawl_output_speed(),
-                'Crawl queue size': s.get_crawl_qsize(),
-                'Audit queue input speed': s.get_audit_input_speed(),
-                'Audit queue output speed': s.get_audit_output_speed(),
-                'Audit queue size': s.get_audit_qsize(),
+
+                'Crawl input queue input speed': s.get_crawl_input_speed(),
+                'Crawl input queue output speed': s.get_crawl_output_speed(),
+                'Crawl input queue size': s.get_crawl_qsize(),
+                'Crawl output queue size': s.get_crawl_output_qsize(),
+                'Crawl worker pool input queue size': s.get_crawl_worker_pool_queue_size(),
+
+                'Audit input queue input speed': s.get_audit_input_speed(),
+                'Audit input queue output speed': s.get_audit_output_speed(),
+                'Audit input queue size': s.get_audit_qsize(),
+                'Audit worker pool input queue size': s.get_audit_worker_pool_queue_size(),
+
+                'Grep input queue size': s.get_audit_qsize(),
+
+                'Core worker pool input queue size': s.get_core_worker_pool_queue_size(),
+
+                'Output manager input queue size': om.manager.get_in_queue().qsize(),
+
                 'Cache stats': get_parser_cache_stats()}
     except Exception, e:
         exc_type, exc_value, exc_tb = sys.exc_info()
@@ -99,8 +112,19 @@ def stop_core_profiling(w3af_core):
 
 def get_parser_cache_stats():
     import w3af.core.data.parsers.parser_cache as parser_cache
+    from w3af.core.data.parsers.mp_document_parser import mp_doc_parser
     
-    return {'hit_rate': parser_cache.dpc.get_hit_rate(),
-            'max_lru_items': parser_cache.dpc.get_max_lru_items(),
-            'current_lru_size': parser_cache.dpc.get_current_lru_items(),
-            'total_cache_queries': parser_cache.dpc.get_total_queries()}
+    r = {'hit_rate': parser_cache.dpc.get_hit_rate(),
+         'max_lru_items': parser_cache.dpc.get_max_lru_items(),
+         'current_lru_size': parser_cache.dpc.get_current_lru_items(),
+         'total_cache_queries': parser_cache.dpc.get_total_queries(),
+         'do_not_cache': parser_cache.dpc.get_do_not_cache()}
+
+    if mp_doc_parser._pool is not None:
+        r['Parser pool worker size'] = mp_doc_parser._pool._processes
+        r['Parser pool input queue size'] = mp_doc_parser._pool._inqueue.qsize()
+    else:
+        r['Parser pool worker size'] = 0
+        r['Parser pool input queue size'] = 0
+
+    return r

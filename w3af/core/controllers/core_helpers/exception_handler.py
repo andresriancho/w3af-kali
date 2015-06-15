@@ -51,8 +51,10 @@ class ExceptionHandler(object):
     """
 
     MAX_EXCEPTIONS_PER_PLUGIN = 3
-    NO_HANDLING = (MemoryError, ScanMustStopByUnknownReasonExc,
-                   ScanMustStopException, ScanMustStopByUserRequest,
+    NO_HANDLING = (MemoryError, OSError, IOError,
+                   ScanMustStopByUnknownReasonExc,
+                   ScanMustStopException,
+                   ScanMustStopByUserRequest,
                    HTTPRequestException)
 
     if DEBUG:
@@ -140,7 +142,7 @@ class ExceptionHandler(object):
 
         :return: None
         """
-        filename = 'w3af_crash-%s.txt' % rand_alnum(5)
+        filename = 'w3af-crash-%s.txt' % rand_alnum(5)
         filename = os.path.join(tempfile.gettempdir(), filename)
         crash_dump = file(filename, "w")
         crash_dump.write(edata.get_details())
