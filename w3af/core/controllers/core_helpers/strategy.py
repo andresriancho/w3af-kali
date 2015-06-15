@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
 import Queue
+import sys
 
 from multiprocessing import TimeoutError
 
@@ -42,7 +43,7 @@ from w3af.core.controllers.exceptions import (ScanMustStopException,
                                               ScanMustStopByUserRequest)
 
 
-class w3af_core_strategy(object):
+class CoreStrategy(object):
     """
     This is the simplest scan strategy which follows this logic:
 
@@ -75,6 +76,9 @@ class w3af_core_strategy(object):
         # Producer threads
         self._seed_producer = seed(self._w3af_core)
 
+        # Also use this method to clear observers
+        self._observers = []
+
     def start(self):
         """
         Starts the work!
@@ -91,23 +95,42 @@ class w3af_core_strategy(object):
             self._setup_crawl_infrastructure()
             self._setup_audit()
             self._setup_bruteforce()
+
+            self._setup_observers()
             self._setup_404_detection()
 
             self._seed_discovery()
 
             self._fuzzable_request_router()
 
+        except Exception, e:
+
+            om.out.debug('strategy.start() found exception "%s"' % e)
+            exc_info = sys.exc_info()
+
+            try:
+                # Terminate the consumers, exceptions at this level stop the
+                # scan
+                self.terminate()
+
+                # While the consumers might have finished, they certainly queue
+                # tasks in the core's worker_pool, which need to be processed
+                # too
+                self._w3af_core.worker_pool.finish()
+            except Exception, e:
+                msg = ('strategy.start() found exception while terminating'
+                       ' workers "%s"')
+                om.out.debug(msg % e)
+
+            raise exc_info[0], exc_info[1], exc_info[2]
+
+        else:
+            # Wait for all consumers to finish
             self.join_all_consumers()
 
             # While the consumers might have finished, they certainly queue
             # tasks in the core's worker_pool, which need to be processed too
             self._w3af_core.worker_pool.finish()
-
-        except Exception, e:
-            self.terminate()
-
-            om.out.debug('strategy.start() is raising exception "%s"' % e)
-            raise
 
     def stop(self):
         self.terminate()
@@ -122,7 +145,7 @@ class w3af_core_strategy(object):
         Consume (without processing) all queues with data which are in
         the consumers and then send a poison-pill to that queue.
         """
-        consumers = {'grep', 'audit', 'auth', 'discovery', 'bruteforce'}
+        consumers = {'discovery', 'audit', 'auth', 'bruteforce', 'grep'}
 
         for consumer in consumers:
 
@@ -156,6 +179,22 @@ class w3af_core_strategy(object):
                 
         self._teardown_auth()
         self._teardown_grep()        
+
+    def add_observer(self, observer):
+        self._observers.append(observer)
+
+    def _setup_observers(self):
+        """
+        "Forward" the observer to the consumers
+        :return: None
+        """
+        for consumer in {self._audit_consumer,
+                         self._bruteforce_consumer,
+                         self._discovery_consumer,
+                         self._grep_consumer}:
+            if consumer is not None:
+                for observer in self._observers:
+                    consumer.add_observer(observer)
 
     def _fuzzable_request_router(self):
         """
@@ -241,8 +280,8 @@ class w3af_core_strategy(object):
                     # Safety check, I need these to be FuzzableRequest objects
                     # if not, the url_producer is doing something wrong and I
                     # don't want to do anything with this data
-                    fmt = '%s is returning objects of class %s instead of'\
-                          ' FuzzableRequest.'
+                    fmt = ('%s is returning objects of class %s instead of'
+                           ' FuzzableRequest.')
                     assert isinstance(fuzzable_request_inst, FuzzableRequest),\
                            fmt % (url_producer, type(fuzzable_request_inst))
 

@@ -25,10 +25,9 @@ import json
 
 from w3af.core.controllers import output_manager as om
 from w3af.core.controllers.exceptions import BaseFrameworkException
-
 from w3af.core.data.dc.headers import Headers
 from w3af.core.data.search_engines.search_engine import SearchEngine
-from w3af.core.data.parsers.url import URL
+from w3af.core.data.parsers.doc.url import URL
 from w3af.core.data.user_agent.random_user_agent import get_random_user_agent
 
 
@@ -297,8 +296,8 @@ class GStandardSearch(GoogleAPISearch):
             response = self._do_GET(google_url_instance, with_rand_ua=False)
 
             # Remember that HTTPResponse objects have a faster "__in__" than
-            # the one in strings; so string in response.get_body() is slower than
-            # string in response
+            # the one in strings; so string in response.get_body() is slower
+            # than string in response
             if GOOGLE_SORRY_PAGE in response:
                 msg = 'Google is telling us to stop doing automated tests.'
                 raise BaseFrameworkException(msg)

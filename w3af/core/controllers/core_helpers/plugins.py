@@ -115,7 +115,7 @@ class w3af_core_plugins(object):
         Get the options for a plugin.
 
         IMPORTANT NOTE: This method only returns the options for a plugin
-        that was previously configured using set_plugin_options. If you wan't
+        that was previously configured using set_plugin_options. If you want
         to get the default options for a plugin, get a plugin instance and
         perform a plugin.get_options()
 
@@ -210,7 +210,7 @@ class w3af_core_plugins(object):
             __import__('w3af.plugins.' + plugin_type)
             aModule = sys.modules['w3af.plugins.' + plugin_type]
         except Exception:
-            raise BaseFrameworkException('Unknown plugin type: "' + plugin_type + '".')
+            raise BaseFrameworkException('Unknown plugin type: "%s".' % plugin_type)
         else:
             return aModule.get_long_description()
 

@@ -24,26 +24,25 @@ import urllib
 import socket
 import urllib2
 import httplib
-import OpenSSL
 import threading
 import traceback
 import functools
-
 from contextlib import contextmanager
 from collections import deque
+
+import OpenSSL
 
 import w3af.core.controllers.output_manager as om
 import w3af.core.data.kb.config as cf
 import opener_settings
-
 from w3af.core.controllers.exceptions import (BaseFrameworkException,
                                               ConnectionPoolException,
                                               HTTPRequestException,
                                               ScanMustStopByUnknownReasonExc,
                                               ScanMustStopByKnownReasonExc,
                                               ScanMustStopByUserRequest)
-from w3af.core.data.parsers.http_request_parser import http_request_parser
-from w3af.core.data.parsers.url import URL
+from w3af.core.data.parsers.doc.http_request_parser import http_request_parser
+from w3af.core.data.parsers.doc.url import URL
 from w3af.core.data.url.handlers.keepalive import URLTimeoutError
 from w3af.core.data.url.HTTPResponse import HTTPResponse
 from w3af.core.data.url.HTTPRequest import HTTPRequest
@@ -335,9 +334,9 @@ class ExtendedUrllib(object):
 
             # Logging
             error_sleep = SOCKET_ERROR_DELAY * error_rate
-            msg = 'Sleeping for %s seconds before sending HTTP request to' \
-                  ' "%s" after receiving URL/socket error. The ExtendedUrllib' \
-                  ' error rate is at %s%%.'
+            msg = ('Sleeping for %s seconds before sending HTTP request to'
+                   ' "%s" after receiving URL/socket error. The ExtendedUrllib'
+                   ' error rate is at %s%%.')
             args = (error_sleep, request.url_object, error_rate)
             om.out.debug(msg % args)
 
@@ -695,18 +694,18 @@ class ExtendedUrllib(object):
                 if resource_length.isdigit():
                     resource_length = int(resource_length)
                 else:
-                    msg = 'The content length header value of the response'\
-                          ' wasn\'t an integer, this is strange... The value'\
-                          ' is: "%s".'
+                    msg = ('The content length header value of the response'
+                           ' wasn\'t an integer, this is strange... The value'
+                           ' is: "%s".')
                     om.out.error(msg % res.get_headers()[i])
                     raise HTTPRequestException(msg, request=req)
 
         if resource_length is not None:
             return resource_length
         else:
-            msg = 'The response didn\'t contain a content-length header.'\
-                  ' Unable to return the remote file size of request with'\
-                  ' id: %s' % res.id
+            msg = ('The response didn\'t contain a content-length header.'
+                   ' Unable to return the remote file size of request with'
+                   ' id: %s' % res.id)
             om.out.debug(msg)
             # I prefer to fetch the file, before this om.out.debug was a
             # "raise BaseFrameworkException", but this didn't make much sense
@@ -1082,11 +1081,13 @@ class ExtendedUrllib(object):
         msg = ('w3af found too many consecutive errors while performing'
                ' HTTP requests. In most cases this means that the remote web'
                ' server is not reachable anymore, the network is down, or'
-               ' a WAF is blocking our tests. The last exception message '
-               'was "%s" (%s).')
+               ' a WAF is blocking our tests. The last exception message'
+               ' was "%s" (%s.%s).')
 
         reason_msg = get_exception_reason(error)
-        args = (error, error.__class__.__name__)
+        args = (error,
+                error.__class__.__module__,
+                error.__class__.__name__)
 
         # If I got a reason, it means that it is a known exception.
         if reason_msg is not None:

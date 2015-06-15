@@ -23,11 +23,10 @@ import threading
 
 from mock import Mock
 from nose.plugins.attrib import attr
-from nose.plugins.skip import SkipTest
 
 from w3af.core.controllers.ci.moth import get_moth_http
 from w3af.core.controllers.w3afCore import w3afCore
-from w3af.core.controllers.core_helpers.strategy import w3af_core_strategy
+from w3af.core.controllers.core_helpers.strategy import CoreStrategy
 from w3af.core.controllers.exceptions import ScanMustStopException
 from w3af.core.data.kb.knowledge_base import kb
 
@@ -59,7 +58,7 @@ class TestStrategy(unittest.TestCase):
         
         self.called_teardown_audit = False
         
-        strategy = w3af_core_strategy(core)
+        strategy = CoreStrategy(core)
         strategy._teardown_audit = verify_threads_running(strategy._teardown_audit)
         
         strategy.start()
@@ -103,8 +102,8 @@ class TestStrategy(unittest.TestCase):
         core.verify_environment()
         core.scan_start_hook()
         
-        strategy = w3af_core_strategy(core)
-        strategy.join_all_consumers = Mock(side_effect=Exception)
+        strategy = CoreStrategy(core)
+        strategy._fuzzable_request_router = Mock(side_effect=Exception)
         
         strategy.terminate = Mock(wraps=strategy.terminate)
         
@@ -128,13 +127,13 @@ class TestStrategy(unittest.TestCase):
         target['target'].set_value(INVALID_TARGET)
         core.target.set_options(target)
         
-        core.plugins.set_plugins(['sqli',], 'audit')        
+        core.plugins.set_plugins(['sqli'], 'audit')
         core.plugins.init_plugins()
         
         core.verify_environment()
         core.scan_start_hook()
         
-        strategy = w3af_core_strategy(core)
+        strategy = CoreStrategy(core)
         
         try:
             strategy.start()

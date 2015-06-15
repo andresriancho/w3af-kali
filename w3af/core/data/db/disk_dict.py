@@ -73,6 +73,12 @@ class DiskDict(object):
         for r in pickled_keys:
             yield cPickle.loads(r[0])
 
+    def iteritems(self):
+        pickled_keys = self.db.select('SELECT key, value FROM %s' % self.table_name)
+
+        for r in pickled_keys:
+            yield cPickle.loads(r[0]), cPickle.loads(r[1])
+
     def __contains__(self, key):
         """
         :return: True if the value is in keys
@@ -83,7 +89,17 @@ class DiskDict(object):
         query = 'SELECT count(*) FROM %s WHERE key=? limit 1' % self.table_name
         r = self.db.select_one(query, (cpickle_dumps(key),))
         return bool(r[0])
-    
+
+    def __delitem__(self, key):
+        """
+        Delete the key from the dict
+
+        :param key: The key to delete
+        :return: None
+        """
+        query = 'DELETE FROM %s WHERE key = ?' % self.table_name
+        self.db.execute(query, (cpickle_dumps(key),))
+
     def __setitem__(self, key, value):
         # Test if it is already in the DB:
         if key in self:

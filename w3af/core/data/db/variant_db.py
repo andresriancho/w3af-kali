@@ -20,144 +20,117 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
 import threading
-import copy
 
-from w3af.core.data.constants.encodings import DEFAULT_ENCODING
 from w3af.core.data.db.disk_dict import DiskDict
+from w3af.core.data.db.clean_dc import clean_fuzzable_request
 
-DEFAULT_MAX_VARIANTS = 5
+
+#
+# Limits the max number of variants we'll allow for URLs with the same path
+# and parameter names. For example, these are two variants:
+#
+#       http://foo.com/abc/def?id=3&abc=bar
+#       http://foo.com/abc/def?id=3&abc=spam
+#
+# For URLs which have the same path (/abc/def) and parameters
+# (id=number&abc=string) we'll collect at most PARAMS_MAX_VARIANTS of those
+#
+PARAMS_MAX_VARIANTS = 10
+
+#
+# Limits the max number of variants we'll allow for URLs with the same path.
+# For example, these are two "path variants":
+#
+#       http://foo.com/abc/def.htm
+#       http://foo.com/abc/spam.htm
+#
+# In this case we'll collect at most PATH_TOKEN URLs with the same htm extension
+# inside the "abc" path.
+#
+# These two are also path variants, but in this case without a filename:
+#
+#       http://foo.com/abc/spam/
+#       http://foo.com/abc/eggs/
+#
+# In this case we'll collect at most PATH_TOKEN URLs with different paths inside
+# the "abc" path.
+#
+PATH_MAX_VARIANTS = 50
 
 
 class VariantDB(object):
+    """
+    See the notes on PARAMS_MAX_VARIANTS and PATH_MAX_VARIANTS above. Also
+    understand that we'll keep "dirty" versions of the references/fuzzable
+    requests in order to be able to answer "False" to a call for
+    need_more_variants in a situation like this:
 
-    def __init__(self, max_variants=DEFAULT_MAX_VARIANTS):
-        self._disk_dict = DiskDict(table_prefix='variant_db')
+        need_more_variants('http://foo.com/abc?id=32')      --> True
+        append('http://foo.com/abc?id=32')
+        need_more_variants('http://foo.com/abc?id=32')      --> False
+
+    """
+    HASH_IGNORE_HEADERS = ('referer',)
+    TAG = '[variant_db]'
+
+    def __init__(self, params_max_variants=PARAMS_MAX_VARIANTS,
+                 path_max_variants=PATH_MAX_VARIANTS):
+
+        self._variants_eq = DiskDict(table_prefix='variant_db_eq')
+        self._variants = DiskDict(table_prefix='variant_db')
+
+        self.params_max_variants = params_max_variants
+        self.path_max_variants = path_max_variants
+
         self._db_lock = threading.RLock()
-        self.max_variants = max_variants
 
-    def append(self, reference):
+    def cleanup(self):
+        self._variants_eq.cleanup()
+        self._variants.cleanup()
+
+    def append(self, fuzzable_request):
         """
-        Called when a new reference is found and we proved that new
-        variants are still needed.
-
-        :param reference: The reference (as a URL object) to add. This method
-                          will "normalize" it before adding it to the internal
-                          shelve.
+        :return: True if we added a new fuzzable request variant to the DB,
+                 False if no more variants are required for this fuzzable
+                 request.
         """
-        clean_reference = self._clean_reference(reference)
-
         with self._db_lock:
-            count = self._disk_dict.get(clean_reference, None)
+            #
+            # Is the fuzzable request already known to us? (exactly the same)
+            #
+            request_hash = fuzzable_request.get_request_hash(self.HASH_IGNORE_HEADERS)
+            already_seen = self._variants_eq.get(request_hash, False)
+            if already_seen:
+                return False
 
-            if count is not None:
-                self._disk_dict[clean_reference] = count + 1
+            # Store it to avoid duplicated fuzzable requests in our framework
+            self._variants_eq[request_hash] = True
+
+            #
+            # Do we need more variants for the fuzzable request? (similar match)
+            #
+            clean_dict_key = clean_fuzzable_request(fuzzable_request)
+            count = self._variants.get(clean_dict_key, None)
+
+            if count is None:
+                self._variants[clean_dict_key] = 1
+                return True
+
+            # We've seen at least one fuzzable request with this pattern...
+            url = fuzzable_request.get_uri()
+            has_params = url.has_query_string() or fuzzable_request.get_raw_data()
+
+            # Choose which max_variants to use
+            if has_params:
+                max_variants = self.params_max_variants
             else:
-                self._disk_dict[clean_reference] = 1
+                max_variants = self.path_max_variants
 
-    def append_fr(self, fuzzable_request):
-        """
-        See append()'s documentation
-        """
-        clean_fuzzable_request = self._clean_fuzzable_request(fuzzable_request)
+            if count >= max_variants:
+                return False
 
-        with self._db_lock:
-            count = self._disk_dict.get(clean_fuzzable_request, None)
-
-            if count is not None:
-                self._disk_dict[clean_fuzzable_request] = count + 1
             else:
-                self._disk_dict[clean_fuzzable_request] = 1
+                self._variants[clean_dict_key] = count + 1
+                return True
 
-    def need_more_variants(self, reference):
-        """
-        :return: True if there are not enough variants associated with
-        this reference in the DB.
-        """
-        clean_reference = self._clean_reference(reference)
-        has_qs = reference.has_query_string()
 
-        # I believe this is atomic enough...
-        count = self._disk_dict.get(clean_reference, 0)
-
-        # When we're analyzing a path (without QS), we just need 1
-        max_variants = self.max_variants if has_qs else 1
-
-        if count >= max_variants:
-            return False
-        else:
-            return True
-
-    def need_more_variants_for_fr(self, fuzzable_request):
-        """
-        :return: True if there are not enough variants associated with
-        this reference in the DB.
-        """
-        clean_fuzzable_request = self._clean_fuzzable_request(fuzzable_request)
-
-        # I believe this is atomic enough...
-        count = self._disk_dict.get(clean_fuzzable_request, 0)
-
-        if count >= self.max_variants:
-            return False
-        else:
-            return True
-
-    def _clean_reference(self, reference):
-        """
-        This method is VERY dependent on the are_variants method from
-        core.data.request.variant_identification , make sure to remember that
-        when changing stuff here or there.
-
-        What this method does is to "normalize" any input reference string so
-        that they can be compared very simply using string match.
-
-        Since this is a reference (link) we'll prepend '(GET)-' to the result,
-        which will help us add support for forms/fuzzable requests with
-        '(POST)-' in the future.
-        """
-        res = '(GET)-'
-        res += reference.get_domain_path().url_string.encode(DEFAULT_ENCODING)
-        res += reference.get_file_name()
-
-        if reference.has_query_string():
-            res += '?' + self._clean_data_container(reference.querystring)
-
-        return res
-
-    def _clean_data_container(self, data_container):
-        """
-        A simplified/serialized version of the query string
-        """
-        dc = copy.deepcopy(data_container)
-
-        for key, value, path, setter in dc.iter_setters():
-
-            if value.isdigit():
-                setter('number')
-            else:
-                setter('string')
-
-        return str(dc)
-
-    def _clean_fuzzable_request(self, fuzzable_request):
-        """
-        Very similar to _clean_reference but we receive a fuzzable request
-        instead. The output includes the HTTP method and any parameters which
-        might be sent over HTTP post-data in the request are appended to the
-        result as query string params.
-
-        :param fuzzable_request: The fuzzable request instance to clean
-        :return: See _clean_reference
-        """
-        res = '(%s)-' % fuzzable_request.get_method().upper()
-
-        uri = fuzzable_request.get_uri()
-        res += uri.get_domain_path() + uri.get_file_name()
-
-        if uri.has_query_string():
-            res += '?' + self._clean_data_container(uri.querystring)
-
-        if fuzzable_request.get_raw_data():
-            res += '!' + self._clean_data_container(fuzzable_request.get_raw_data())
-
-        return res

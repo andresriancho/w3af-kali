@@ -19,6 +19,8 @@ along with w3af; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 """
+from urllib import quote_plus
+
 import w3af.core.controllers.output_manager as om
 
 from w3af.core.controllers.plugins.auth_plugin import AuthPlugin
@@ -30,7 +32,9 @@ from w3af.core.data.url.handlers.redirect import GET_HEAD_CODES
 
 
 class detailed(AuthPlugin):
-    """Detailed authentication plugin."""
+    """
+    Detailed authentication plugin.
+    """
 
     MAX_REDIRECTS = 10
 
@@ -48,6 +52,7 @@ class detailed(AuthPlugin):
         self.check_string = ''
         self._login_error = True
         self.follow_redirects = False
+        self.url_encode_params = True
 
     def login(self):
         """
@@ -115,15 +120,20 @@ class detailed(AuthPlugin):
         information that was provided by the user and needs to be transmitted to
         the remote web application.
         """
+        trans = quote_plus if self.url_encode_params else lambda x: x
+
         result = self.data_format
-        result = result.replace('%u', self.username_field)
-        result = result.replace('%U', self.username)
-        result = result.replace('%p', self.password_field)
-        result = result.replace('%P', self.password)
+        result = result.replace('%u', trans(self.username_field))
+        result = result.replace('%U', trans(self.username))
+        result = result.replace('%p', trans(self.password_field))
+        result = result.replace('%P', trans(self.password))
+
         return result
 
     def logout(self):
-        """User login."""
+        """
+        User logout.
+        """
         return None
 
     def is_logged(self):
@@ -203,6 +213,12 @@ class detailed(AuthPlugin):
              self.method,
              'string',
              'The HTTP method to use'),
+
+            ('url_encode_params',
+             self.url_encode_params,
+             'boolean',
+             'URL-encode configured parameters before applying them to the'
+             '"data_format".'),
         ]
 
         ol = OptionList()
@@ -230,6 +246,7 @@ class detailed(AuthPlugin):
         self.auth_url = options_list['auth_url'].get_value()
         self.check_url = options_list['check_url'].get_value()
         self.follow_redirects = options_list['follow_redirects'].get_value()
+        self.url_encode_params = options_list['url_encode_params'].get_value()
 
         for o in options_list:
             if o.get_value() == '':
@@ -241,9 +258,9 @@ class detailed(AuthPlugin):
         :return: A DETAILED description of the plugin functions and features.
         """
         return """
-        This authentication plugin can login to web application with more
-        detailed and complex authentication schemas where the generic plugin
-        does not work.
+        This authentication plugin can login to web applications with more
+        complex authentication schemas where the auth.generic plugin falls
+        short.
 
         These configurable parameters exist:
             - username
@@ -256,4 +273,7 @@ class detailed(AuthPlugin):
             - check_url
             - check_string
             - follow_redirects
+
+        Detailed descriptions for each configurable parameter are available in
+        the plugin configuration menu.
         """

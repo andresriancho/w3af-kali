@@ -26,7 +26,7 @@ import thread
 import urllib
 import string
 
-from collections import deque
+from collections import namedtuple
 from functools import wraps
 from itertools import izip_longest
 
@@ -37,15 +37,29 @@ import w3af.core.controllers.output_manager as om
 
 from w3af.core.data.bloomfilter.scalable_bloom import ScalableBloomFilter
 from w3af.core.data.fuzzer.utils import rand_alnum
+from w3af.core.data.db.disk_deque import DiskDeque
 
-from w3af.core.controllers.misc.fuzzy_string_cmp import fuzzy_equal
 from w3af.core.controllers.misc.decorators import retry
+from w3af.core.controllers.misc.fuzzy_string_cmp import (fuzzy_equal,
+                                                         relative_distance)
 from w3af.core.controllers.exceptions import (HTTPRequestException,
                                               FourOhFourDetectionException)
 
 
 IS_EQUAL_RATIO = 0.90
-MAX_404_RESPONSES = 20
+MUST_VERIFY_RATIO = 0.75
+MAX_404_RESPONSES = 50
+
+
+FourOhFourResponse = namedtuple('FourOhFourResponse', ('body',
+                                                       'doc_type',
+                                                       'path'))
+
+
+def FourOhFourResponseFactory(http_response):
+    return FourOhFourResponse(get_clean_body(http_response),
+                              http_response.doc_type,
+                              http_response.get_url().get_domain_path().url_string)
 
 
 def lru_404_cache(wrapped_method):
@@ -85,9 +99,8 @@ class fingerprint_404(object):
         #   Internal variables
         #
         self._already_analyzed = False
-        self._404_responses = deque(maxlen=MAX_404_RESPONSES)
+        self._404_responses = DiskDeque(maxsize=MAX_404_RESPONSES)
         self._lock = thread.allocate_lock()
-        self._fingerprinted_paths = set() #ScalableBloomFilter()
         self._directory_uses_404_codes = ScalableBloomFilter()
 
         # It is OK to store 200 here, I'm only storing path+filename as the key,
@@ -112,8 +125,8 @@ class fingerprint_404(object):
         #    the object in order to use it.
         #
         if self._uri_opener is None:
-            msg = '404 fingerprint database was incorrectly initialized.'\
-                  ' URL opener is None.'
+            msg = ('404 fingerprint database was incorrectly initialized.'
+                   ' URL opener is None.')
             raise RuntimeError(msg)
 
         # Get the filename extension and create a 404 for it
@@ -151,7 +164,9 @@ class fingerprint_404(object):
         # "unique"
         #
         if len(not_exist_resp_lst):
-            self._404_responses.append(not_exist_resp_lst[0])
+            http_response = not_exist_resp_lst[0]
+            four_oh_data = FourOhFourResponseFactory(http_response)
+            self._404_responses.append(four_oh_data)
 
         # And now add the unique responses
         for i in not_exist_resp_lst:
@@ -160,7 +175,7 @@ class fingerprint_404(object):
                 if i is j:
                     continue
 
-                if fuzzy_equal(i.get_body(), j.get_body(), IS_EQUAL_RATIO):
+                if fuzzy_equal(i.body, j.body, IS_EQUAL_RATIO):
                     # They are equal, just ignore it
                     continue
                 else:
@@ -171,7 +186,6 @@ class fingerprint_404(object):
         # And I return the ones I need
         msg_fmt = 'The 404 body result database has a length of %s.'
         om.out.debug(msg_fmt % len(self._404_responses))
-        self._fingerprinted_paths.add(domain_path)
 
     @retry(tries=2, delay=0.5, backoff=2)
     def _send_404(self, url404):
@@ -258,6 +272,11 @@ class fingerprint_404(object):
         # so we need to clean this one in order to have a fair comparison
         resp_body = get_clean_body(http_response)
         resp_content_type = http_response.doc_type
+        resp_path = http_response.get_url().get_domain_path().url_string
+
+        # See https://github.com/andresriancho/w3af/issues/6646
+        max_similarity_with_404 = 0.0
+        resp_path_in_db = False
 
         with self._lock:
             #
@@ -271,47 +290,63 @@ class fingerprint_404(object):
                 if resp_content_type != resp_404.doc_type:
                     continue
 
-                if fuzzy_equal(resp_404.get_body(), resp_body, IS_EQUAL_RATIO):
+                if fuzzy_equal(resp_404.body, resp_body, IS_EQUAL_RATIO):
                     msg = '"%s" (id:%s) is a 404 [similarity_index > %s]'
                     fmt = (http_response.get_url(),
                            http_response.id,
                            IS_EQUAL_RATIO)
                     om.out.debug(msg % fmt)
                     return True
+                else:
+                    # I could calculate this before and avoid the call to
+                    # fuzzy_equal, but I believe it's going to be faster this
+                    # way
+                    current_ratio = relative_distance(resp_404.body, resp_body)
+                    max_similarity_with_404 = max(max_similarity_with_404,
+                                                  current_ratio)
 
-            else:
+                # Track if the response path is in the DB
+                if not resp_path_in_db and resp_path == resp_404.path:
+                    resp_path_in_db = True
+
+            #
+            # I get here when the for ends and no body_404_db matched with
+            # the resp_body that was sent as a parameter by the user. This
+            # means one of two things:
+            #     * There is not enough knowledge in self._404_responses, or
+            #     * The answer is NOT a 404.
+            #
+            # Because we want to reduce the amount of "false positives" that
+            # this method returns, we'll perform some extra checks before
+            # saying that this is NOT a 404.
+            #
+            if resp_path_in_db and max_similarity_with_404 < MUST_VERIFY_RATIO:
+                msg = ('"%s" (id:%s) is NOT a 404 [similarity_index < %s'
+                       ' with sample path in 404 DB].')
+                args = (http_response.get_url(),
+                        http_response.id,
+                        MUST_VERIFY_RATIO)
+                om.out.debug(msg % args)
+                return False
+
+            if self._is_404_with_extra_request(http_response, resp_body):
                 #
-                # I get here when the for ends and no body_404_db matched with
-                # the resp_body that was sent as a parameter by the user. This
-                # means one of two things:
-                #     * There is not enough knowledge in self._404_responses, or
-                #     * The answer is NOT a 404.
+                #   Aha! It actually was a 404!
                 #
-                # Because we want to reduce the amount of "false positives" that
-                # this method returns, we'll perform one extra check before
-                # saying that this is NOT a 404.
-                domain_path = http_response.get_url().get_domain_path()
-                if domain_path not in self._fingerprinted_paths:
+                four_oh_data = FourOhFourResponseFactory(http_response)
+                self._404_responses.append(four_oh_data)
 
-                    if self._is_404_with_extra_request(http_response, resp_body):
-                        #
-                        #   Aha! It actually was a 404!
-                        #
-                        self._404_responses.append(http_response)
-                        self._fingerprinted_paths.add(domain_path)
-
-                        msg = '"%s" (id:%s) is a 404 (similarity_index > %s).'\
-                              ' Adding new knowledge to the 404_bodies database'\
-                              ' (length=%s).'
-                        fmt = (http_response.get_url(), http_response.id,
-                               IS_EQUAL_RATIO, len(self._404_responses))
-                        om.out.debug(msg % fmt)
-
-                        return True
+                msg = ('"%s" (id:%s) is a 404 (similarity_index > %s).'
+                       ' Adding new knowledge to the 404_responses database'
+                       ' (length=%s).')
+                fmt = (http_response.get_url(), http_response.id,
+                       IS_EQUAL_RATIO, len(self._404_responses))
+                om.out.debug(msg % fmt)
+                return True
 
             msg = '"%s" (id:%s) is NOT a 404 [similarity_index < %s].'
-            fmt = (http_response.get_url(), http_response.id, IS_EQUAL_RATIO)
-            om.out.debug(msg % fmt)
+            args = (http_response.get_url(), http_response.id, IS_EQUAL_RATIO)
+            om.out.debug(msg % args)
 
             return False
 
@@ -450,7 +485,7 @@ def is_404(http_response):
 
 def get_clean_body(response):
     """
-    @see: BlindSqliResponseDiff.get_clean_body()
+    :see: BlindSqliResponseDiff.get_clean_body()
 
     Definition of clean in this method:
         - input:

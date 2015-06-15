@@ -24,7 +24,7 @@ import unittest
 import random
 import string
 
-from w3af.core.data.parsers.url import URL
+from w3af.core.data.parsers.doc.url import URL
 from w3af.core.data.bloomfilter.scalable_bloom import ScalableBloomFilter
 from w3af.core.controllers.tests.pylint_plugins.decorator import only_if_subclass
 
@@ -112,11 +112,11 @@ class GenericFilterTest(unittest.TestCase):
         
         self.assertGreater(self.filter.capacity, count)
         
-        self.assertEqual(self.filter.capacity, 50000)
+        self.assertEqual(self.filter.capacity, 15000)
         self.assertLessEqual(len(self.filter), count)
         
         self.assertLessEqual(
                              abs((len(self.filter) / float(count)) - 1.0),
                              self.filter.error_rate
                              )
-        
+

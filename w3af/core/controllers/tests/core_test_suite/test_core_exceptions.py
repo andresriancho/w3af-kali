@@ -23,7 +23,7 @@ import unittest
 from mock import patch, call
 from nose.plugins.attrib import attr
 
-from w3af.core.data.parsers.url import URL
+from w3af.core.data.parsers.doc.url import URL
 from w3af.core.controllers.ci.moth import get_moth_http
 from w3af.core.controllers.w3afCore import w3afCore
 from w3af.core.controllers.misc.factory import factory
@@ -58,8 +58,8 @@ class TestCoreExceptions(unittest.TestCase):
         plugin_inst.set_url_opener(self.w3afcore.uri_opener)
         plugin_inst.set_worker_pool(self.w3afcore.worker_pool)
 
-        self.w3afcore.plugins.plugins['crawl'] = [plugin_inst,]
-        self.w3afcore.plugins._plugins_names_dict['crawl'] = ['exception_raise',]
+        self.w3afcore.plugins.plugins['crawl'] = [plugin_inst]
+        self.w3afcore.plugins._plugins_names_dict['crawl'] = ['exception_raise']
         self.exception_plugin = plugin_inst
         
         # Verify env and start the scan
@@ -78,8 +78,8 @@ class TestCoreExceptions(unittest.TestCase):
         with patch('w3af.core.controllers.w3afCore.om.out') as om_mock:
             self.w3afcore.start()
             
-            error = "\n**IMPORTANT** The following error was detected by w3af"\
-                    " and couldn't be resolved:\nTest exception.\n"
+            error = ('The following error was detected and could not be'
+                     ' resolved:\nTest exception.\n')
             self.assertIn(call.error(error), om_mock.mock_calls)
 
     def test_stop_unknown_exception(self):
