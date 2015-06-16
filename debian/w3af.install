@@ -1,0 +1,4 @@
+debian/w3af.desktop usr/share/applications/
+debian/w3af.xpm usr/share/pixmaps/
+w3af_gui usr/share/w3af/
+debian/helper-script/w3af_gui usr/bin/

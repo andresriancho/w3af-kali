@@ -1,7 +1,7 @@
 w3af (1.6.54-0kali1) kali; urgency=medium
 
-  * Import new upstream release
-  * Memory usage improvements
+  * Import new upstream release (Memory usage improvements)
+  * Update debian/rules to use dh $@
 
  -- Sophie Brun <sophie@freexian.com>  Mon, 15 Jun 2015 15:43:33 +0200
 
