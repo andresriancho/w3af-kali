@@ -14,7 +14,7 @@ Building a new `Kali` package for `w3af` requires these steps to be completed:
 
 ### Install the required tools
 ```bash
-sudo apt-get install -y devscripts git-buildpackage debhelper debootstrap
+sudo apt-get install -y devscripts git-buildpackage debhelper debootstrap python-all
 ```
 
 ### Get this repository
