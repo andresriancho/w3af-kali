@@ -18,6 +18,7 @@ echo "Testing version ${VERSION}"
 # Make sure we have the latest packages
 apt-get update -y
 apt-get upgrade -y
+apt-get install -y python-all
 
 # Go to the mounted volume directory
 cd /w3af
