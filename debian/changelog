@@ -1,3 +1,10 @@
+w3af (1.6.54-0kali2) kali; urgency=medium
+
+  * Fix debian/control to amend X-Python-Version: >= 2.7 as required by
+    upstream.
+
+ -- Sophie Brun <sophie@freexian.com>  Fri, 19 Jun 2015 09:05:46 +0200
+
 w3af (1.6.54-0kali1) kali; urgency=medium
 
   * Package test
