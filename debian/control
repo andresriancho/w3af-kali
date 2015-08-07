@@ -59,21 +59,22 @@ Depends: ${python:Depends},
          python-pdfminer (>= 20140328),
          python-git,
          python-scapy,
-         python-clamd,
          python-concurrent.futures,
          python-six,
          python-ply,
          python-darts-lib-utils-lru,
          python-jinja2,
-         python-stopit,
          python-tblib,
          python-ndg-httpsclient,
          python-pyasn1,
          python-halberd,
          python-markdown,
-         python-vulndb,
+         python-vulndb (>= 0.0.19),
          python-ruamel.ordereddict (>= 0.4.8),
-         python-psutil (>= 2.1.1)
+         python-psutil (>= 2.1.1),
+         flask,
+         pyyaml,
+         pyclamd
 Conflicts: python-json
 Recommends: tcpdump
 Description: framework to find and exploit web application vulnerabilities (CLI only)
