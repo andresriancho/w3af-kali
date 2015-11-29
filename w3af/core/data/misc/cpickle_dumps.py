@@ -15,5 +15,6 @@ def cpickle_dumps(obj):
     """
     if isinstance(obj, dict):
         return cPickle.dumps(obj, 1)
-
-    return cPickle.dumps(obj, cPickle.HIGHEST_PROTOCOL)
+        
+    # cPickle.HIGHEST_PROTOCOL is equal to -1
+    return cPickle.dumps(obj, -1)
